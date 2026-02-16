@@ -29,7 +29,7 @@ export default function PortfolioPage() {
   const [foundAsset, setFoundAsset] = useState<FoundAsset | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const debounceTimer = useRef<number | null>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [holdings, setHoldings] = useState<string>("");
   const [purchaseDate, setPurchaseDate] = useState<string>("");
