@@ -1,34 +1,40 @@
 {
-  "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
+  "compilerOptions": { 
+    "target": "ES2017", // 设定编译后的代码遵循的ECMAScript标准(这里是ES2017)
+    "lib": ["dom", "dom.iterable", "esnext"], // 引入的库文件(dom相关 迭代器 esnext特性)
+    "allowJs": true, // 允许在TypeScript项目中使用JavaScript文件
+    "skipLibCheck": true, // 跳过对库文件(如node_modules里的)的类型检查,加快编译速度
+    "strict": true, // 开启严格检查模式 减少类型相关错误
+    "noEmit": true, // 不生成编译后的输出文件(Next.js项目通常由框架处理输出)
+    "esModuleInterop": true, // 允许ES模块和CommonJS模块之间的互操作
+    "module": "esnext", // 模块系统使用esnext(支持最新的模块特性)
+    "moduleResolution": "bundler", // 模块解析方式使用打包工具的解析逻辑
+    "resolveJsonModule": true, // 允许导入JSON文件并自动生成类型
+    "isolatedModules": true, // 确保每个文件都是独立的模块, 避免全局污染
+    "jsx": "react-jsx", // 指定JSX的处理方式(使用React 17+的新JSX转换)
+    "incremental": true, // 开启增量编译 只重新编译修改过的文件, 加快编译速度
+
+    "plugins": [ // 配置Typescript插件(这里是Next.js的插件, 用于支持Next.js特性)
       {
         "name": "next"
       }
     ],
-    "paths": {
+
+    "paths": { // 路径别名配置(用@代替当前项目根目录, 方便导入文件, 如@/components/xxx)
       "@/*": ["./*"]
-    }
+    },
+
+    "baseUrl": ".", // 基础路径设置为当前项目根目录, 配合paths使用
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+  "include": [ // 包含需要Typescript处理文件
+    "next-env.d.ts", // Next.js 的环境声明文件
+    "**/*.ts", // 所有.ts文件
+    "**/*.tsx", // 所有.tsx文件(React+TypeScript文件)
+    ".next/types/**/*.ts", // Next.js 生成类型文件
+    ".next/dev/types/**/*.ts", // Next.js 开发环境生成的类型文件
+    "**/*.mts", // 所有.mts文件(ES模块格式的TypeScript文件, 若项目中没有可删除)
+    "types/**/*.d.ts" // 项目中自定义的类型声明文件(如果有的话)
   ],
-  "exclude": ["node_modules"]
+
+  "exclude": ["node_modules"] // 排除不需要TypeScript处理的文件(通常是node_modules, 避免检查第三方库)
 }
