@@ -36,5 +36,5 @@
     "types/**/*.d.ts" // 项目中自定义的类型声明文件(如果有的话)
   ],
 
-  "exclude": ["node_modules"] // 排除不需要TypeScript处理的文件(通常是node_modules, 避免检查第三方库)
+  "exclude": ["node_modules", "my-mobile-app"] // 排除不需要TypeScript处理的文件(通常是node_modules, 避免检查第三方库)
 }
