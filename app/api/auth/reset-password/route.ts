@@ -1,9 +1,9 @@
 // /app/api/auth/reset-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
 import User from '@/models/User';
 import connectDB from '@/lib/mongoose';
 import Otp from '@/models/Otp'; // 需要验证码模型
+import bcrypt from 'bcryptjs'; // 使用 bcryptjs 以兼容 Node.js 运行时
 
 export const dynamic = 'force-dynamic'; // 强制动态路由，确保每次请求都执行服务器端逻辑
 export const runtime = 'nodejs'; // 明确指定使用 Node.js 运行时
