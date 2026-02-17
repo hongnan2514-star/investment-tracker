@@ -5,6 +5,8 @@ import User from '@/models/User';
 import connectDB from '@/lib/mongoose';
 import Otp from '@/models/Otp'; // 需要验证码模型
 
+export const dynamic = 'force-dynamic'; // 强制动态路由，确保每次请求都执行服务器端逻辑
+
 export async function POST(req: NextRequest) {
   try {
     const { phone, otp, newPassword } = await req.json();
