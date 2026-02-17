@@ -6,6 +6,7 @@ import connectDB from '@/lib/mongoose';
 import { getCurrentUserId } from '@/src/utils/assetStorage'; // 假设有获取当前登录用户ID的工具
 
 export const dynamic = 'force-dynamic'; // 强制动态路由，确保每次请求都执行服务器端逻辑
+export const runtime = 'nodejs'; // 明确指定使用 Node.js 运行时
 
 export async function POST(req: NextRequest) {
   try {
