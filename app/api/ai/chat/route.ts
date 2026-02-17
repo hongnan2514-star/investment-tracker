@@ -1,3 +1,4 @@
+// /app/api/ai/chat/route.ts
 import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // 强制动态路由，确保每次请求都执行服务器端逻辑

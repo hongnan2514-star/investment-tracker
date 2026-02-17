@@ -1,17 +1,20 @@
 // /app/api/auth/set-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import User from '@/models/User';
-import connectDB from '@/lib/mongoose';
-import { getCurrentUserId } from '@/src/utils/assetStorage'; // 假设有获取当前登录用户ID的工具
-import bcrypt from 'bcryptjs'; // 使用 bcryptjs 以兼容 Node.js 运行时
 
-export const dynamic = 'force-dynamic'; // 强制动态路由，确保每次请求都执行服务器端逻辑
-export const runtime = 'nodejs'; // 明确指定使用 Node.js 运行时
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
+    const [{ default: bcrypt }, { default: connectDB }, { default: User }, { getCurrentUserId }] = await Promise.all([
+      import('bcryptjs'),
+      import('@/lib/mongoose'),
+      import('@/models/User'),
+      import('@/src/utils/assetStorage'),
+    ]);
+
     const { password } = await req.json();
-    const phone = getCurrentUserId(); // 从会话中获取手机号（需要实现）
+    const phone = getCurrentUserId();
 
     if (!phone) {
       return NextResponse.json({ success: false, message: '未登录' }, { status: 401 });
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
     await User.findOneAndUpdate(
       { phone },
       { passwordHash, updatedAt: new Date() },
-      { upsert: true } // 如果用户不存在则创建
+      { upsert: true }
     );
 
     return NextResponse.json({ success: true, message: '密码设置成功' });
