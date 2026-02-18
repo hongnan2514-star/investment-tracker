@@ -488,7 +488,7 @@ const renderSubCategories = () => (
           <ArrowLeft size={20} />
         </button>
         <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          搜索 {selectedAssetType === 'stock' ? '股票' : selectedAssetType === 'etf' ? 'ETF' : selectedAssetType === 'fund' ? '基金' : '加密货币'}
+          搜索{selectedAssetType === 'stock' ? '股票' : selectedAssetType === 'etf' ? 'ETF' : selectedAssetType === 'fund' ? '基金' : '加密货币'}
         </h3>
       </div>
 
