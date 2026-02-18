@@ -1,106 +1,110 @@
+// /app/api/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { queryAlphaVantage } from "@/app/api/data-sources/alpha-vantage";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
-import { queryTushareFund } from "../data-sources/tushare"; // 导入新的基金查询函数
+import { searchFund } from "@/src/services/fundService"; // 新的基金服务
 import { DataSourceResult } from "@/app/api/data-sources/types";
-import { queryAKShareFund } from "../data-sources/akshare"; 
 
-const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
-
-// 新增：A股代码规范化函数（与前端保持一致）
+// A股代码规范化函数（与前端保持一致）
 function normalizeAStockSymbol(symbol: string): string {
   const trimmed = symbol.trim();
   if (/^[0-9]{6}$/.test(trimmed)) {
     if (trimmed.startsWith('6') || trimmed.startsWith('5')) {
-      return `${trimmed}.SS`; // 上海证券交易所
+      return `${trimmed}.SS`;
     } else if (trimmed.startsWith('0') || trimmed.startsWith('3') || trimmed.startsWith('1')) {
-      return `${trimmed}.SZ`; // 深圳证券交易所
+      return `${trimmed}.SZ`;
     }
   }
   return trimmed;
 }
 
+/**
+ * 搜索股票或ETF（组合Yahoo Finance和Alpha Vantage）
+ */
+async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null> {
+  const yahooResult = await queryYahooFinance(symbol);
+  if (yahooResult.success && yahooResult.data) return yahooResult;
+  const avResult = await queryAlphaVantage(symbol);
+  if (avResult.success && avResult.data) return avResult;
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get('symbol');
+  const type = request.nextUrl.searchParams.get('type');
+
   if (!symbol) {
-    return NextResponse.json(
-      { error: '缺少代码参数' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: '缺少代码参数' }, { status: 400 });
   }
 
   const trimmedSymbol = symbol.trim();
 
   try {
-    // --- 策略1：优先识别并查询场外基金 ---
-    // 中国场外基金代码通常是6位纯数字，如 017174, 000001
-    if (/^\d{6}$/.test(trimmedSymbol)) {
-      console.log(`[搜索路由] 识别为6位数字代码，优先尝试Tushare基金查询: ${trimmedSymbol}`);
-      
-      const fundResult = await queryTushareFund(trimmedSymbol);
-      if (fundResult.success && fundResult.data) {
-        console.log(`[搜索路由] Tushare基金查询成功: ${fundResult.data.name}`);
+    // 根据类型分派搜索
+    if (type === 'stock' || type === 'etf') {
+      let symbolToSearch = trimmedSymbol;
+      if (/^\d{6}$/.test(trimmedSymbol)) {
+        symbolToSearch = normalizeAStockSymbol(trimmedSymbol);
+        console.log(`[搜索路由] 股票/ETF 将6位数字代码规范化为: ${symbolToSearch}`);
+      }
+      const result = await searchStockOrETF(symbolToSearch);
+      if (result) {
         return NextResponse.json({
           success: true,
-          ...fundResult.data,
-          source: fundResult.source || 'Tushare基金'
+          ...result.data,
+          source: result.source
         });
       }
-      // 如果基金查询失败，继续尝试股票查询（将6位数字规范化为A股代码）
-      console.log(`[搜索路由] Tushare基金查询失败,尝试作为AKShare查询: ${trimmedSymbol}`);
-      const akFundResult = await queryAKShareFund(trimmedSymbol);
-      if (akFundResult.success && akFundResult.data) {
-        console.log(`[搜索路由] AKShare查询成功: ${akFundResult.data.name}`);
+    } else if (type === 'fund') {
+      // 使用新的基金服务
+      const result = await searchFund(trimmedSymbol);
+      if (result.success) {
         return NextResponse.json({
           success: true,
-          ...akFundResult.data,
-          source: akFundResult.source || 'AKShare'
+          ...result.data,
+          source: result.source
+        });
+      }
+    } else if (type === 'crypto') {
+      // TODO: 加密货币搜索（预留）
+      return NextResponse.json(
+        { error: '加密货币搜索尚未实现' },
+        { status: 404 }
+      );
+    } else {
+      // 兼容旧版本：未传递type时，按原有逻辑（先基金后股票）
+      console.log(`[搜索路由] 未指定类型，使用兼容模式搜索: ${trimmedSymbol}`);
+      // 先试基金（6位数字）
+      if (/^\d{6}$/.test(trimmedSymbol)) {
+        const fundResult = await searchFund(trimmedSymbol);
+        if (fundResult.success) {
+          return NextResponse.json({
+            success: true,
+            ...fundResult.data,
+            source: fundResult.source
+          });
+        }
+      }
+      // 再试股票
+      let symbolToSearch = trimmedSymbol;
+      if (/^\d{6}$/.test(trimmedSymbol)) {
+        symbolToSearch = normalizeAStockSymbol(trimmedSymbol);
+      }
+      const stockResult = await searchStockOrETF(symbolToSearch);
+      if (stockResult) {
+        return NextResponse.json({
+          success: true,
+          ...stockResult.data,
+          source: stockResult.source
         });
       }
     }
 
-    // --- 策略2：查询A股/美股/港股等证券 ---
-    // 2.1 优先尝试Yahoo Finance（覆盖A股、美股、港股等）
-
-    console.log(`[搜索路由] 尝试Yahoo Finance查询: ${trimmedSymbol}`);
-    
-    // 关键修改：对于6位数字代码，先进行A股代码规范化
-    let symbolToSearch = trimmedSymbol;
-    if (/^\d{6}$/.test(trimmedSymbol)) {
-      symbolToSearch = normalizeAStockSymbol(trimmedSymbol);
-      console.log(`[搜索路由] 将6位数字代码规范化为: ${symbolToSearch}`);
-    }
-    
-    const yahooResult = await queryYahooFinance(symbolToSearch);
-    if (yahooResult.success && yahooResult.data) {
-      console.log(`[搜索路由] Yahoo Finance查询成功: ${yahooResult.data.name}`);
-      return NextResponse.json({
-        success: true,
-        ...yahooResult.data,
-        source: yahooResult.source || 'Yahoo Finance'
-      });
-    }
-
-    // 2.2 后备尝试Alpha Vantage（主要美股）
-    console.log(`[搜索路由] 尝试Alpha Vantage查询: ${trimmedSymbol}`);
-    const avResult = await queryAlphaVantage(trimmedSymbol);
-    if (avResult.success && avResult.data) {
-      console.log(`[搜索路由] Alpha Vantage查询成功: ${avResult.data.name}`);
-      return NextResponse.json({
-        success: true,
-        ...avResult.data,
-        source: avResult.source || 'Alpha Vantage'
-      });
-    }
-
-    // --- 所有数据源均失败 ---
-    console.log(`[搜索路由] 所有数据源均未找到代码: ${trimmedSymbol}`);
+    // 所有尝试均失败
     return NextResponse.json(
-      { 
+      {
         error: `未找到代码 "${trimmedSymbol}" 对应的资产`,
-        suggestion: /^\d{6}$/.test(trimmedSymbol) 
-          ? '该代码不符合已知的基金或股票格式。' 
-          : '请检查代码格式是否正确（如AAPL、600519.SS、00700.HK）。'
+        suggestion: type ? `请确认代码格式正确` : '可尝试指定资产类型'
       },
       { status: 404 }
     );
@@ -112,5 +116,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
-        
+}
