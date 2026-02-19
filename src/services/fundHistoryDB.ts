@@ -2,6 +2,18 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
+// --- 调试输出开始 ---
+console.log('======= fundHistoryDB 调试信息 =======');
+const dbPathForDebug = path.join(process.cwd(), 'data', 'fund_history.db');
+console.log('dbPath (JSON):', JSON.stringify(dbPathForDebug));
+console.log('process.cwd():', process.cwd());
+// 打印所有环境变量名（不包含值，避免泄露敏感信息）
+console.log('环境变量列表:', Object.keys(process.env).sort().join(', '));
+// 可选：如果怀疑特定变量有问题，可以打印其值（注意安全）
+// 例如 console.log('MONGODB_URI:', process.env.MONGODB_URI);
+console.log('======= 调试输出结束 =======\n');
+// --- 调试输出结束 ---
+
 export interface FundNav {
   code: string;
   date: string;      // YYYY-MM-DD
@@ -17,7 +29,16 @@ if (!fs.existsSync(path.dirname(DB_PATH))) {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 }
 
-const db = new Database(DB_PATH);
+// 使用 try-catch 包裹数据库初始化，捕获详细错误
+let db: Database.Database;
+try {
+  db = new Database(DB_PATH);
+} catch (err) {
+  console.error('❌ 数据库打开失败，详细错误:');
+  console.error(err);
+  // 重新抛出错误，让应用停止
+  throw err;
+}
 
 // 初始化数据库表
 db.exec(`
@@ -180,13 +201,19 @@ export function getFundInfo(code: string): { name: string; source: string } | un
 
 /**
  * 保存基金名称和来源（自动更新 last_update 为今天）
+ * 添加错误处理和日志输出
  */
 export function saveFundInfo(code: string, name: string, source: string = 'sina') {
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO fund_info (code, name, last_update, source)
-    VALUES (?, ?, date('now'), ?)
-  `);
-  stmt.run(code, name, source);
+  try {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO fund_info (code, name, last_update, source)
+      VALUES (?, ?, date('now'), ?)
+    `);
+    stmt.run(code, name, source);
+    console.log(`[DB] 基金信息保存成功: ${code} -> ${name} (来源: ${source})`);
+  } catch (error) {
+    console.error(`[DB] 基金信息保存失败: ${code}`, error);
+  }
 }
 
 /**
