@@ -477,141 +477,146 @@ const renderSubCategories = () => (
 
   // 搜索视图
   const renderSearch = () => (
-    <div
-      ref={scrollContainerRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
-    >
-      <div className="flex items-center gap-4 mb-8">
-        <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
-          <ArrowLeft size={20} />
-        </button>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          搜索{selectedAssetType === 'stock' ? '股票' : selectedAssetType === 'etf' ? 'ETF' : selectedAssetType === 'fund' ? '基金' : '加密货币'}
-        </h3>
-      </div>
+  <div
+    ref={scrollContainerRef}
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
+  >
+    <div className="flex items-center gap-4 mb-8">
+      <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
+        <ArrowLeft size={20} />
+      </button>
+      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+        搜索{selectedAssetType === 'stock' ? '股票' : selectedAssetType === 'etf' ? 'ETF' : selectedAssetType === 'fund' ? '基金' : '加密货币'}
+      </h3>
+    </div>
 
-      <div className="relative mb-8">
-        <Search className="absolute left-5 top-6 text-gray-400 dark:text-gray-500" size={20} />
-        <input
-          autoFocus
-          type="text"
-          placeholder="输入代码"
-          className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-5 pl-14 rounded-[24px] outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-[#2a2a2a] transition-all font-bold text-gray-900 dark:text-gray-100 text-lg placeholder:text-gray-300 dark:placeholder:text-gray-500"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          ref={inputRef}
-        />
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 ml-1">
-          {selectedAssetType === 'stock' && '支持美股 (AAPL)、A股 (600519)'}
-          {selectedAssetType === 'etf' && '支持ETF (VOO, SPY)'}
-          {selectedAssetType === 'fund' && '基金代码 (如 017174)'}
-          {selectedAssetType === 'crypto' && '加密货币 (BTC, ETH, SOL)'}
-        </p>
-      </div>
+    <div className="relative mb-8">
+      <Search className="absolute left-5 top-6 text-gray-400 dark:text-gray-500" size={20} />
+      <input
+        autoFocus
+        type="text"
+        placeholder="输入代码"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-5 pl-14 rounded-[24px] outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-[#2a2a2a] transition-all font-bold text-gray-900 dark:text-gray-100 text-lg placeholder:text-gray-300 dark:placeholder:text-gray-500"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyDown={handleKeyDown}
+        ref={inputRef}
+      />
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 ml-1">
+        {selectedAssetType === 'stock' && '支持美股 (AAPL)、A股 (600519)'}
+        {selectedAssetType === 'etf' && '支持ETF (VOO, SPY)'}
+        {selectedAssetType === 'fund' && '基金代码 (如 017174)'}
+        {selectedAssetType === 'crypto' && '加密货币 (BTC, ETH, SOL)'}
+      </p >
+    </div>
 
-      <div className="min-h-[200px]">
-        {isLoading ? (
-          <div className="flex flex-col items-center py-10 gap-3">
-            <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={32} />
-            <p className="text-sm font-bold text-gray-400 dark:text-gray-500">正在调取行情...</p>
-          </div>
-        ) : searchError ? (
-          <div className="text-center py-10">
-            <AlertCircle className="w-12 h-12 text-red-400 dark:text-red-500 mx-auto mb-3" />
-            <p className="text-red-500 dark:text-red-400 font-bold italic">{searchError}</p>
-          </div>
-        ) : foundAsset ? (
-          <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="bg-blue-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
-                    {foundAsset.market}
-                  </span>
-                  {foundAsset.type && (
-                    <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
-                      {foundAsset.type.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <h4 className="text-3xl font-black text-gray-900 dark:text-gray-100">{foundAsset.name}</h4>
-                <p className="text-sm font-bold text-gray-400 dark:text-gray-500 mt-1">{foundAsset.symbol}</p>
-              </div>
-              <div className="text-right">
+    <div className="min-h-[200px]">
+      {isLoading ? (
+        <div className="flex flex-col items-center py-10 gap-3">
+          <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={32} />
+          <p className="text-sm font-bold text-gray-400 dark:text-gray-500">正在调取行情...</p >
+        </div>
+      ) : searchError ? (
+        <div className="text-center py-10">
+          <AlertCircle className="w-12 h-12 text-red-400 dark:text-red-500 mx-auto mb-3" />
+          <p className="text-red-500 dark:text-red-400 font-bold italic">{searchError}</p >
+        </div>
+      ) : foundAsset ? (
+        <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
+          {/* 重新组织布局：市场标签在上，名称与价格同行，代码符号在下 */}
+          <div className="flex flex-col gap-2 mb-6">
+            {/* 市场标签行 */}
+            <div className="flex items-center gap-2">
+              <span className="bg-blue-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
+                {foundAsset.market}
+              </span>
+              {foundAsset.type && (
+                <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
+                  {foundAsset.type.toUpperCase()}
+                </span>
+              )}
+            </div>
+            {/* 名称和价格行（现在在同一行） */}
+            <div className="flex justify-between items-center">
+              <h4 className="text-3xl font-black text-gray-900 dark:text-gray-100">{foundAsset.name}</h4>
+              <div className="text-right t-6">
                 <p className="text-2xl font-black text-gray-900 dark:text-gray-100 flex justify-end items-center gap-1">
                   {currencySymbolMap[foundAsset.currency] || foundAsset.currency}
                   <span>{(foundAsset.price ?? 0).toFixed(2)}</span>
-                </p>
+                </p >
                 <p className={`text-xs font-bold ${(foundAsset.changePercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {(foundAsset.changePercent ?? 0) >= 0 ? '+' : ''}
                   {(foundAsset.changePercent ?? 0).toFixed(2)}%
-                </p>
+                </p >
               </div>
             </div>
+            {/* 代码符号 */}
+            <p className="text-sm font-bold text-gray-400 dark:text-gray-500">{foundAsset.symbol}</p >
+          </div>
 
-            <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <div>
-                <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有份额</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-                    value={holdings}
-                    onChange={(e) => setHoldings(e.target.value)}
-                    step="0.01"
-                  />
-                  {marketValue !== null && (
-                    <div className="font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      {currencySymbolMap[foundAsset.currency]}{marketValue.toFixed(2)}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入日期</label>
-                <input
-                  type="date"
-                  className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
-                  value={purchaseDate}
-                  onChange={(e) => setPurchaseDate(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价</label>
+          {/* 以下表单部分保持不变 */}
+          <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+            <div>
+              <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有份额</label>
+              <div className="flex items-center gap-3">
                 <input
                   type="number"
                   placeholder="0.00"
                   className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-                  value={costPrice}
-                  onChange={(e) => setCostPrice(e.target.value)}
+                  value={holdings}
+                  onChange={(e) => setHoldings(e.target.value)}
                   step="0.01"
                 />
+                {marketValue !== null && (
+                  <div className="font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                    {currencySymbolMap[foundAsset.currency]}{marketValue.toFixed(2)}
+                  </div>
+                )}
               </div>
-
-              <button
-                onClick={handleAddAsset}
-                disabled={!holdings}
-                className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-              >
-                确认添加
-              </button>
             </div>
+
+            <div>
+              <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入日期</label>
+              <input
+                type="date"
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
+                value={purchaseDate}
+                onChange={(e) => setPurchaseDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价</label>
+              <input
+                type="number"
+                placeholder="0.00"
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value)}
+                step="0.01"
+              />
+            </div>
+
+            <button
+              onClick={handleAddAsset}
+              disabled={!holdings}
+              className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+              确认添加
+            </button>
           </div>
-        ) : searchQuery.length >= 2 ? (
-          <div className="text-center py-10">
-            <p className="text-gray-300 dark:text-gray-600 font-bold italic">未找到该代码，请确保输入正确</p>
-            <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">尝试输入其他代码</p>
-          </div>
-        ) : null}
-      </div>
+        </div>
+      ) : searchQuery.length >= 2 ? (
+        <div className="text-center py-10">
+          <p className="text-gray-300 dark:text-gray-600 font-bold italic">未找到该代码，请确保输入正确</p >
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">尝试输入其他代码</p >
+        </div>
+      ) : null}
     </div>
-  );
+  </div>
+);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
