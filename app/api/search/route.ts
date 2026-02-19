@@ -2,8 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryAlphaVantage } from "@/app/api/data-sources/alpha-vantage";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
-import { searchFund } from "@/src/services/fundService"; // 新的基金服务
+import { searchFund } from "@/src/services/fundService";
 import { DataSourceResult } from "@/app/api/data-sources/types";
+// 新增导入
+import { queryCryptoCCXT } from "@/app/api/data-sources/crypto-ccxt";
 
 // A股代码规范化函数（与前端保持一致）
 function normalizeAStockSymbol(symbol: string): string {
@@ -56,7 +58,6 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (type === 'fund') {
-      // 使用新的基金服务
       const result = await searchFund(trimmedSymbol);
       if (result.success) {
         return NextResponse.json({
@@ -66,13 +67,23 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (type === 'crypto') {
-      // TODO: 加密货币搜索（预留）
-      return NextResponse.json(
-        { error: '加密货币搜索尚未实现' },
-        { status: 404 }
-      );
+      console.log(`[搜索路由] 开始搜索加密货币: ${trimmedSymbol}`);
+      const cryptoResult = await queryCryptoCCXT(trimmedSymbol);
+      if (cryptoResult.success) {
+        return NextResponse.json({
+          success: true,
+          ...cryptoResult.data,
+          source: cryptoResult.source
+        });
+      } else {
+        // 如果 CCXT 失败，可以尝试备选数据源（如 CoinGecko），这里先直接返回错误
+        return NextResponse.json(
+          { error: cryptoResult.error || '加密货币搜索失败' },
+          { status: 404 }
+        );
+      }
     } else {
-      // 兼容旧版本：未传递type时，按原有逻辑（先基金后股票）
+      // 兼容旧版本：未传递type时，按原有逻辑（先基金后股票），然后尝试加密货币
       console.log(`[搜索路由] 未指定类型，使用兼容模式搜索: ${trimmedSymbol}`);
       // 先试基金（6位数字）
       if (/^\d{6}$/.test(trimmedSymbol)) {
@@ -96,6 +107,15 @@ export async function GET(request: NextRequest) {
           success: true,
           ...stockResult.data,
           source: stockResult.source
+        });
+      }
+      // 最后尝试加密货币（如果前面都失败）
+      const cryptoResult = await queryCryptoCCXT(trimmedSymbol);
+      if (cryptoResult.success) {
+        return NextResponse.json({
+          success: true,
+          ...cryptoResult.data,
+          source: cryptoResult.source
         });
       }
     }

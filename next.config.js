@@ -7,6 +7,7 @@ const withPWA = require('next-pwa')({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    serverExternalPackages: ['ccxt', 'protobufjs'],
   turbopack: {},
   images: {
     remotePatterns: [
