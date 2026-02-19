@@ -4,8 +4,9 @@ import { queryAlphaVantage } from "@/app/api/data-sources/alpha-vantage";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
 import { searchFund } from "@/src/services/fundService";
 import { DataSourceResult } from "@/app/api/data-sources/types";
-// 新增导入
 import { queryCryptoCCXT } from "@/app/api/data-sources/crypto-ccxt";
+// 新增导入：房产数据源
+import { searchGovRealEstate } from "@/app/api/data-sources/gov-realestate";
 
 // A股代码规范化函数（与前端保持一致）
 function normalizeAStockSymbol(symbol: string): string {
@@ -76,14 +77,29 @@ export async function GET(request: NextRequest) {
           source: cryptoResult.source
         });
       } else {
-        // 如果 CCXT 失败，可以尝试备选数据源（如 CoinGecko），这里先直接返回错误
         return NextResponse.json(
           { error: cryptoResult.error || '加密货币搜索失败' },
           { status: 404 }
         );
       }
+    } else if (type === 'real_estate') {
+      console.log(`[搜索路由] 开始搜索房产: ${trimmedSymbol}`);
+      // 直接传入项目名称（如“学府家苑”）
+      const result = await searchGovRealEstate(trimmedSymbol);
+      if (result.success) {
+        return NextResponse.json({
+          success: true,
+          ...result.data,
+          source: result.source
+        });
+      } else {
+        return NextResponse.json(
+          { error: result.error || '房产搜索失败' },
+          { status: 404 }
+        );
+      }
     } else {
-      // 兼容旧版本：未传递type时，按原有逻辑（先基金后股票），然后尝试加密货币
+      // 兼容旧版本：未传递type时，按原有逻辑（先基金后股票），然后尝试加密货币（不包含房产）
       console.log(`[搜索路由] 未指定类型，使用兼容模式搜索: ${trimmedSymbol}`);
       // 先试基金（6位数字）
       if (/^\d{6}$/.test(trimmedSymbol)) {

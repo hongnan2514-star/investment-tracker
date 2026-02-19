@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Zap, Home, BarChart3, X, ChevronRight, Search, Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2, PieChart, Bitcoin, Activity } from 'lucide-react';
+import { Plus, Zap, Home, BarChart3, X, ChevronRight, Search, Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2, PieChart, Bitcoin, Activity, Car } from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { LOCAL_LOGO_MAP, getBaseSymbol } from '@/src/constants/localLogos';
+import { CAR_BRANDS, CarBrand } from '@/src/constants/carBrands'; // 新增汽车品牌常量
 import { Asset } from '@/src/constants/types';
 import { addAsset, getAssets, removeAsset } from '@/src/utils/assetStorage';
 import { refreshAllAssets } from '@/src/services/marketService';
@@ -22,7 +23,8 @@ interface FoundAsset {
 }
 
 type MainCategory = 'liquid' | 'fixed' | 'custom' | null;
-type AssetType = 'stock' | 'etf' | 'fund' | 'real_estate' | 'custom' | 'crypto' | null;
+// 在资产类型中增加 'car'
+type AssetType = 'stock' | 'etf' | 'fund' | 'real_estate' | 'custom' | 'crypto' | 'car' | null;
 
 export default function PortfolioPage() {
   const [showMenu, setShowMenu] = useState(false);
@@ -40,6 +42,10 @@ export default function PortfolioPage() {
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [costPrice, setCostPrice] = useState<string>("");
   const [marketValue, setMarketValue] = useState<number | null>(null);
+
+  // 汽车手动添加专用状态
+  const [selectedBrand, setSelectedBrand] = useState<CarBrand | null>(null);
+  const [carModel, setCarModel] = useState<string>("");
 
   // 滑动关闭相关
   const touchStartY = useRef<number | null>(null);
@@ -154,13 +160,15 @@ export default function PortfolioPage() {
   const handleAssetTypeClick = (type: AssetType) => {
     setSelectedAssetType(type);
     setView('search');
-    // 重置搜索状态
+    // 重置所有状态
     setSearchQuery('');
     setFoundAsset(null);
     setSearchError(null);
     setHoldings("");
     setPurchaseDate("");
     setCostPrice("");
+    setSelectedBrand(null);
+    setCarModel("");
   };
 
   // 返回上一级
@@ -177,7 +185,7 @@ export default function PortfolioPage() {
     }
   };
 
-  // 触发搜索
+  // 触发搜索（仅用于需要API的类型）
   const triggerSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setSearchError('请输入至少2位代码');
@@ -197,7 +205,6 @@ export default function PortfolioPage() {
         finalSymbol = normalizeAStockSymbol(trimmedQuery);
       }
 
-      // 请求时带上资产类型参数，方便后端优化
       const response = await fetch(`/api/search?symbol=${encodeURIComponent(finalSymbol)}&type=${selectedAssetType || ''}`);
       const data = await response.json();
 
@@ -277,6 +284,8 @@ export default function PortfolioPage() {
         setHoldings("");
         setPurchaseDate("");
         setCostPrice("");
+        setSelectedBrand(null);
+        setCarModel("");
       }
       touchStartY.current = null;
     }
@@ -286,41 +295,86 @@ export default function PortfolioPage() {
     setAssets(getAssets());
   }, []);
 
-  const handleAddAsset = () => {
-    if (foundAsset && holdings) {
-      const holdingsNum = parseFloat(holdings);
-      const finalMarketValue = marketValue ?? 0;
-
-      const newAsset: Asset = {
-        symbol: foundAsset.symbol,
-        name: foundAsset.name,
-        price: foundAsset.price ?? 0,
-        holdings: holdingsNum,
-        marketValue: finalMarketValue,
-        currency: foundAsset.currency,
-        lastUpdated: new Date().toISOString(),
-        type: foundAsset.type || selectedAssetType || 'stock',
-        changePercent: foundAsset.changePercent || 0,
-        logoUrl: foundAsset.logoUrl,
-        purchaseDate: purchaseDate || undefined,
-        costPrice: costPrice ? parseFloat(costPrice) : undefined,
-      };
-
-      addAsset(newAsset);
-      setAssets(getAssets());
-
-      alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表\n持有份额: ${holdingsNum}\n买入日期: ${purchaseDate || '未设置'}\n买入价: ${costPrice ? currencySymbolMap[foundAsset.currency] + parseFloat(costPrice).toFixed(2) : '未设置'}`);
-
-      setFoundAsset(null);
-      setSearchQuery('');
-      setHoldings("");
-      setPurchaseDate("");
-      setCostPrice("");
-      setView('categories');
-      setSelectedMainCategory(null);
-      setSelectedAssetType(null);
-      setShowMenu(false);
+  // 处理汽车资产添加
+  const handleAddCarAsset = () => {
+    if (!selectedBrand || !carModel.trim() || !holdings) {
+      alert('请完整填写品牌、型号和持有数量');
+      return;
     }
+
+    const holdingsNum = parseFloat(holdings);
+    const price = costPrice ? parseFloat(costPrice) : 0;
+    const finalMarketValue = price * holdingsNum;
+
+    const carName = `${selectedBrand.name} ${carModel}`;
+    const newAsset: Asset = {
+      symbol: `CAR-${selectedBrand.id}-${Date.now()}`,
+      name: carName,
+      price: price,
+      holdings: holdingsNum,
+      marketValue: finalMarketValue,
+      currency: 'CNY',
+      lastUpdated: new Date().toISOString(),
+      type: 'car',
+      changePercent: 0,
+      logoUrl: selectedBrand.logoUrl,
+      purchaseDate: purchaseDate || undefined,
+      costPrice: price,
+    };
+
+    addAsset(newAsset);
+    setAssets(getAssets());
+
+    alert(`已添加汽车资产: ${carName}`);
+
+    // 重置状态并关闭菜单
+    setSelectedBrand(null);
+    setCarModel("");
+    setHoldings("");
+    setPurchaseDate("");
+    setCostPrice("");
+    setView('categories');
+    setSelectedMainCategory(null);
+    setSelectedAssetType(null);
+    setShowMenu(false);
+  };
+
+  // 通用的添加资产处理（用于API获取的资产）
+  const handleAddAsset = () => {
+    if (!foundAsset || !holdings) return;
+
+    const holdingsNum = parseFloat(holdings);
+    const finalMarketValue = marketValue ?? 0;
+
+    const newAsset: Asset = {
+      symbol: foundAsset.symbol,
+      name: foundAsset.name,
+      price: foundAsset.price ?? 0,
+      holdings: holdingsNum,
+      marketValue: finalMarketValue,
+      currency: foundAsset.currency,
+      lastUpdated: new Date().toISOString(),
+      type: foundAsset.type || selectedAssetType || 'stock',
+      changePercent: foundAsset.changePercent || 0,
+      logoUrl: foundAsset.logoUrl,
+      purchaseDate: purchaseDate || undefined,
+      costPrice: costPrice ? parseFloat(costPrice) : undefined,
+    };
+
+    addAsset(newAsset);
+    setAssets(getAssets());
+
+    alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表`);
+
+    setFoundAsset(null);
+    setSearchQuery('');
+    setHoldings("");
+    setPurchaseDate("");
+    setCostPrice("");
+    setView('categories');
+    setSelectedMainCategory(null);
+    setSelectedAssetType(null);
+    setShowMenu(false);
   };
 
   // 计算盈亏颜色和文本（保持不变）
@@ -354,269 +408,421 @@ export default function PortfolioPage() {
       : 'text-gray-500 dark:text-gray-400';
   };
 
-  // 子类别视图（资产类型选择）- 图标已优化
-const renderSubCategories = () => (
-  <div className="flex flex-col animate-in fade-in slide-in-from-right duration-300">
-    <div className="flex items-center gap-4 mb-8">
-      <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
-        <ArrowLeft size={20} />
-      </button>
-      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-        {selectedMainCategory === 'liquid' ? '流动资产' : selectedMainCategory === 'fixed' ? '固定资产' : '自定义资产'}
-      </h3>
-    </div>
-    <div className="flex flex-col gap-4">
-      {selectedMainCategory === 'liquid' && (
-        <>
-          {/* 股票 */}
-          <button
-            onClick={() => handleAssetTypeClick('stock')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <TrendingUp size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">股票</p >
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">美股、A股、港股</p >
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
-
-          {/* ETF */}
-          <button
-            onClick={() => handleAssetTypeClick('etf')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <BarChart2 size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">ETF</p >
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">交易所交易基金</p >
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
-
-          {/* 基金 */}
-          <button
-            onClick={() => handleAssetTypeClick('fund')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <PieChart size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">基金</p >
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">场外基金、指数基金</p >
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
-
-          {/* 加密货币 */}
-          <button
-            onClick={() => handleAssetTypeClick('crypto')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <Bitcoin size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">加密货币</p >
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">BTC、ETH、主流币</p >
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
-        </>
-      )}
-      {selectedMainCategory === 'fixed' && (
-        <button
-          onClick={() => handleAssetTypeClick('real_estate')}
-          className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-yellow-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-              <Home size={24} />
-            </div>
-            <div className="text-left">
-              <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">房产</p >
-              <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">住宅、商铺</p >
-            </div>
-          </div>
-          <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+  // 子类别视图（资产类型选择）
+  const renderSubCategories = () => (
+    <div className="flex flex-col animate-in fade-in slide-in-from-right duration-300">
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
+          <ArrowLeft size={20} />
         </button>
-      )}
-      {selectedMainCategory === 'custom' && (
-        <button
-          onClick={() => handleAssetTypeClick('custom')}
-          className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-              <Activity size={24} />
-            </div>
-            <div className="text-left">
-              <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">自定义资产</p >
-              <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">收藏品、储蓄卡、奢侈品</p >
-            </div>
-          </div>
-          <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-        </button>
-      )}
-    </div>
-  </div>
-);
-
-  // 搜索视图
-  const renderSearch = () => (
-  <div
-    ref={scrollContainerRef}
-    onTouchStart={handleTouchStart}
-    onTouchMove={handleTouchMove}
-    className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
-  >
-    <div className="flex items-center gap-4 mb-8">
-      <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
-        <ArrowLeft size={20} />
-      </button>
-      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-        搜索{selectedAssetType === 'stock' ? '股票' : selectedAssetType === 'etf' ? 'ETF' : selectedAssetType === 'fund' ? '基金' : '加密货币'}
-      </h3>
-    </div>
-
-    <div className="relative mb-8">
-      <Search className="absolute left-5 top-6 text-gray-400 dark:text-gray-500" size={20} />
-      <input
-        autoFocus
-        type="text"
-        placeholder="输入代码"
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-5 pl-14 rounded-[24px] outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-[#2a2a2a] transition-all font-bold text-gray-900 dark:text-gray-100 text-lg placeholder:text-gray-300 dark:placeholder:text-gray-500"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onKeyDown={handleKeyDown}
-        ref={inputRef}
-      />
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 ml-1">
-        {selectedAssetType === 'stock' && '支持美股 (AAPL)、A股 (600519)'}
-        {selectedAssetType === 'etf' && '支持ETF (VOO, SPY)'}
-        {selectedAssetType === 'fund' && '基金代码 (如 017174)'}
-        {selectedAssetType === 'crypto' && '加密货币 (BTC, ETH, SOL)'}
-      </p >
-    </div>
-
-    <div className="min-h-[200px]">
-      {isLoading ? (
-        <div className="flex flex-col items-center py-10 gap-3">
-          <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={32} />
-          <p className="text-sm font-bold text-gray-400 dark:text-gray-500">正在调取行情...</p >
-        </div>
-      ) : searchError ? (
-        <div className="text-center py-10">
-          <AlertCircle className="w-12 h-12 text-red-400 dark:text-red-500 mx-auto mb-3" />
-          <p className="text-red-500 dark:text-red-400 font-bold italic">{searchError}</p >
-        </div>
-      ) : foundAsset ? (
-        <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
-          {/* 重新组织布局：市场标签在上，名称与价格同行，代码符号在下 */}
-          <div className="flex flex-col gap-2 mb-6">
-            {/* 市场标签行 */}
-            <div className="flex items-center gap-2">
-              <span className="bg-blue-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
-                {foundAsset.market}
-              </span>
-              {foundAsset.type && (
-                <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
-                  {foundAsset.type.toUpperCase()}
-                </span>
-              )}
-            </div>
-            {/* 名称和价格行（现在在同一行） */}
-            <div className="flex justify-between items-center">
-              <h4 className="text-3xl font-black text-gray-900 dark:text-gray-100">{foundAsset.name}</h4>
-              <div className="text-right t-6">
-                <p className="text-2xl font-black text-gray-900 dark:text-gray-100 flex justify-end items-center gap-1">
-                  {currencySymbolMap[foundAsset.currency] || foundAsset.currency}
-                  <span>{(foundAsset.price ?? 0).toFixed(2)}</span>
-                </p >
-                <p className={`text-xs font-bold ${(foundAsset.changePercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {(foundAsset.changePercent ?? 0) >= 0 ? '+' : ''}
-                  {(foundAsset.changePercent ?? 0).toFixed(2)}%
-                </p >
-              </div>
-            </div>
-            {/* 代码符号 */}
-            <p className="text-sm font-bold text-gray-400 dark:text-gray-500">{foundAsset.symbol}</p >
-          </div>
-
-          {/* 以下表单部分保持不变 */}
-          <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-            <div>
-              <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有份额</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-                  value={holdings}
-                  onChange={(e) => setHoldings(e.target.value)}
-                  step="0.01"
-                />
-                {marketValue !== null && (
-                  <div className="font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                    {currencySymbolMap[foundAsset.currency]}{marketValue.toFixed(2)}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入日期</label>
-              <input
-                type="date"
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
-                value={purchaseDate}
-                onChange={(e) => setPurchaseDate(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价</label>
-              <input
-                type="number"
-                placeholder="0.00"
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-                value={costPrice}
-                onChange={(e) => setCostPrice(e.target.value)}
-                step="0.01"
-              />
-            </div>
-
+        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          {selectedMainCategory === 'liquid' ? '流动资产' : selectedMainCategory === 'fixed' ? '固定资产' : '自定义资产'}
+        </h3>
+      </div>
+      <div className="flex flex-col gap-4">
+        {selectedMainCategory === 'liquid' && (
+          <>
+            {/* 股票 */}
             <button
-              onClick={handleAddAsset}
-              disabled={!holdings}
-              className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+              onClick={() => handleAssetTypeClick('stock')}
+              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
             >
-              确认添加
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                  <TrendingUp size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">股票</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">美股、A股、港股</p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
+
+            {/* ETF */}
+            <button
+              onClick={() => handleAssetTypeClick('etf')}
+              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                  <BarChart2 size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">ETF</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">交易所交易基金</p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+            </button>
+
+            {/* 基金 */}
+            <button
+              onClick={() => handleAssetTypeClick('fund')}
+              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                  <PieChart size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">基金</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">场外基金、指数基金</p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+            </button>
+
+            {/* 加密货币 */}
+            <button
+              onClick={() => handleAssetTypeClick('crypto')}
+              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                  <Bitcoin size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">加密货币</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">BTC、ETH、主流币</p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+            </button>
+          </>
+        )}
+        {selectedMainCategory === 'fixed' && (
+          <>
+            {/* 房产 */}
+            <button
+              onClick={() => handleAssetTypeClick('real_estate')}
+              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-yellow-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                  <Home size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">房产</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">住宅、商铺</p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+            </button>
+
+            {/* 汽车 */}
+            <button
+              onClick={() => handleAssetTypeClick('car')}
+              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-yellow-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                  <Car size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">汽车</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">品牌、型号手动输入</p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+            </button>
+          </>
+        )}
+        {selectedMainCategory === 'custom' && (
+          <button
+            onClick={() => handleAssetTypeClick('custom')}
+            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                <Activity size={24} />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">自定义资产</p>
+                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">收藏品、储蓄卡、奢侈品</p>
+              </div>
+            </div>
+            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  // 汽车手动添加表单
+  const renderCarForm = () => (
+    <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
+      <div className="flex flex-col gap-2 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="bg-yellow-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
+            汽车
+          </span>
+        </div>
+        {/* 品牌选择和型号输入 */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">品牌</label>
+            <select
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+              value={selectedBrand?.id || ''}
+              onChange={(e) => {
+                const brand = CAR_BRANDS.find(b => b.id === e.target.value);
+                setSelectedBrand(brand || null);
+              }}
+            >
+              <option value="">选择品牌</option>
+              {CAR_BRANDS.map(brand => (
+                <option key={brand.id} value={brand.id}>{brand.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">型号</label>
+            <input
+              type="text"
+              placeholder="例如 3系、Model Y"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+              value={carModel}
+              onChange={(e) => setCarModel(e.target.value)}
+            />
+          </div>
+
+          {/* 品牌Logo预览 */}
+          {selectedBrand && (
+            <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl">
+              {selectedBrand.logoUrl ? (
+                <img src={selectedBrand.logoUrl} alt={selectedBrand.name} className="w-10 h-10 object-contain" />
+              ) : (
+                <Car size={24} className="text-gray-500" />
+              )}
+              <span className="font-bold text-gray-900 dark:text-gray-100">{selectedBrand.name}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 数量、价格输入 */}
+      <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有数量</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              placeholder="1"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+              value={holdings}
+              onChange={(e) => setHoldings(e.target.value)}
+              step="1"
+              min="0"
+            />
           </div>
         </div>
-      ) : searchQuery.length >= 2 ? (
-        <div className="text-center py-10">
-          <p className="text-gray-300 dark:text-gray-600 font-bold italic">未找到该代码，请确保输入正确</p >
-          <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">尝试输入其他代码</p >
+
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入日期</label>
+          <input
+            type="date"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
+            value={purchaseDate}
+            onChange={(e) => setPurchaseDate(e.target.value)}
+          />
         </div>
-      ) : null}
+
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价（万元）</label>
+          <input
+            type="number"
+            placeholder="20.00"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={costPrice}
+            onChange={(e) => setCostPrice(e.target.value)}
+            step="0.01"
+          />
+          <p className="text-xs text-gray-400 mt-1">单位：万元（CNY）</p>
+        </div>
+
+        <button
+          onClick={handleAddCarAsset}
+          disabled={!selectedBrand || !carModel.trim() || !holdings}
+          className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+        >
+          确认添加汽车
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+
+  // 搜索视图（根据类型分派）
+  const renderSearch = () => {
+    // 如果是汽车类型，显示手动添加表单
+    if (selectedAssetType === 'car') {
+      return (
+        <div
+          ref={scrollContainerRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
+        >
+          <div className="flex items-center gap-4 mb-8">
+            <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
+              <ArrowLeft size={20} />
+            </button>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              添加汽车资产
+            </h3>
+          </div>
+          <div className="min-h-[200px]">
+            {renderCarForm()}
+          </div>
+        </div>
+      );
+    }
+
+    // 其他类型保持原有搜索界面
+    return (
+      <div
+        ref={scrollContainerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
+      >
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
+            <ArrowLeft size={20} />
+          </button>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            搜索{selectedAssetType === 'stock' ? '股票' : selectedAssetType === 'etf' ? 'ETF' : selectedAssetType === 'fund' ? '基金' : selectedAssetType === 'real_estate' ? '房产' : '加密货币'}
+          </h3>
+        </div>
+
+        <div className="relative mb-8">
+          <Search className="absolute left-5 top-6 text-gray-400 dark:text-gray-500" size={20} />
+          <input
+            autoFocus
+            type="text"
+            placeholder="输入代码"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-5 pl-14 rounded-[24px] outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-[#2a2a2a] transition-all font-bold text-gray-900 dark:text-gray-100 text-lg placeholder:text-gray-300 dark:placeholder:text-gray-500"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            ref={inputRef}
+          />
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 ml-1">
+            {selectedAssetType === 'stock' && '支持美股 (AAPL)、A股 (600519)'}
+            {selectedAssetType === 'etf' && '支持ETF (VOO, SPY)'}
+            {selectedAssetType === 'fund' && '基金代码 (如 017174)'}
+            {selectedAssetType === 'crypto' && '加密货币 (BTC, ETH, SOL)'}
+            {selectedAssetType === 'real_estate' && '房产项目名称 (如: 学府家苑、麓湖生态城)'}
+          </p>
+        </div>
+
+        <div className="min-h-[200px]">
+          {isLoading ? (
+            <div className="flex flex-col items-center py-10 gap-3">
+              <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={32} />
+              <p className="text-sm font-bold text-gray-400 dark:text-gray-500">正在调取行情...</p>
+            </div>
+          ) : searchError ? (
+            <div className="text-center py-10">
+              <AlertCircle className="w-12 h-12 text-red-400 dark:text-red-500 mx-auto mb-3" />
+              <p className="text-red-500 dark:text-red-400 font-bold italic">{searchError}</p>
+            </div>
+          ) : foundAsset ? (
+            <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
+              {/* 资产详情（与之前相同） */}
+              <div className="flex flex-col gap-2 mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="bg-blue-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
+                    {foundAsset.market}
+                  </span>
+                  {foundAsset.type && (
+                    <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
+                      {foundAsset.type.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <h4 className="text-3xl font-black text-gray-900 dark:text-gray-100">{foundAsset.name}</h4>
+                  <div className="text-right">
+                    <p className="text-2xl font-black text-gray-900 dark:text-gray-100 flex justify-end items-center gap-1">
+                      {currencySymbolMap[foundAsset.currency] || foundAsset.currency}
+                      <span>{(foundAsset.price ?? 0).toFixed(2)}</span>
+                    </p>
+                    {foundAsset.type === 'real_estate' && (foundAsset.changePercent ?? 0) === 0 ? (
+                      <p className="text-xs font-bold text-gray-400">暂无涨跌</p>
+                    ) : (
+                      <p className={`text-xs font-bold ${(foundAsset.changePercent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {(foundAsset.changePercent ?? 0) >= 0 ? '+' : ''}
+                        {(foundAsset.changePercent ?? 0).toFixed(2)}%
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm font-bold text-gray-400 dark:text-gray-500">{foundAsset.symbol}</p>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div>
+                  <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有份额</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+                      value={holdings}
+                      onChange={(e) => setHoldings(e.target.value)}
+                      step="0.01"
+                    />
+                    {marketValue !== null && (
+                      <div className="font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        {currencySymbolMap[foundAsset.currency]}{marketValue.toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入日期</label>
+                  <input
+                    type="date"
+                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+                    value={costPrice}
+                    onChange={(e) => setCostPrice(e.target.value)}
+                    step="0.01"
+                  />
+                </div>
+
+                <button
+                  onClick={handleAddAsset}
+                  disabled={!holdings}
+                  className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+                >
+                  确认添加
+                </button>
+              </div>
+            </div>
+          ) : searchQuery.length >= 2 ? (
+            <div className="text-center py-10">
+              <p className="text-gray-300 dark:text-gray-600 font-bold italic">未找到该代码，请确保输入正确</p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">尝试输入其他代码</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
@@ -648,6 +854,7 @@ const renderSubCategories = () => (
                       {asset.logoUrl ? (
                         <img src={asset.logoUrl} alt={asset.name} className="w-6 h-6 object-contain" />
                       ) : (
+                        asset.type === 'car' ? <Car size={16} className="text-gray-700 dark:text-gray-200" /> :
                         asset.type === 'stock' ? <Zap size={16} className="text-gray-700 dark:text-gray-200" /> : <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />
                       )}
                     </div>
@@ -792,6 +999,8 @@ const renderSubCategories = () => (
           setHoldings("");
           setPurchaseDate("");
           setCostPrice("");
+          setSelectedBrand(null);
+          setCarModel("");
         }}
         className="fixed bottom-24 right-6 w-16 h-16 bg-blue-600 rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-[45] active:scale-90 transition-transform"
       >
