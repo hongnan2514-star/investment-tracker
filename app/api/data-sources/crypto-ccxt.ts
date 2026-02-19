@@ -7,7 +7,7 @@ export async function queryCryptoCCXT(symbol: string): Promise<DataSourceResult>
 
     console.log(`[Crypto-CCXT] 开始搜索: ${baseMarket}`);
 
-    const exchange: Exchange = new ccxt.binance({
+    const exchange: Exchange = new ccxt.kucoin({
         enableRateLimit: true,
         options: { defaultType: 'spot' }
     });
