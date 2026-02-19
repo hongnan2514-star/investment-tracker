@@ -1,5 +1,5 @@
 import { fetchFundHistoryFromSina, saveFundHistory, getFundHistory, needsUpdate, getFundInfo, saveFundInfo } from './fundHistoryDB';
-import { queryAKShareFund } from '@/app/api/data-sources/akshare'; // 引入 AKShare 后备
+import { queryAKShareFund } from '@/app/api/data-sources/akshare';
 import { DataSourceResult, UnifiedAsset } from '@/app/api/data-sources/types';
 
 export interface FundNav {
@@ -25,6 +25,7 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
     console.log(`[基金服务] needUpdate = ${needUpdate}`);
 
     let history: FundNav[] = [];
+    let usedAKShare = false; // 新增标志：是否已使用 AKShare
 
     if (needUpdate) {
       console.log(`[基金服务] 需要更新，尝试新浪财经...`);
@@ -33,9 +34,10 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
       // 如果新浪财经无数据，回退到 AKShare
       if (history.length === 0) {
         console.log(`[基金服务] 新浪财经无数据，尝试 AKShare 后备...`);
-        const akResult = await queryAKShareFund(code); // 注意传入原始 code（可能带 .OF）
+        const akResult = await queryAKShareFund(code);
         if (akResult.success && akResult.data) {
           console.log(`[基金服务] AKShare 获取成功，构造单点数据`);
+          usedAKShare = true; // 标记已使用 AKShare
           const today = new Date().toISOString().split('T')[0];
           const fakeNav: FundNav = {
             code: cleanCode,
@@ -65,8 +67,8 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
         }
       }
 
-      // 如果新浪财经有数据，保存（标记为 sina 源）
-      if (history.length > 0 && history[0].code === cleanCode) {
+      // 如果新浪财经有数据，并且没有使用 AKShare，才执行保存
+      if (history.length > 0 && history[0].code === cleanCode && !usedAKShare) {
         console.log(`[基金服务] 保存 ${history.length} 条历史数据到数据库...`);
         saveFundHistory(history);
         const latest = history[history.length - 1];
