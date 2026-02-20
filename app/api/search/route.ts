@@ -1,12 +1,13 @@
-// /app/api/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { queryAlphaVantage } from "@/app/api/data-sources/alpha-vantage";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
+// 导入 Finnhub（主要股票源）
+import { queryFinnhub } from "@/app/api/data-sources/finnhub";
 import { searchFund } from "@/src/services/fundService";
 import { DataSourceResult } from "@/app/api/data-sources/types";
 import { queryCryptoCCXT } from "@/app/api/data-sources/crypto-ccxt";
-// 新增导入：房产数据源
 import { searchGovRealEstate } from "@/app/api/data-sources/gov-realestate";
+import { queryITick, queryITickMetal } from "@/app/api/data-sources/itick";
 
 // A股代码规范化函数（与前端保持一致）
 function normalizeAStockSymbol(symbol: string): string {
@@ -22,13 +23,21 @@ function normalizeAStockSymbol(symbol: string): string {
 }
 
 /**
- * 搜索股票或ETF（组合Yahoo Finance和Alpha Vantage）
+ * 搜索股票或ETF（优先使用 Finnhub，降级到 Yahoo/Alpha Vantage）
  */
 async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null> {
+  // 1. 先尝试 Finnhub（主要源）
+  const finnhubResult = await queryFinnhub(symbol);
+  if (finnhubResult.success && finnhubResult.data) return finnhubResult;
+
+  // 2. Finnhub 失败后，尝试 Yahoo Finance
   const yahooResult = await queryYahooFinance(symbol);
   if (yahooResult.success && yahooResult.data) return yahooResult;
+
+  // 3. 最后尝试 Alpha Vantage
   const avResult = await queryAlphaVantage(symbol);
   if (avResult.success && avResult.data) return avResult;
+
   return null;
 }
 
@@ -82,9 +91,23 @@ export async function GET(request: NextRequest) {
           { status: 404 }
         );
       }
+    } else if (type === 'metal') {
+    console.log(`[搜索路由] 开始搜索贵金属: ${trimmedSymbol}`);
+    const result = await queryITickMetal(trimmedSymbol);
+    if (result.success) {
+        return NextResponse.json({
+            success: true,
+            ...result.data,
+            source: result.source
+        });
+    } else {
+        return NextResponse.json(
+            { error: result.error || '贵金属搜索失败' },
+            { status: 404 }
+        );
+      }
     } else if (type === 'real_estate') {
       console.log(`[搜索路由] 开始搜索房产: ${trimmedSymbol}`);
-      // 直接传入项目名称（如“学府家苑”）
       const result = await searchGovRealEstate(trimmedSymbol);
       if (result.success) {
         return NextResponse.json({

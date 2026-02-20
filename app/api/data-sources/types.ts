@@ -6,7 +6,7 @@ export interface UnifiedAsset {
     changePercent: number | null;
     currency: string;
     market?: string;
-    type?: 'stock' | 'etf' | 'index' | 'crypto' | 'fund' | 'real_estate' | undefined;
+    type?: 'stock' | 'etf' | 'index' | 'crypto' | 'fund' | 'real_estate' | 'metal' |undefined;
     source: string; // 标记数据来源,用于调试
     lastUpdated: string;
     raw?: any; // 可选: 保留原始数据用于调试

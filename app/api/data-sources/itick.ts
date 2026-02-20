@@ -9,13 +9,13 @@ export async function queryITick(symbol: string): Promise<DataSourceResult> {
     }
 
     try {
-        // iTick API示例(请根据实际文档调整)
         const url = `https://api.itick.com/v1/quote?symbol=${symbol}&token=${ITICK_TOKEN}`;
+        console.log(`[iTick] 请求URL: ${url}`);
         const response = await fetch(url);
         const data = await response.json();
+        console.log(`[iTick] 响应:`, JSON.stringify(data).substring(0, 200));
 
-        if (data.code !== 0 || !data.data)
-        {
+        if (data.code !== 0 || !data.data) {
             return { success: false, data: null, error: data.msg || 'No data from iTick', source: 'iTick' };
         }
 
@@ -32,8 +32,60 @@ export async function queryITick(symbol: string): Promise<DataSourceResult> {
             lastUpdated: new Date().toISOString()
         };
 
-        return { success: true , data: asset, source: 'iTick' };
+        return { success: true, data: asset, source: 'iTick' };
     } catch (error: any) {
+        console.error('[iTick] 股票查询异常:', error);
+        return { success: false, data: null, error: error.message, source: 'iTick' };
+    }
+}
+
+export async function queryITickMetal(code: string): Promise<DataSourceResult> {
+    if (!ITICK_TOKEN) {
+        return { success: false, data: null, error: 'iTick token not configured', source: 'iTick' };
+    }
+
+    try {
+        const metalMap: Record<string, string> = {
+            'Au999': 'XAUUSD',
+            'Ag999': 'XAGUSD',
+            '黄金': 'XAUUSD',
+            '白银': 'XAGUSD',
+            'XAU': 'XAUUSD',
+            'XAG': 'XAGUSD',
+        };
+        const symbol = metalMap[code] || code;
+
+        const url = `https://api.itick.com/v1/quote?symbol=${symbol}&token=${ITICK_TOKEN}`;
+        console.log(`[iTick金属] 请求URL: ${url}`);
+        const response = await fetch(url);
+        const data = await response.json();
+        console.log(`[iTick金属] 响应:`, JSON.stringify(data).substring(0, 200));
+
+        if (data.code !== 0 || !data.data) {
+            return { success: false, data: null, error: data.msg || 'No data from iTick', source: 'iTick' };
+        }
+
+        const quote = data.data;
+        const asset: UnifiedAsset = {
+            symbol: code,
+            name: code === 'Au999' ? '黄金 (Au999)' : code === 'Ag999' ? '白银 (Ag999)' : `贵金属 (${code})`,
+            price: quote.price,
+            changePercent: quote.change_percent || 0,
+            currency: quote.currency || 'USD',
+            market: quote.exchange || '国际现货',
+            type: 'metal',
+            source: 'iTick',
+            lastUpdated: new Date().toISOString(),
+            metadata: {
+                high: quote.high,
+                low: quote.low,
+                volume: quote.volume,
+            }
+        };
+
+        return { success: true, data: asset, source: 'iTick' };
+    } catch (error: any) {
+        console.error('[iTick金属] 查询异常:', error);
         return { success: false, data: null, error: error.message, source: 'iTick' };
     }
 }

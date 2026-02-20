@@ -4,20 +4,7 @@
  * value: 图片在 public 目录下的路径（以 / 开头）
  */
 export const LOCAL_LOGO_MAP: Record<string, string> = {
-  // ----- 美股 -----
-  AAPL: '/logos/AAPL.png',
-  TSLA: '/logos/TSLA.png',
-  NVDA: '/logos/NVDA.png',
-  NKE: '/logos/NKE.png', 
-  ORCL: '/logos/ORCL.png',
-
-  //美股ETF
-  VOO: '/logos/VOO.png', 
-
-  // 中概股
-  BABA: '/logos/BABA.png',
-  TCTZF: '/logos/TCTZF.png',
-
+  
 
   // ----- A股（6位数字代码）-----
   

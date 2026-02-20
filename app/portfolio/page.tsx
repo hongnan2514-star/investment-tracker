@@ -1,14 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Zap, Home, BarChart3, X, ChevronRight, Search, Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2, PieChart, Bitcoin, Activity, Car } from 'lucide-react';
+import {
+  Plus, Zap, Home, BarChart3, X, ChevronRight, Search,
+  Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2,
+  PieChart, Bitcoin, Activity, Car, Coins // 新增 Coins 图标用于贵金属
+} from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
-import { LOCAL_LOGO_MAP, getBaseSymbol } from '@/src/constants/localLogos';
-import { CAR_BRANDS, CarBrand } from '@/src/constants/carBrands'; // 新增汽车品牌常量
+import { CAR_BRANDS, CarBrand } from '@/src/constants/carBrands';
 import { Asset } from '@/src/constants/types';
 import { addAsset, getAssets, removeAsset } from '@/src/utils/assetStorage';
 import { refreshAllAssets } from '@/src/services/marketService';
 import { eventBus } from '@/src/utils/eventBus';
+import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCache';
 
 interface FoundAsset {
   symbol: string;
@@ -23,8 +27,8 @@ interface FoundAsset {
 }
 
 type MainCategory = 'liquid' | 'fixed' | 'custom' | null;
-// 在资产类型中增加 'car'
-type AssetType = 'stock' | 'etf' | 'fund' | 'real_estate' | 'custom' | 'crypto' | 'car' | null;
+// 增加 metal 类型
+type AssetType = 'stock' | 'etf' | 'fund' | 'real_estate' | 'custom' | 'crypto' | 'car' | 'metal' | null;
 
 export default function PortfolioPage() {
   const [showMenu, setShowMenu] = useState(false);
@@ -109,6 +113,7 @@ export default function PortfolioPage() {
       abortControllerRef.current = null;
     }
     removeAsset(symbol);
+    removeCachedLogo(symbol);
     const remainingAssets = getAssets();
     setAssets(remainingAssets);
     if (refreshTimer.current) {
@@ -150,17 +155,14 @@ export default function PortfolioPage() {
     }
   }, [holdings, foundAsset?.price]);
 
-  // 处理大类点击
   const handleMainCategoryClick = (category: MainCategory) => {
     setSelectedMainCategory(category);
     setView('subCategories');
   };
 
-  // 处理资产类型点击
   const handleAssetTypeClick = (type: AssetType) => {
     setSelectedAssetType(type);
     setView('search');
-    // 重置所有状态
     setSearchQuery('');
     setFoundAsset(null);
     setSearchError(null);
@@ -171,7 +173,6 @@ export default function PortfolioPage() {
     setCarModel("");
   };
 
-  // 返回上一级
   const handleBack = () => {
     if (view === 'subCategories') {
       setView('categories');
@@ -185,7 +186,6 @@ export default function PortfolioPage() {
     }
   };
 
-  // 触发搜索（仅用于需要API的类型）
   const triggerSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setSearchError('请输入至少2位代码');
@@ -200,7 +200,6 @@ export default function PortfolioPage() {
       const trimmedQuery = searchQuery.trim();
       let finalSymbol = trimmedQuery;
 
-      // 股票类型时规范化A股代码
       if (selectedAssetType === 'stock' && /^\d{6}$/.test(trimmedQuery)) {
         finalSymbol = normalizeAStockSymbol(trimmedQuery);
       }
@@ -217,8 +216,20 @@ export default function PortfolioPage() {
       }
 
       const chineseName = AShareNameMap[data.symbol] || data.name;
-      const baseSymbol = getBaseSymbol(data.symbol);
-      const localLogos = LOCAL_LOGO_MAP[baseSymbol] || '';
+      let logoUrl = '';
+
+      if (data.type === 'stock' || data.type === 'etf') {
+        const cleanSymbol = data.symbol.replace(/\.(SS|SZ|US|OF)$/, '');
+        if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
+          logoUrl = `https://cdn.brandfetch.io/ticker/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
+        }
+      } else if (data.type === 'crypto') {
+        const cleanSymbol = data.symbol.split('/')[0].trim();
+        if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
+          logoUrl = `https://cdn.brandfetch.io/crypto/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
+        }
+      }
+      // 贵金属不设置 logoUrl，将使用默认图标
 
       setFoundAsset({
         symbol: data.symbol,
@@ -229,7 +240,7 @@ export default function PortfolioPage() {
         currency: data.currency || 'USD',
         type: data.type || selectedAssetType || 'stock',
         source: data.source || 'Unknown',
-        logoUrl: localLogos,
+        logoUrl: logoUrl,
       });
 
     } catch (error: any) {
@@ -243,6 +254,8 @@ export default function PortfolioPage() {
       setIsLoading(false);
       setIsSearching(false);
     }
+
+    console.log('Brandfetch Client ID:', process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID);
   };
 
   useEffect(() => {
@@ -262,7 +275,6 @@ export default function PortfolioPage() {
     }
   };
 
-  // 触摸事件处理
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
   };
@@ -295,7 +307,6 @@ export default function PortfolioPage() {
     setAssets(getAssets());
   }, []);
 
-  // 处理汽车资产添加
   const handleAddCarAsset = () => {
     if (!selectedBrand || !carModel.trim() || !holdings) {
       alert('请完整填写品牌、型号和持有数量');
@@ -327,7 +338,6 @@ export default function PortfolioPage() {
 
     alert(`已添加汽车资产: ${carName}`);
 
-    // 重置状态并关闭菜单
     setSelectedBrand(null);
     setCarModel("");
     setHoldings("");
@@ -339,7 +349,6 @@ export default function PortfolioPage() {
     setShowMenu(false);
   };
 
-  // 通用的添加资产处理（用于API获取的资产）
   const handleAddAsset = () => {
     if (!foundAsset || !holdings) return;
 
@@ -364,6 +373,10 @@ export default function PortfolioPage() {
     addAsset(newAsset);
     setAssets(getAssets());
 
+    if (foundAsset.logoUrl) {
+      cacheLogo(foundAsset.symbol, foundAsset.logoUrl).catch(console.warn);
+    }
+
     alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表`);
 
     setFoundAsset(null);
@@ -377,7 +390,6 @@ export default function PortfolioPage() {
     setShowMenu(false);
   };
 
-  // 计算盈亏颜色和文本（保持不变）
   const getProfitLossColor = (asset: Asset) => {
     if (asset.costPrice && asset.costPrice > 0) {
       return asset.price > asset.costPrice
@@ -408,7 +420,6 @@ export default function PortfolioPage() {
       : 'text-gray-500 dark:text-gray-400';
   };
 
-  // 子类别视图（资产类型选择）
   const renderSubCategories = () => (
     <div className="flex flex-col animate-in fade-in slide-in-from-right duration-300">
       <div className="flex items-center gap-4 mb-8">
@@ -422,7 +433,6 @@ export default function PortfolioPage() {
       <div className="flex flex-col gap-4">
         {selectedMainCategory === 'liquid' && (
           <>
-            {/* 股票 */}
             <button
               onClick={() => handleAssetTypeClick('stock')}
               className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
@@ -439,7 +449,6 @@ export default function PortfolioPage() {
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
 
-            {/* ETF */}
             <button
               onClick={() => handleAssetTypeClick('etf')}
               className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
@@ -456,7 +465,6 @@ export default function PortfolioPage() {
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
 
-            {/* 基金 */}
             <button
               onClick={() => handleAssetTypeClick('fund')}
               className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
@@ -473,7 +481,6 @@ export default function PortfolioPage() {
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
 
-            {/* 加密货币 */}
             <button
               onClick={() => handleAssetTypeClick('crypto')}
               className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
@@ -489,11 +496,27 @@ export default function PortfolioPage() {
               </div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
+
+            {/* 新增贵金属按钮 */}
+            <button
+              onClick={() => handleAssetTypeClick('metal')}
+              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                  <Coins size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">贵金属</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">黄金、白银 (Au999, XAU)</p>
+                </div>
+              </div>
+              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+            </button>
           </>
         )}
         {selectedMainCategory === 'fixed' && (
           <>
-            {/* 房产 */}
             <button
               onClick={() => handleAssetTypeClick('real_estate')}
               className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
@@ -510,7 +533,6 @@ export default function PortfolioPage() {
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
 
-            {/* 汽车 */}
             <button
               onClick={() => handleAssetTypeClick('car')}
               className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
@@ -549,7 +571,6 @@ export default function PortfolioPage() {
     </div>
   );
 
-  // 汽车手动添加表单
   const renderCarForm = () => (
     <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
       <div className="flex flex-col gap-2 mb-6">
@@ -558,7 +579,6 @@ export default function PortfolioPage() {
             汽车
           </span>
         </div>
-        {/* 品牌选择和型号输入 */}
         <div className="space-y-4">
           <div>
             <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">品牌</label>
@@ -588,7 +608,6 @@ export default function PortfolioPage() {
             />
           </div>
 
-          {/* 品牌Logo预览 */}
           {selectedBrand && (
             <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl">
               {selectedBrand.logoUrl ? (
@@ -602,7 +621,6 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* 数量、价格输入 */}
       <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
         <div>
           <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有数量</label>
@@ -653,9 +671,7 @@ export default function PortfolioPage() {
     </div>
   );
 
-  // 搜索视图（根据类型分派）
   const renderSearch = () => {
-    // 如果是汽车类型，显示手动添加表单
     if (selectedAssetType === 'car') {
       return (
         <div
@@ -668,18 +684,13 @@ export default function PortfolioPage() {
             <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
               <ArrowLeft size={20} />
             </button>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              添加汽车资产
-            </h3>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">添加汽车资产</h3>
           </div>
-          <div className="min-h-[200px]">
-            {renderCarForm()}
-          </div>
+          <div className="min-h-[200px]">{renderCarForm()}</div>
         </div>
       );
     }
 
-    // 其他类型保持原有搜索界面
     return (
       <div
         ref={scrollContainerRef}
@@ -692,7 +703,13 @@ export default function PortfolioPage() {
             <ArrowLeft size={20} />
           </button>
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            搜索{selectedAssetType === 'stock' ? '股票' : selectedAssetType === 'etf' ? 'ETF' : selectedAssetType === 'fund' ? '基金' : selectedAssetType === 'real_estate' ? '房产' : '加密货币'}
+            搜索
+            {selectedAssetType === 'stock' && '股票'}
+            {selectedAssetType === 'etf' && 'ETF'}
+            {selectedAssetType === 'fund' && '基金'}
+            {selectedAssetType === 'crypto' && '加密货币'}
+            {selectedAssetType === 'real_estate' && '房产'}
+            {selectedAssetType === 'metal' && '贵金属'}
           </h3>
         </div>
 
@@ -714,6 +731,7 @@ export default function PortfolioPage() {
             {selectedAssetType === 'fund' && '基金代码 (如 017174)'}
             {selectedAssetType === 'crypto' && '加密货币 (BTC, ETH, SOL)'}
             {selectedAssetType === 'real_estate' && '房产项目名称 (如: 学府家苑、麓湖生态城)'}
+            {selectedAssetType === 'metal' && '贵金属代码 (Au999, Ag999, XAU, XAG)'}
           </p>
         </div>
 
@@ -730,7 +748,6 @@ export default function PortfolioPage() {
             </div>
           ) : foundAsset ? (
             <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
-              {/* 资产详情（与之前相同） */}
               <div className="flex flex-col gap-2 mb-6">
                 <div className="flex items-center gap-2">
                   <span className="bg-blue-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
@@ -843,6 +860,10 @@ export default function PortfolioPage() {
               displayPercent = calculatedPercent;
               displayPercentSign = calculatedPercent > 0 ? '+' : '';
             }
+
+            const cachedLogo = getCachedLogo(asset.symbol);
+            const logoSrc = cachedLogo || asset.logoUrl;
+
             return (
               <div
                 key={asset.symbol}
@@ -850,12 +871,23 @@ export default function PortfolioPage() {
               >
                 <div className="flex justify-between items-start gap-1.5">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="p-1.5 rounded-xl shadow-sm shadow-blue-200 dark:shadow-black/30 bg-white dark:bg-[#1a1a1a] flex-shrink-0">
-                      {asset.logoUrl ? (
-                        <img src={asset.logoUrl} alt={asset.name} className="w-6 h-6 object-contain" />
+                    <div className="flex-shrink-0">
+                      {logoSrc ? (
+                        <img
+                          src={logoSrc}
+                          alt={asset.name}
+                          className="w-6 h-6 object-contain rounded-lg"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
                       ) : (
-                        asset.type === 'car' ? <Car size={16} className="text-gray-700 dark:text-gray-200" /> :
-                        asset.type === 'stock' ? <Zap size={16} className="text-gray-700 dark:text-gray-200" /> : <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />
+                        <>
+                          {asset.type === 'car' && <Car size={16} className="text-gray-700 dark:text-gray-200" />}
+                          {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
+                          {asset.type === 'metal' && <Coins size={16} className="text-gray-700 dark:text-gray-200" />}
+                          {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
+                        </>
                       )}
                     </div>
                     <div className="text-left min-w-0 flex-1">
@@ -942,7 +974,7 @@ export default function PortfolioPage() {
                   </div>
                   <div className="text-left">
                     <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">流动资产</p>
-                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">股票、基金、ETF、加密货币</p>
+                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">股票、基金、ETF、加密货币、贵金属</p>
                   </div>
                 </div>
                 <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
