@@ -205,7 +205,7 @@ export default function AssetPieChart() {
 
                   const RADIAN = Math.PI / 180;
                   const midAngle = (startAngle + endAngle) / 2;
-                  const radius = outerRadius + (isMobile ? 35 : 50);
+                  const radius = outerRadius + (isMobile ? 27 : 45);
                   const x = cx + radius * Math.cos(midAngle * RADIAN);
                   const y = cy + radius * Math.sin(midAngle * RADIAN);
                   
