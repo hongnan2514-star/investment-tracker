@@ -217,7 +217,7 @@ export default function AssetPieChart() {
                   }
                   
                   const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
-                  const fontSize = isMobile ? 12 : 14;
+                  const fontSize = isMobile ? 10 : 12;
                   const displayPercent = payload.percent; 
                   
                   return (
