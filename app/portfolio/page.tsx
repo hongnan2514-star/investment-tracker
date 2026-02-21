@@ -918,7 +918,7 @@ export default function PortfolioPage() {
         <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的各类投资项目</p>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {assets.length > 0 ? (
           assets.map(asset => {
             const profitLossColor = getProfitLossColor(asset);

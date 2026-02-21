@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { getAssets } from '@/src/utils/assetStorage';
 import { Asset } from '@/src/constants/types';
@@ -22,11 +22,11 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   },
   crypto: {
     name: '加密货币',
-    color: '#f59e0b' // 橙色
+    color: '#ec4899' // 橙色
   },
   metal: {
     name: '贵金属',
-    color: '#ec4899' // 粉色
+    color: '#f59e0b' // 粉色
   },
   car: {
     name: '车辆',
@@ -64,44 +64,54 @@ export default function AssetPieChart() {
   }[]>([]);
   const [totalValue, setTotalValue] = useState<number>(0);
   const [currency, setCurrency] = useState<string>('USD');
-  const [innerRadius, setInnerRadius] = useState(0); // 实心饼图
+  const [innerRadius] = useState(0); // 实心饼图
   const [outerRadius, setOuterRadius] = useState(100); // 桌面端尺寸
   const [isMobile, setIsMobile] = useState(false); // 移动端标志
+  const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 响应式半径
+  // 响应式半径（带防抖）
   useEffect(() => {
     const handleResize = () => {
-      const width = window.innerWidth;
-      const mobile = width < 768;
-      setIsMobile(mobile);
-      setOuterRadius(mobile ? 75 : 100);
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+      resizeTimerRef.current = setTimeout(() => {
+        const width = window.innerWidth;
+        const mobile = width < 768;
+        setIsMobile(mobile);
+        setOuterRadius(mobile ? 75 : 100);
+      }, 150); // 150ms防抖
     };
-    handleResize();
+    handleResize(); // 初始化
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
+    };
   }, []);
 
-  const updateChartData = (assets: Asset[]) => {
+  // 更新图表数据（带浅比较，避免重复渲染）
+  const updateChartData = useCallback((assets: Asset[]) => {
     if (assets.length === 0) {
       setPieData([]);
       setTotalValue(0);
       return;
     }
 
-    setCurrency(assets[0].currency || 'USD');
-
-    // 过滤掉 marketValue 无效或为0的资产（防止 NaN）
+    // 过滤掉 marketValue 无效或 <=0 的资产
     const validAssets = assets.filter(asset => 
-      asset.marketValue != null && Number.isFinite(asset.marketValue) && asset.marketValue > 0
+      asset.marketValue != null && 
+      Number.isFinite(asset.marketValue) && 
+      asset.marketValue > 0
     );
+
+    if (validAssets.length === 0) {
+      setPieData([]);
+      setTotalValue(0);
+      return;
+    }
 
     const total = validAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
     setTotalValue(total);
-
-    if (total === 0) {
-      setPieData([]);
-      return;
-    }
+    setCurrency(validAssets[0].currency || 'USD');
 
     const typeGroups = validAssets.reduce((groups, asset) => {
       const type = asset.type || 'unknown';
@@ -109,7 +119,7 @@ export default function AssetPieChart() {
       return groups;
     }, {} as Record<string, number>);
 
-    const formattedData = Object.entries(typeGroups)
+    const newData = Object.entries(typeGroups)
       .map(([type, value]) => {
         const config = ASSET_TYPE_CONFIG[type];
         return {
@@ -122,29 +132,30 @@ export default function AssetPieChart() {
       })
       .sort((a, b) => b.value - a.value);
 
-    setPieData(formattedData);
-  };
-
-  useEffect(() => {
-    const assets = getAssets() as Asset[];
-    updateChartData(assets);
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
-      const assets = getAssets() as Asset[];
-      updateChartData(assets);
+    // 浅比较，只有数据变化时才更新
+    setPieData(prev => {
+      if (prev.length !== newData.length) return newData;
+      for (let i = 0; i < prev.length; i++) {
+        if (prev[i].value !== newData[i].value) return newData;
+      }
+      return prev;
     });
-    return () => unsubscribe();
   }, []);
 
+  // 初始加载和事件订阅
   useEffect(() => {
-    const unsubscribe = eventBus.subscribe('userChanged', () => {
-      const assets = getAssets() as Asset[];
-      updateChartData(assets);
+    updateChartData(getAssets() as Asset[]);
+    const unsubscribeAssetsUpdated = eventBus.subscribe('assetsUpdated', () => {
+      updateChartData(getAssets() as Asset[]);
     });
-    return () => unsubscribe();
-  }, []);
+    const unsubscribeUserChanged = eventBus.subscribe('userChanged', () => {
+      updateChartData(getAssets() as Asset[]);
+    });
+    return () => {
+      unsubscribeAssetsUpdated();
+      unsubscribeUserChanged();
+    };
+  }, [updateChartData]);
 
   const getCurrencySymbol = () => {
     const currencySymbolMap: Record<string, string> = {
@@ -188,14 +199,12 @@ export default function AssetPieChart() {
                 outerRadius={outerRadius}
                 paddingAngle={2}
                 dataKey="value"
-                labelLine={false} // 移除连线
-                label={({ name, percent, cx, cy, outerRadius, startAngle, endAngle }) => {
-                  // 如果占比小于3%或percent无效，不显示标签
+                labelLine={false}
+                label={({ name, percent, payload, cx, cy, outerRadius, startAngle, endAngle }) => {
                   if (percent == null || percent < 0.03) return null;
 
                   const RADIAN = Math.PI / 180;
                   const midAngle = (startAngle + endAngle) / 2;
-                  // 增加偏移量，使标签远离饼图（移动端35，桌面端50）
                   const radius = outerRadius + (isMobile ? 35 : 50);
                   const x = cx + radius * Math.cos(midAngle * RADIAN);
                   const y = cy + radius * Math.sin(midAngle * RADIAN);
@@ -209,7 +218,7 @@ export default function AssetPieChart() {
                   
                   const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
                   const fontSize = isMobile ? 12 : 14;
-                  const percentValue = (percent * 100).toFixed(1) + '%';
+                  const displayPercent = payload.percent; 
                   
                   return (
                     <text
@@ -221,7 +230,7 @@ export default function AssetPieChart() {
                       fontSize={fontSize}
                       fontWeight="600"
                     >
-                      {`${name} ${percentValue}`}
+                      {`${name} ${displayPercent}`}
                     </text>
                   );
                 }}
