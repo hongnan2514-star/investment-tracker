@@ -13,6 +13,7 @@ import { addAsset, getAssets, removeAsset } from '@/src/utils/assetStorage';
 import { refreshAllAssets } from '@/src/services/marketService';
 import { eventBus } from '@/src/utils/eventBus';
 import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCache';
+import { useTheme } from '../ThemeProvider';
 
 interface FoundAsset {
   symbol: string;
@@ -45,6 +46,7 @@ export default function PortfolioPage() {
   const [purchaseDate, setPurchaseDate] = useState<string>("");
   const [costPrice, setCostPrice] = useState<string>("");
   const [marketValue, setMarketValue] = useState<number | null>(null);
+  const { theme } = useTheme();
 
   // 汽车品牌列表（来自聚合数据）
   const [brandsList, setBrandsList] = useState<any[]>([]); // { id, name, logoUrl }
@@ -955,11 +957,17 @@ export default function PortfolioPage() {
                           {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
                           {asset.type === 'metal' && (
   asset.symbol && asset.symbol.includes('Ag') ? (
-    // 白银图标（可自定义图片或改用其他Lucide图标）
-    < img src="/icons/silver-bar.png" alt="Silver" className="w-4 h-4 object-contain" />
+    < img 
+      src={`/icons/silver-bar-${theme}.png`} 
+      alt="Silver" 
+      className="w-6 h-6 object-contain rounded-lg" 
+    />
   ) : (
-    // 黄金图标（可自定义图片或保留Coins）
-    < img src="/icons/gold-bar.png" alt="Gold" className="w-4 h-4 object-contain" />
+    < img 
+      src={`/icons/gold-bar-${theme}.png`} 
+      alt="Gold" 
+      className="w-6 h-6 object-contain rounded-lg" 
+    />
   )
 )}
                           {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
