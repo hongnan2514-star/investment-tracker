@@ -17,7 +17,7 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
     color: '#10b981' // 绿色
   },
   etf: {
-    name: 'ETF',     // 按你的要求改为大写
+    name: 'ETF',
     color: '#8b5cf6' // 紫色
   },
   crypto: {
@@ -66,12 +66,15 @@ export default function AssetPieChart() {
   const [currency, setCurrency] = useState<string>('USD');
   const [innerRadius, setInnerRadius] = useState(0); // 实心饼图
   const [outerRadius, setOuterRadius] = useState(100); // 桌面端尺寸
+  const [isMobile, setIsMobile] = useState(false); // 移动端标志
 
   // 响应式半径
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      setOuterRadius(width < 768 ? 75 : 100);
+      const mobile = width < 768;
+      setIsMobile(mobile);
+      setOuterRadius(mobile ? 75 : 100);
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -166,7 +169,7 @@ export default function AssetPieChart() {
         {/* 饼图区域 */}
         <div className="w-full md:w-1/2 h-72 flex items-center justify-center">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
               <Pie
                 data={pieData}
                 cx="50%"
@@ -175,38 +178,25 @@ export default function AssetPieChart() {
                 outerRadius={outerRadius}
                 paddingAngle={2}
                 dataKey="value"
-                label={({ name, percent, cx, cy, outerRadius, startAngle, endAngle }) => {
-                  const RADIAN = Math.PI / 180;
-                  const angle = (startAngle + endAngle) / 2;
-                  const isMobile = window.innerWidth < 768;
-                  const radius = outerRadius + (isMobile ? 25 : 40);
-                  const x = cx + radius * Math.cos(angle * RADIAN);
-                  const y = cy + radius * Math.sin(angle * RADIAN);
-                  
-                  let textAnchor: 'start' | 'middle' | 'end' = 'middle';
-                  if (angle > 270 || angle < 90) {
-                   textAnchor = 'start';
-                  } else if (angle > 90 && angle < 270) {
-                    textAnchor = 'end';
-                  }
-                  
-                  const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
-                  
-                  return (
-                    <text
-                      x={x}
-                      y={y}
-                      fill={labelColor}
-                      textAnchor={textAnchor}
-                      dominantBaseline="middle"
-                      fontSize={isMobile ? 12 : 14}
-                      fontWeight="600"
-                    >
-                      {`${name} ${percent}`}
-                    </text>
-                  );
-                }}
-                labelLine={false}
+                labelLine={true}
+                label={({ name, percent, ...props }) => {
+  const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
+  const fontSize = isMobile ? 12 : 14;
+  const percentValue = percent != null ? (percent * 100).toFixed(1) + '%' : '0%';
+  return (
+    <text
+      x={props.x}
+      y={props.y}
+      fill={labelColor}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize={fontSize}
+      fontWeight="600"
+    >
+      {`${name} ${percentValue}`}
+    </text>
+  );
+}}
               >
                 {pieData.map((entry) => (
                   <Cell
@@ -221,7 +211,7 @@ export default function AssetPieChart() {
           </ResponsiveContainer>
         </div>
 
-        {/* 图例区域 */}
+        {/* 图例区域（保持不变） */}
         <div className="w-full md:w-1/2 space-y-4">
           {pieData.map((entry) => (
             <div key={entry.type} className="flex items-center justify-between">
