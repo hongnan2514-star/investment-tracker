@@ -8,6 +8,8 @@ import { DataSourceResult } from "@/app/api/data-sources/types";
 import { queryCryptoCCXT } from "@/app/api/data-sources/crypto-ccxt";
 import { searchGovRealEstate } from "@/app/api/data-sources/gov-realestate";
 import { queryITick, queryITickMetal } from "@/app/api/data-sources/itick";
+import { queryJuheGold } from "@/app/api/data-sources/juhe-gold";
+
 
 // A股代码规范化函数（与前端保持一致）
 function normalizeAStockSymbol(symbol: string): string {
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
       }
     } else if (type === 'metal') {
     console.log(`[搜索路由] 开始搜索贵金属: ${trimmedSymbol}`);
-    const result = await queryITickMetal(trimmedSymbol);
+    const result = await queryJuheGold(trimmedSymbol);
     if (result.success) {
         return NextResponse.json({
             success: true,
@@ -105,8 +107,8 @@ export async function GET(request: NextRequest) {
             { error: result.error || '贵金属搜索失败' },
             { status: 404 }
         );
-      }
-    } else if (type === 'real_estate') {
+    }
+} else if (type === 'real_estate') {
       console.log(`[搜索路由] 开始搜索房产: ${trimmedSymbol}`);
       const result = await searchGovRealEstate(trimmedSymbol);
       if (result.success) {

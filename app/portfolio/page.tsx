@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, Zap, Home, BarChart3, X, ChevronRight, Search,
   Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2,
-  PieChart, Bitcoin, Activity, Car, Coins // 新增 Coins 图标用于贵金属
+  PieChart, Bitcoin, Activity, Car, Coins, Blocks
 } from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { CAR_BRANDS, CarBrand } from '@/src/constants/carBrands';
@@ -27,7 +27,6 @@ interface FoundAsset {
 }
 
 type MainCategory = 'liquid' | 'fixed' | 'custom' | null;
-// 增加 metal 类型
 type AssetType = 'stock' | 'etf' | 'fund' | 'real_estate' | 'custom' | 'crypto' | 'car' | 'metal' | null;
 
 export default function PortfolioPage() {
@@ -47,9 +46,11 @@ export default function PortfolioPage() {
   const [costPrice, setCostPrice] = useState<string>("");
   const [marketValue, setMarketValue] = useState<number | null>(null);
 
-  // 汽车手动添加专用状态
-  const [selectedBrand, setSelectedBrand] = useState<CarBrand | null>(null);
-  const [carModel, setCarModel] = useState<string>("");
+  // 汽车品牌列表（来自聚合数据）
+  const [brandsList, setBrandsList] = useState<any[]>([]); // { id, name, logoUrl }
+  const [selectedBrandId, setSelectedBrandId] = useState<string>('');
+  const [selectedBrandName, setSelectedBrandName] = useState<string>('');
+  const [loadingCarData, setLoadingCarData] = useState(false);
 
   // 滑动关闭相关
   const touchStartY = useRef<number | null>(null);
@@ -169,8 +170,15 @@ export default function PortfolioPage() {
     setHoldings("");
     setPurchaseDate("");
     setCostPrice("");
-    setSelectedBrand(null);
-    setCarModel("");
+
+    // 重置汽车相关状态
+    setBrandsList([]);
+    setSelectedBrandId('');
+    setSelectedBrandName('');
+    // 如果是汽车类型，加载品牌列表
+    if (type === 'car') {
+      loadBrands();
+    }
   };
 
   const handleBack = () => {
@@ -183,6 +191,24 @@ export default function PortfolioPage() {
       setFoundAsset(null);
       setSearchQuery('');
       setSearchError(null);
+    }
+  };
+
+  // 加载汽车品牌列表
+  const loadBrands = async () => {
+    setLoadingCarData(true);
+    try {
+      const res = await fetch('/api/car/brands');
+      const result = await res.json();
+      if (result.success) {
+        setBrandsList(result.data || []);
+      } else {
+        console.error('加载品牌失败:', result.error);
+      }
+    } catch (error) {
+      console.error('加载品牌异常:', error);
+    } finally {
+      setLoadingCarData(false);
     }
   };
 
@@ -229,7 +255,6 @@ export default function PortfolioPage() {
           logoUrl = `https://cdn.brandfetch.io/crypto/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
         }
       }
-      // 贵金属不设置 logoUrl，将使用默认图标
 
       setFoundAsset({
         symbol: data.symbol,
@@ -254,8 +279,6 @@ export default function PortfolioPage() {
       setIsLoading(false);
       setIsSearching(false);
     }
-
-    console.log('Brandfetch Client ID:', process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID);
   };
 
   useEffect(() => {
@@ -296,8 +319,10 @@ export default function PortfolioPage() {
         setHoldings("");
         setPurchaseDate("");
         setCostPrice("");
-        setSelectedBrand(null);
-        setCarModel("");
+        // 重置汽车状态
+        setBrandsList([]);
+        setSelectedBrandId('');
+        setSelectedBrandName('');
       }
       touchStartY.current = null;
     }
@@ -307,9 +332,21 @@ export default function PortfolioPage() {
     setAssets(getAssets());
   }, []);
 
+  // 汽车添加处理（纯手动输入）
   const handleAddCarAsset = () => {
-    if (!selectedBrand || !carModel.trim() || !holdings) {
-      alert('请完整填写品牌、型号和持有数量');
+    if (!selectedBrandId) {
+      alert('请选择品牌');
+      return;
+    }
+    // 获取手动输入的车系和车型
+    const seriesInput = (document.getElementById('car-series') as HTMLInputElement)?.value || '';
+    const modelInput = (document.getElementById('car-model') as HTMLInputElement)?.value || '';
+    if (!seriesInput.trim() || !modelInput.trim()) {
+      alert('请完整填写车系和车型');
+      return;
+    }
+    if (!holdings) {
+      alert('请填写持有数量');
       return;
     }
 
@@ -317,9 +354,14 @@ export default function PortfolioPage() {
     const price = costPrice ? parseFloat(costPrice) : 0;
     const finalMarketValue = price * holdingsNum;
 
-    const carName = `${selectedBrand.name} ${carModel}`;
+    // 组合车名：品牌名 + 车系 + 车型
+    const carName = `${selectedBrandName} ${seriesInput} ${modelInput}`.trim();
+    // 从 brandsList 获取品牌 Logo
+    const brand = brandsList.find(b => b.id === selectedBrandId);
+    const logoUrl = brand?.logoUrl;
+
     const newAsset: Asset = {
-      symbol: `CAR-${selectedBrand.id}-${Date.now()}`,
+      symbol: `CAR-${selectedBrandId}-${Date.now()}`,
       name: carName,
       price: price,
       holdings: holdingsNum,
@@ -328,7 +370,7 @@ export default function PortfolioPage() {
       lastUpdated: new Date().toISOString(),
       type: 'car',
       changePercent: 0,
-      logoUrl: selectedBrand.logoUrl,
+      logoUrl: logoUrl,
       purchaseDate: purchaseDate || undefined,
       costPrice: price,
     };
@@ -338,8 +380,9 @@ export default function PortfolioPage() {
 
     alert(`已添加汽车资产: ${carName}`);
 
-    setSelectedBrand(null);
-    setCarModel("");
+    // 重置状态并关闭菜单
+    setSelectedBrandId('');
+    setSelectedBrandName('');
     setHoldings("");
     setPurchaseDate("");
     setCostPrice("");
@@ -497,14 +540,13 @@ export default function PortfolioPage() {
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
 
-            {/* 新增贵金属按钮 */}
             <button
               onClick={() => handleAssetTypeClick('metal')}
               className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
             >
               <div className="flex items-center gap-4">
                 <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                  <Coins size={24} />
+                  <Blocks size={24} />
                 </div>
                 <div className="text-left">
                   <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">贵金属</p>
@@ -543,7 +585,7 @@ export default function PortfolioPage() {
                 </div>
                 <div className="text-left">
                   <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">汽车</p>
-                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">品牌、型号手动输入</p>
+                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">品牌选择 + 手动输入</p>
                 </div>
               </div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
@@ -571,6 +613,7 @@ export default function PortfolioPage() {
     </div>
   );
 
+  // 汽车手动添加表单（品牌选择 + 手动输入车系/车型）
   const renderCarForm = () => (
     <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
       <div className="flex flex-col gap-2 mb-6">
@@ -579,43 +622,68 @@ export default function PortfolioPage() {
             汽车
           </span>
         </div>
+
+        {loadingCarData && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={24} />
+          </div>
+        )}
+
         <div className="space-y-4">
+          {/* 品牌选择 */}
           <div>
             <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">品牌</label>
             <select
               className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-              value={selectedBrand?.id || ''}
+              value={selectedBrandId}
               onChange={(e) => {
-                const brand = CAR_BRANDS.find(b => b.id === e.target.value);
-                setSelectedBrand(brand || null);
+                const brandId = e.target.value;
+                const brand = brandsList.find(b => b.id === brandId);
+                setSelectedBrandId(brandId);
+                setSelectedBrandName(brand?.name || '');
               }}
             >
               <option value="">选择品牌</option>
-              {CAR_BRANDS.map(brand => (
+              {brandsList.map(brand => (
                 <option key={brand.id} value={brand.id}>{brand.name}</option>
               ))}
             </select>
           </div>
 
+          {/* 手动输入车系 */}
           <div>
-            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">型号</label>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">车系</label>
             <input
+              id="car-series"
               type="text"
-              placeholder="例如 3系、Model Y"
+              placeholder="例如 A4L, 3系, Model Y"
               className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-              value={carModel}
-              onChange={(e) => setCarModel(e.target.value)}
             />
           </div>
 
-          {selectedBrand && (
+          {/* 手动输入车型 */}
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">车型</label>
+            <input
+              id="car-model"
+              type="text"
+              placeholder="例如 2023款 45 TFSI, 330i, 标准续航版"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            />
+          </div>
+
+          {/* Logo预览（直接从 brandsList 获取） */}
+          {selectedBrandId && (
             <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl">
-              {selectedBrand.logoUrl ? (
-                <img src={selectedBrand.logoUrl} alt={selectedBrand.name} className="w-10 h-10 object-contain" />
-              ) : (
-                <Car size={24} className="text-gray-500" />
-              )}
-              <span className="font-bold text-gray-900 dark:text-gray-100">{selectedBrand.name}</span>
+              {(() => {
+                const brand = brandsList.find(b => b.id === selectedBrandId);
+                return brand?.logoUrl ? (
+                  <img src={brand.logoUrl} alt={selectedBrandName} className="w-10 h-10 object-contain" />
+                ) : (
+                  <Car size={24} className="text-gray-500" />
+                );
+              })()}
+              <span className="font-bold text-gray-900 dark:text-gray-100">{selectedBrandName}</span>
             </div>
           )}
         </div>
@@ -662,7 +730,7 @@ export default function PortfolioPage() {
 
         <button
           onClick={handleAddCarAsset}
-          disabled={!selectedBrand || !carModel.trim() || !holdings}
+          disabled={!selectedBrandId || !holdings}
           className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
         >
           确认添加汽车
@@ -885,7 +953,15 @@ export default function PortfolioPage() {
                         <>
                           {asset.type === 'car' && <Car size={16} className="text-gray-700 dark:text-gray-200" />}
                           {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
-                          {asset.type === 'metal' && <Coins size={16} className="text-gray-700 dark:text-gray-200" />}
+                          {asset.type === 'metal' && (
+  asset.symbol && asset.symbol.includes('Ag') ? (
+    // 白银图标（可自定义图片或改用其他Lucide图标）
+    < img src="/icons/silver-bar.png" alt="Silver" className="w-4 h-4 object-contain" />
+  ) : (
+    // 黄金图标（可自定义图片或保留Coins）
+    < img src="/icons/gold-bar.png" alt="Gold" className="w-4 h-4 object-contain" />
+  )
+)}
                           {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
                         </>
                       )}
@@ -1031,8 +1107,9 @@ export default function PortfolioPage() {
           setHoldings("");
           setPurchaseDate("");
           setCostPrice("");
-          setSelectedBrand(null);
-          setCarModel("");
+          setBrandsList([]);
+          setSelectedBrandId('');
+          setSelectedBrandName('');
         }}
         className="fixed bottom-24 right-6 w-16 h-16 bg-blue-600 rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-[45] active:scale-90 transition-transform"
       >
