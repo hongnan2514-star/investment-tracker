@@ -22,11 +22,11 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   },
   crypto: {
     name: '加密货币',
-    color: '#ec4899' // 橙色
+    color: '#f59e0b' // 橙色
   },
   metal: {
     name: '贵金属',
-    color: '#f59e0b' // 粉色
+    color: '#ec4899' // 粉色
   },
   car: {
     name: '车辆',
@@ -90,10 +90,20 @@ export default function AssetPieChart() {
 
     setCurrency(assets[0].currency || 'USD');
 
-    const total = assets.reduce((sum, asset) => sum + asset.marketValue, 0);
+    // 过滤掉 marketValue 无效或为0的资产（防止 NaN）
+    const validAssets = assets.filter(asset => 
+      asset.marketValue != null && Number.isFinite(asset.marketValue) && asset.marketValue > 0
+    );
+
+    const total = validAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
     setTotalValue(total);
 
-    const typeGroups = assets.reduce((groups, asset) => {
+    if (total === 0) {
+      setPieData([]);
+      return;
+    }
+
+    const typeGroups = validAssets.reduce((groups, asset) => {
       const type = asset.type || 'unknown';
       groups[type] = (groups[type] || 0) + asset.marketValue;
       return groups;
@@ -178,25 +188,43 @@ export default function AssetPieChart() {
                 outerRadius={outerRadius}
                 paddingAngle={2}
                 dataKey="value"
-                labelLine={true}
-                label={({ name, percent, ...props }) => {
-  const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
-  const fontSize = isMobile ? 12 : 14;
-  const percentValue = percent != null ? (percent * 100).toFixed(1) + '%' : '0%';
-  return (
-    <text
-      x={props.x}
-      y={props.y}
-      fill={labelColor}
-      textAnchor="middle"
-      dominantBaseline="middle"
-      fontSize={fontSize}
-      fontWeight="600"
-    >
-      {`${name} ${percentValue}`}
-    </text>
-  );
-}}
+                labelLine={false} // 移除连线
+                label={({ name, percent, cx, cy, outerRadius, startAngle, endAngle }) => {
+                  // 如果占比小于3%或percent无效，不显示标签
+                  if (percent == null || percent < 0.03) return null;
+
+                  const RADIAN = Math.PI / 180;
+                  const midAngle = (startAngle + endAngle) / 2;
+                  // 增加偏移量，使标签远离饼图（移动端35，桌面端50）
+                  const radius = outerRadius + (isMobile ? 35 : 50);
+                  const x = cx + radius * Math.cos(midAngle * RADIAN);
+                  const y = cy + radius * Math.sin(midAngle * RADIAN);
+                  
+                  let textAnchor: 'start' | 'middle' | 'end' = 'middle';
+                  if (midAngle > 270 || midAngle < 90) {
+                    textAnchor = 'start';
+                  } else if (midAngle > 90 && midAngle < 270) {
+                    textAnchor = 'end';
+                  }
+                  
+                  const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
+                  const fontSize = isMobile ? 12 : 14;
+                  const percentValue = (percent * 100).toFixed(1) + '%';
+                  
+                  return (
+                    <text
+                      x={x}
+                      y={y}
+                      fill={labelColor}
+                      textAnchor={textAnchor}
+                      dominantBaseline="middle"
+                      fontSize={fontSize}
+                      fontWeight="600"
+                    >
+                      {`${name} ${percentValue}`}
+                    </text>
+                  );
+                }}
               >
                 {pieData.map((entry) => (
                   <Cell
@@ -211,7 +239,7 @@ export default function AssetPieChart() {
           </ResponsiveContainer>
         </div>
 
-        {/* 图例区域（保持不变） */}
+        {/* 图例区域 */}
         <div className="w-full md:w-1/2 space-y-4">
           {pieData.map((entry) => (
             <div key={entry.type} className="flex items-center justify-between">
