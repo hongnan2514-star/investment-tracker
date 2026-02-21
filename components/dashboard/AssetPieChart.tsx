@@ -6,7 +6,7 @@ import { Asset } from '@/src/constants/types';
 import { eventBus } from '@/src/utils/eventBus';
 import { useTheme } from '@/app/ThemeProvider';
 
-// 资产类型显示名称和颜色映射
+// 资产类型显示名称和颜色映射（已补全）
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   stock: {
     name: '股票',
@@ -16,6 +16,30 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
     name: '基金',
     color: '#10b981' // 绿色
   },
+  etf: {
+    name: 'ETF',     // 按你的要求改为大写
+    color: '#8b5cf6' // 紫色
+  },
+  crypto: {
+    name: '加密货币',
+    color: '#ec4899' // 橙色
+  },
+  metal: {
+    name: '贵金属',
+    color: '#f59e0b' // 粉色
+  },
+  car: {
+    name: '车辆',
+    color: '#06b6d4' // 青色
+  },
+  real_estate: {
+    name: '房产',
+    color: '#f97316' // 橙色（稍深）
+  },
+  custom: {
+    name: '自定义',
+    color: '#6b7280' // 灰色
+  }
 };
 
 // 为未知类型生成颜色的后备函数
