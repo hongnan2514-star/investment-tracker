@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryAlphaVantage } from "@/app/api/data-sources/alpha-vantage";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
-// 导入 Finnhub（主要股票源）
 import { queryFinnhub } from "@/app/api/data-sources/finnhub";
 import { searchFund } from "@/src/services/fundService";
 import { DataSourceResult } from "@/app/api/data-sources/types";
@@ -10,6 +9,13 @@ import { searchGovRealEstate } from "@/app/api/data-sources/gov-realestate";
 import { queryITick, queryITickMetal } from "@/app/api/data-sources/itick";
 import { queryJuheGold } from "@/app/api/data-sources/juhe-gold";
 
+// 内存缓存（仅用于股票/ETF）
+interface CacheEntry {
+  data: DataSourceResult;
+  timestamp: number;
+}
+const stockCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 60 * 1000; // 1分钟
 
 // A股代码规范化函数（与前端保持一致）
 function normalizeAStockSymbol(symbol: string): string {
@@ -28,17 +34,33 @@ function normalizeAStockSymbol(symbol: string): string {
  * 搜索股票或ETF（优先使用 Finnhub，降级到 Yahoo/Alpha Vantage）
  */
 async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null> {
+  // 检查缓存
+  const cached = stockCache.get(symbol);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`[搜索路由] 使用缓存 for ${symbol}`);
+    return cached.data;
+  }
+
   // 1. 先尝试 Finnhub（主要源）
   const finnhubResult = await queryFinnhub(symbol);
-  if (finnhubResult.success && finnhubResult.data) return finnhubResult;
+  if (finnhubResult.success && finnhubResult.data) {
+    stockCache.set(symbol, { data: finnhubResult, timestamp: Date.now() });
+    return finnhubResult;
+  }
 
   // 2. Finnhub 失败后，尝试 Yahoo Finance
   const yahooResult = await queryYahooFinance(symbol);
-  if (yahooResult.success && yahooResult.data) return yahooResult;
+  if (yahooResult.success && yahooResult.data) {
+    stockCache.set(symbol, { data: yahooResult, timestamp: Date.now() });
+    return yahooResult;
+  }
 
   // 3. 最后尝试 Alpha Vantage
   const avResult = await queryAlphaVantage(symbol);
-  if (avResult.success && avResult.data) return avResult;
+  if (avResult.success && avResult.data) {
+    stockCache.set(symbol, { data: avResult, timestamp: Date.now() });
+    return avResult;
+  }
 
   return null;
 }
@@ -94,21 +116,21 @@ export async function GET(request: NextRequest) {
         );
       }
     } else if (type === 'metal') {
-    console.log(`[搜索路由] 开始搜索贵金属: ${trimmedSymbol}`);
-    const result = await queryJuheGold(trimmedSymbol);
-    if (result.success) {
+      console.log(`[搜索路由] 开始搜索贵金属: ${trimmedSymbol}`);
+      const result = await queryJuheGold(trimmedSymbol);
+      if (result.success) {
         return NextResponse.json({
-            success: true,
-            ...result.data,
-            source: result.source
+          success: true,
+          ...result.data,
+          source: result.source
         });
-    } else {
+      } else {
         return NextResponse.json(
-            { error: result.error || '贵金属搜索失败' },
-            { status: 404 }
+          { error: result.error || '贵金属搜索失败' },
+          { status: 404 }
         );
-    }
-} else if (type === 'real_estate') {
+      }
+    } else if (type === 'real_estate') {
       console.log(`[搜索路由] 开始搜索房产: ${trimmedSymbol}`);
       const result = await searchGovRealEstate(trimmedSymbol);
       if (result.success) {

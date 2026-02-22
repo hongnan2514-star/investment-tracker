@@ -14,6 +14,7 @@ import { refreshAllAssets } from '@/src/services/marketService';
 import { eventBus } from '@/src/utils/eventBus';
 import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCache';
 import { useTheme } from '../ThemeProvider';
+import Link from 'next/link';
 
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   stock: { name: '股票', color: '#1e67f7' },
@@ -1146,121 +1147,126 @@ const renderSearch = () => {
     {/* 资产卡片列表 - 使用 sortedAssets */}
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {filteredAndSortedAssets.length > 0 ? (
-        filteredAndSortedAssets.map(asset => {
-          const profitLossColor = getProfitLossColor(asset);
-          const profitLossSmallColor = getProfitLossSmallColor(asset);
-          let displayPercent = asset.changePercent;
-          let displayPercentSign = displayPercent > 0 ? '+' : '';
-          if (asset.costPrice && asset.costPrice > 0) {
-            const calculatedPercent = ((asset.price - asset.costPrice) / asset.costPrice) * 100;
-            displayPercent = calculatedPercent;
-            displayPercentSign = calculatedPercent > 0 ? '+' : '';
-          }
+  filteredAndSortedAssets.map(asset => {
+    const profitLossColor = getProfitLossColor(asset);
+    const profitLossSmallColor = getProfitLossSmallColor(asset);
+    let displayPercent = asset.changePercent;
+    let displayPercentSign = displayPercent > 0 ? '+' : '';
+    if (asset.costPrice && asset.costPrice > 0) {
+      const calculatedPercent = ((asset.price - asset.costPrice) / asset.costPrice) * 100;
+      displayPercent = calculatedPercent;
+      displayPercentSign = calculatedPercent > 0 ? '+' : '';
+    }
 
-          const cachedLogo = getCachedLogo(asset.symbol);
-          const logoSrc = cachedLogo || asset.logoUrl;
+    const cachedLogo = getCachedLogo(asset.symbol);
+    const logoSrc = cachedLogo || asset.logoUrl;
 
-          return (
-            <div
-              key={asset.symbol}
-              className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all"
-            >
-              <div className="flex justify-between items-start gap-1.5">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="flex-shrink-0">
-                    {logoSrc ? (
-                      <img
-                        src={logoSrc}
-                        alt={asset.name}
-                        className="w-6 h-6 object-contain rounded-lg"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <>
-                        {asset.type === 'car' && <Car size={16} className="text-gray-700 dark:text-gray-200" />}
-                        {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
-                        {asset.type === 'metal' && (
-                          asset.symbol && asset.symbol.includes('Ag') ? (
-                            <img 
-                              src={`/icons/silver-bar-${theme}.png`} 
-                              alt="Silver" 
-                              className="w-6 h-6 object-contain rounded-lg" 
-                            />
-                          ) : (
-                            <img 
-                              src={`/icons/gold-bar-${theme}.png`} 
-                              alt="Gold" 
-                              className="w-6 h-6 object-contain rounded-lg" 
-                            />
-                          )
-                        )}
-                        {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
-                      </>
+    return (
+      <Link
+        key={asset.symbol}
+        href={`/portfolio/${encodeURIComponent(asset.symbol)}`}
+        prefetch={false}
+      >
+        <div className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all cursor-pointer">
+          <div className="flex justify-between items-start gap-1.5">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex-shrink-0">
+                {logoSrc ? (
+                  <img
+                    src={logoSrc}
+                    alt={asset.name}
+                    className="w-6 h-6 object-contain rounded-lg"
+                    onError={(e) => e.currentTarget.style.display = 'none'}
+                  />
+                ) : (
+                  <>
+                    {asset.type === 'car' && <Car size={16} className="text-gray-700 dark:text-gray-200" />}
+                    {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
+                    {asset.type === 'metal' && (
+                      asset.symbol && asset.symbol.includes('Ag') ? (
+                        < img 
+                          src={`/icons/silver-bar-${theme}.png`} 
+                          alt="Silver" 
+                          className="w-6 h-6 object-contain rounded-lg" 
+                        />
+                      ) : (
+                        < img 
+                          src={`/icons/gold-bar-${theme}.png`} 
+                          alt="Gold" 
+                          className="w-6 h-6 object-contain rounded-lg" 
+                        />
+                      )
                     )}
-                  </div>
-                  <div className="text-left min-w-0 flex-1">
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
-                      {asset.name}
-                    </h4>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={asset.symbol}>
-                      {asset.symbol}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right flex-shrink-0 max-w-[90px]">
-                  <p className={`text-base font-black truncate ${profitLossColor}`} title={`${currencySymbolMap[asset.currency]}${asset.marketValue.toFixed(2)}`}>
-                    {currencySymbolMap[asset.currency]}{formatLargeNumber(asset.marketValue)}
-                  </p>
-                  {displayPercent !== 0 && (
-                    <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
-                      {displayPercentSign}{displayPercent.toFixed(2)}%
-                    </p>
-                  )}
-                </div>
+                    {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
+                  </>
+                )}
               </div>
-
-              <div className="flex justify-end mt-0.5">
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${asset.holdings.toFixed(2)}份`}>
-                  {asset.holdings.toFixed(2)}份
-                </p>
-              </div>
-
-              <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
-                <div className="flex items-center gap-1 min-w-0 flex-1">
-                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
-                    {asset.costPrice ? '市价/成本' : '市价'}
-                  </p>
-                  {asset.costPrice ? (
-                    <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${currencySymbolMap[asset.currency]}${asset.price.toFixed(2)} / ${currencySymbolMap[asset.currency]}${asset.costPrice.toFixed(2)}`}>
-                      {currencySymbolMap[asset.currency]}{asset.price.toFixed(2)} / {currencySymbolMap[asset.currency]}{asset.costPrice.toFixed(2)}
-                    </p>
-                  ) : (
-                    <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${currencySymbolMap[asset.currency]}${asset.price.toFixed(2)}`}>
-                      {currencySymbolMap[asset.currency]}{asset.price.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => handleDeleteAsset(asset.symbol)}
-                  className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
-                >
-                  删除
-                </button>
+              <div className="text-left min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
+                  {asset.name}
+                </h4>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={asset.symbol}>
+                  {asset.symbol}
+                </p >
               </div>
             </div>
-          );
-        })
-      ) : (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
+
+            <div className="text-right flex-shrink-0 max-w-[90px]">
+              <p className={`text-base font-black truncate ${profitLossColor}`} title={`${currencySymbolMap[asset.currency]}${asset.marketValue.toFixed(2)}`}>
+                {currencySymbolMap[asset.currency]}{formatLargeNumber(asset.marketValue)}
+              </p >
+              {displayPercent !== 0 && (
+                <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
+                  {displayPercentSign}{displayPercent.toFixed(2)}%
+                </p >
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-0.5">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${asset.holdings.toFixed(2)}份`}>
+              {asset.holdings.toFixed(2)}份
+            </p >
+          </div>
+
+          <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
+                {asset.costPrice ? '市价/成本' : '市价'}
+              </p >
+              {asset.costPrice ? (
+                <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${currencySymbolMap[asset.currency]}${asset.price.toFixed(2)} / ${currencySymbolMap[asset.currency]}${asset.costPrice.toFixed(2)}`}>
+                  {currencySymbolMap[asset.currency]}{asset.price.toFixed(2)} / {currencySymbolMap[asset.currency]}{asset.costPrice.toFixed(2)}
+                </p >
+              ) : (
+                <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${currencySymbolMap[asset.currency]}${asset.price.toFixed(2)}`}>
+                  {currencySymbolMap[asset.currency]}{asset.price.toFixed(2)}
+                </p >
+              )}
+            </div>
+            <button
+              onClick={(e) => {
+                e.preventDefault(); // 阻止 Link 跳转
+                handleDeleteAsset(asset.symbol);
+              }}
+              className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+      </Link>
+    );
+  })
+) : (
+  // 空状态保持不变
+  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
     <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
       点击右下方加号开始追踪您的投资
     </p >
   </div>
-      )}
+)}
     </div>
 
     {/* 菜单浮层 */}

@@ -1,3 +1,4 @@
+// src/services/fundHistoryDB.ts
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
@@ -59,6 +60,21 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_fund_nav_code_date ON fund_nav_history(code, date);
   CREATE INDEX IF NOT EXISTS idx_fund_nav_date ON fund_nav_history(date);
+`);
+
+// 创建股票历史价格表
+db.exec(`
+  CREATE TABLE IF NOT EXISTS stock_price_history (
+    symbol TEXT,
+    date TEXT,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL,
+    volume INTEGER,
+    PRIMARY KEY (symbol, date)
+  );
+  CREATE INDEX IF NOT EXISTS idx_stock_price_symbol_date ON stock_price_history(symbol, date);
 `);
 
 // 添加 source 列（如果不存在），用于区分数据来源
@@ -223,4 +239,64 @@ export function getAllFundCodes(): string[] {
   const stmt = db.prepare(`SELECT code FROM fund_info`);
   const rows = stmt.all() as { code: string }[];
   return rows.map(row => row.code);
+}
+
+// ========== 股票历史数据 ==========
+export interface StockPrice {
+  symbol: string;
+  date: string;      // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+/**
+ * 获取股票历史价格
+ * @param symbol 股票代码（如 "AAPL"）
+ * @param days 获取最近多少天的数据，默认365天
+ */
+export function getStockHistory(symbol: string, days: number = 365): StockPrice[] {
+  const stmt = db.prepare(`
+    SELECT * FROM stock_price_history 
+    WHERE symbol = ? 
+    AND date >= date('now', ?)
+    ORDER BY date ASC
+  `);
+  return stmt.all(symbol, `-${days} days`) as StockPrice[];
+}
+
+/**
+ * 保存股票历史价格（批量）
+ */
+export function saveStockHistory(records: StockPrice[]) {
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO stock_price_history (symbol, date, open, high, low, close, volume)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const transaction = db.transaction((records) => {
+    for (const r of records) {
+      insert.run(r.symbol, r.date, r.open, r.high, r.low, r.close, r.volume);
+    }
+  });
+  transaction(records);
+}
+
+/**
+ * 检查是否需要更新股票历史数据
+ * 如果最近一条数据距今超过3天，则返回 true（需要更新）
+ */
+export function needsStockUpdate(symbol: string): boolean {
+  const stmt = db.prepare(`
+    SELECT date FROM stock_price_history 
+    WHERE symbol = ? 
+    ORDER BY date DESC LIMIT 1
+  `);
+  const row = stmt.get(symbol) as { date: string } | undefined;
+  if (!row) return true;
+  const lastDate = new Date(row.date);
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() - 3);
+  return lastDate < threshold;
 }

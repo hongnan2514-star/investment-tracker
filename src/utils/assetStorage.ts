@@ -16,6 +16,19 @@ export const setCurrentUserId = (userId: string | null) => {
   eventBus.emit('userChanged', userId);
 };
 
+export function getAssetBySymbol(symbol: string): Asset | null {
+  const assetsKey = getAssetsKey();
+  if (!assetsKey) return null;
+  const stored = localStorage.getItem(assetsKey);
+  if (!stored) return null;
+  try {
+    const assets = JSON.parse(stored) as Asset[];
+    return assets.find(a => a.symbol === symbol) || null;
+  } catch {
+    return null;
+  }
+}
+
 const getAssetsKey = (): string | null => {
   const userId = getCurrentUserId();
   return userId ? `assets_${userId}` : null;
