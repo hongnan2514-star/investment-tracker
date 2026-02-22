@@ -88,7 +88,6 @@ export default function PortfolioPage() {
   const touchStartY = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [hiddenAssetTypes, setHiddenAssetTypes] = useState<Set<string>>(() => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem(HIDDEN_TYPES_KEY);
@@ -1031,7 +1030,7 @@ const renderSearch = () => {
     {showSortMenu && (
   <>
     <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)} />
-    <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]">
+    <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 min-w-[160px] sm:min-w-[200px] max-w-[90vw]">
       {/* 排序方式标题行 */}
       <div
         className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
@@ -1143,68 +1142,6 @@ const renderSearch = () => {
     </div>
   </>
 )}
-   
-   {showFilterMenu && (
-  <>
-    <div className="fixed inset-0 z-40" onClick={() => setShowFilterMenu(false)} />
-    <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]">
-      <div className="flex items-center justify-between px-3 py-2">
-        <button
-          onClick={() => {
-            setShowFilterMenu(false);
-            setShowSortMenu(true);
-          }}
-          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
-        >
-          <ArrowLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-        </button>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex-1 text-center">筛选资产</span>
-        <div className="w-6"></div>
-      </div>
-      <div className="mt-2 space-y-1">
-        {allAssetTypes.length > 0 ? (
-          allAssetTypes.map(type => {
-            const typeNameMap: Record<string, string> = {
-              stock: '股票',
-              fund: '基金',
-              etf: 'ETF',
-              crypto: '加密货币',
-              metal: '贵金属',
-              car: '车辆',
-              real_estate: '房产',
-              custom: '自定义'
-            };
-            const displayName = typeNameMap[type] || type;
-            return (
-              <button
-                key={type}
-                onClick={() => {
-                  const newHidden = new Set(hiddenAssetTypes);
-                  if (newHidden.has(type)) {
-                    newHidden.delete(type);
-                  } else {
-                    newHidden.add(type);
-                  }
-                  setHiddenAssetTypes(newHidden);
-                }}
-                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                  hiddenAssetTypes.has(type)
-                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                    : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
-                }`}
-              >
-                {displayName}
-              </button>
-            );
-          })
-        ) : (
-          <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">暂无资产</div>
-        )}
-      </div>
-    </div>
-  </>
-)}
-
 
     {/* 资产卡片列表 - 使用 sortedAssets */}
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
