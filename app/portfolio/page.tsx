@@ -1030,7 +1030,7 @@ const renderSearch = () => {
     {showSortMenu && (
   <>
     <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)} />
-    <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 min-w-[160px] sm:min-w-[200px] max-w-[90vw]">
+    <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 w-[160px] sm:min-w-[200px] max-w-[90vw]">
       {/* 排序方式标题行 */}
       <div
         className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
