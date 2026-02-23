@@ -316,11 +316,12 @@ useEffect(() => {
           </div>
           <div>
             <input
-              type="date"
-              value={buyDate}
-              onChange={(e) => setBuyDate(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-1.5 pl-6 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-            />
+  type="date"
+  value={activeTab === 'buy' ? buyDate : sellDate}
+  onChange={(e) => activeTab === 'buy' ? setBuyDate(e.target.value) : setSellDate(e.target.value)}
+  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+  style={{ minWidth: 0 }}
+/>
           </div>
           <button
             onClick={handleBuy}
