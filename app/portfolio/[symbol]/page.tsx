@@ -199,7 +199,7 @@ useEffect(() => {
   </div>
 
   {/* 右侧四个指标竖排 */}
-  <div className="flex flex-col gap-0 flex-shrink-0 min-w-[130px] translate-x-4">
+<div className="flex flex-col gap-0 ml-auto min-w-[130px]">
   <div className="leading-4">
     <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">当前市价</span>
     <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
