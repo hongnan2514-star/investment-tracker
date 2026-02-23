@@ -86,3 +86,42 @@ export async function queryCryptoCCXT(symbol: string): Promise<DataSourceResult>
         };
     }
 }
+
+/**
+ * 获取加密货币历史K线数据（日线）
+ * @param symbol 用户输入的代码，如 "BTC"
+ * @param days 需要获取的天数，默认365
+ */
+export async function queryCryptoHistory(symbol: string, days: number = 365): Promise<{ date: string; close: number }[] | null> {
+  const cleanSymbol = symbol.toUpperCase().trim();
+  const marketSymbol = `${cleanSymbol}/USDT`;
+
+  const exchange: Exchange = new ccxt.binance({
+    enableRateLimit: true,
+    options: { defaultType: 'spot' }
+  });
+
+  try {
+    await exchange.loadMarkets();
+    if (!exchange.markets?.[marketSymbol]) {
+      console.log(`[CCXT] 交易对 ${marketSymbol} 不存在`);
+      return null;
+    }
+
+    const since = exchange.parse8601(new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
+    const ohlcvs = await exchange.fetchOHLCV(marketSymbol, '1d', since, days);
+    
+    // 过滤掉无效数据，确保每个元素都是有效数组
+    const history = ohlcvs
+      .filter(ohlcv => ohlcv && ohlcv.length >= 5 && typeof ohlcv[0] === 'number' && typeof ohlcv[4] === 'number')
+      .map(ohlcv => ({
+        date: new Date(ohlcv[0] as number).toISOString().split('T')[0],
+        close: ohlcv[4] as number,
+      }));
+
+    return history;
+  } catch (error) {
+    console.error('[CCXT] 获取历史数据失败:', error);
+    return null;
+  }
+}

@@ -60,10 +60,8 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_fund_nav_code_date ON fund_nav_history(code, date);
   CREATE INDEX IF NOT EXISTS idx_fund_nav_date ON fund_nav_history(date);
-`);
 
-// 创建股票历史价格表
-db.exec(`
+  -- 股票历史价格表
   CREATE TABLE IF NOT EXISTS stock_price_history (
     symbol TEXT,
     date TEXT,
@@ -75,6 +73,19 @@ db.exec(`
     PRIMARY KEY (symbol, date)
   );
   CREATE INDEX IF NOT EXISTS idx_stock_price_symbol_date ON stock_price_history(symbol, date);
+
+  -- 加密货币历史价格表
+  CREATE TABLE IF NOT EXISTS crypto_price_history (
+    symbol TEXT,
+    date TEXT,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL,
+    volume REAL,
+    PRIMARY KEY (symbol, date)
+  );
+  CREATE INDEX IF NOT EXISTS idx_crypto_symbol_date ON crypto_price_history(symbol, date);
 `);
 
 // 添加 source 列（如果不存在），用于区分数据来源
@@ -300,3 +311,82 @@ export function needsStockUpdate(symbol: string): boolean {
   threshold.setDate(threshold.getDate() - 3);
   return lastDate < threshold;
 }
+
+// ========== 加密货币历史数据 ==========
+export interface CryptoPrice {
+  symbol: string;    // 例如 "BTC/USDT"
+  date: string;      // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+// 创建表（在 db.exec 部分添加）
+// 请确保已在初始化时执行该 SQL
+/*
+db.exec(`
+  CREATE TABLE IF NOT EXISTS crypto_price_history (
+    symbol TEXT,
+    date TEXT,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL,
+    volume REAL,
+    PRIMARY KEY (symbol, date)
+  );
+  CREATE INDEX IF NOT EXISTS idx_crypto_symbol_date ON crypto_price_history(symbol, date);
+`);
+*/
+
+/**
+ * 获取加密货币历史价格
+ * @param symbol 交易对，如 "BTC/USDT"
+ * @param days 获取最近多少天的数据，默认365天
+ */
+export function getCryptoHistory(symbol: string, days: number = 365): CryptoPrice[] {
+  const stmt = db.prepare(`
+    SELECT * FROM crypto_price_history 
+    WHERE symbol = ? 
+    AND date >= date('now', ?)
+    ORDER BY date ASC
+  `);
+  return stmt.all(symbol, `-${days} days`) as CryptoPrice[];
+}
+
+/**
+ * 保存加密货币历史价格（批量）
+ */
+export function saveCryptoHistory(records: CryptoPrice[]) {
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO crypto_price_history (symbol, date, open, high, low, close, volume)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const transaction = db.transaction((records) => {
+    for (const r of records) {
+      insert.run(r.symbol, r.date, r.open, r.high, r.low, r.close, r.volume);
+    }
+  });
+  transaction(records);
+}
+
+/**
+ * 检查是否需要更新加密货币历史数据
+ * 如果最近一条数据距今超过1天，则返回 true（需要更新）
+ */
+export function needsCryptoUpdate(symbol: string): boolean {
+  const stmt = db.prepare(`
+    SELECT date FROM crypto_price_history 
+    WHERE symbol = ? 
+    ORDER BY date DESC LIMIT 1
+  `);
+  const row = stmt.get(symbol) as { date: string } | undefined;
+  if (!row) return true;
+  const lastDate = new Date(row.date);
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() - 1);
+  return lastDate < threshold;
+}
+

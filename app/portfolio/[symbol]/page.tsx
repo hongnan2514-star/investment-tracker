@@ -18,6 +18,7 @@ export default function AssetDetailPage() {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [assetHistory, setAssetHistory] = useState<{ value: number }[]>([]);
+  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
 
   // 加仓表单
   const [buyQuantity, setBuyQuantity] = useState('');
@@ -115,6 +116,23 @@ export default function AssetDetailPage() {
     setSellPrice('');
     setSellDate('');
   };
+  
+  // 模拟交易记录（后续可从资产对象中读取）
+const mockBuyRecords = [
+  { date: '2024-02-20', quantity: 100, price: 310.5 },
+  { date: '2024-02-15', quantity: 50, price: 305.2 },
+  { date: '2024-02-10', quantity: 200, price: 298.0 },
+];
+const mockSellRecords = [
+  { date: '2024-02-18', quantity: 30, price: 320.0 },
+  { date: '2024-02-12', quantity: 80, price: 315.5 },
+];
+const [transactionHistory, setTransactionHistory] = useState(mockBuyRecords);
+
+// 当选项卡切换时更新记录列表
+useEffect(() => {
+  setTransactionHistory(activeTab === 'buy' ? mockBuyRecords : mockSellRecords);
+}, [activeTab]);
 
   const formatLargeNumber = (num: number): string => {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -240,68 +258,84 @@ export default function AssetDetailPage() {
         </div>
       </div>
 
+      {/* 交易卡片 - 加仓/卖出 */}
+<div className="rounded-3xl p-3 md:p-6 shadow-lg mb-6">
+  <div className="flex flex-row gap-2">
+    {/* 左侧加仓/卖出按钮及表单（占3/5） */}
+    <div className="w-3/5">
+      {/* 加仓/卖出按钮带滑动背景块 */}
+      <div className="relative flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1 mb-2">
+        <div
+          className={`absolute top-1 bottom-1 w-1/2 rounded-lg transition-transform duration-300 ease-in-out ${
+            activeTab === 'buy' ? 'bg-green-600 translate-x-0' : 'bg-red-600 translate-x-full'
+          }`}
+        />
+        <button
+          className={`flex-1 py-2 text-xs font-bold rounded-lg relative z-10 ${
+            activeTab === 'buy' ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+          }`}
+          onClick={() => setActiveTab('buy')}
+        >
+          加仓
+        </button>
+        <button
+          className={`flex-1 py-2 text-xs font-bold rounded-lg relative z-10 ${
+            activeTab === 'sell' ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+          }`}
+          onClick={() => setActiveTab('sell')}
+        >
+          卖出
+        </button>
+      </div>
+
       {/* 加仓表单 */}
-      <div className="rounded-3xl p-6 shadow-lg mb-6">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-          <TrendingUp size={20} className="text-green-500" />
-          加仓记录
-        </h2>
-        <div className="space-y-4">
+      {activeTab === 'buy' && (
+        <div className="space-y-2">
           <div>
-            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">加仓数量</label>
             <input
               type="number"
               step="0.01"
               min="0.01"
               value={buyQuantity}
               onChange={(e) => setBuyQuantity(e.target.value)}
-              placeholder="0.00"
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+              placeholder="数量"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs">{currencySymbol}</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={buyPrice}
+              onChange={(e) => setBuyPrice(e.target.value)}
+              placeholder="价格"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-6 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">加仓价格</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">{currencySymbol}</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={buyPrice}
-                onChange={(e) => setBuyPrice(e.target.value)}
-                placeholder="0.00"
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-4 pl-10 rounded-2xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">加仓日期</label>
             <input
               type="date"
               value={buyDate}
               onChange={(e) => setBuyDate(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-4 rounded-2xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
             />
           </div>
           <button
             onClick={handleBuy}
             disabled={!buyQuantity || !buyPrice}
-            className="w-full bg-green-600 text-white font-bold py-4 rounded-2xl disabled:bg-gray-300 dark:disabled:bg-gray-600 active:scale-[0.98] transition-transform"
+            className="w-full bg-green-600 text-white font-bold py-2 text-xs rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
           >
             确认加仓
           </button>
         </div>
-      </div>
+      )}
 
       {/* 卖出表单 */}
-      <div className="rounded-3xl p-6 shadow-lg">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-          <TrendingDown size={20} className="text-red-500" />
-          卖出记录
-        </h2>
-        <div className="space-y-4">
+      {activeTab === 'sell' && (
+        <div className="space-y-2">
           <div>
-            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">卖出数量</label>
             <input
               type="number"
               step="0.01"
@@ -309,43 +343,65 @@ export default function AssetDetailPage() {
               max={asset.holdings}
               value={sellQuantity}
               onChange={(e) => setSellQuantity(e.target.value)}
-              placeholder={`最多 ${asset.holdings.toFixed(2)}`}
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-4 rounded-2xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+              placeholder="数量"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs">{currencySymbol}</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={sellPrice}
+              onChange={(e) => setSellPrice(e.target.value)}
+              placeholder="价格"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-6 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">卖出价格</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">{currencySymbol}</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={sellPrice}
-                onChange={(e) => setSellPrice(e.target.value)}
-                placeholder="0.00"
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-4 pl-10 rounded-2xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase ml-1">卖出日期</label>
             <input
               type="date"
               value={sellDate}
               onChange={(e) => setSellDate(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border-2 border-gray-100 dark:border-gray-800 p-4 rounded-2xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
             />
           </div>
           <button
             onClick={handleSell}
             disabled={!sellQuantity || !sellPrice}
-            className="w-full bg-red-600 text-white font-bold py-4 rounded-2xl disabled:bg-gray-300 dark:disabled:bg-gray-600 active:scale-[0.98] transition-transform"
+            className="w-full bg-red-600 text-white font-bold py-2 text-xs rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
           >
             确认卖出
           </button>
         </div>
-      </div>
+      )}
+    </div>
+
+    {/* 右侧最近操作记录（占2/5） */}
+    <div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2">
+      <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">
+        {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}
+      </h4>
+      {transactionHistory.length === 0 ? (
+        <p className="text-[9px] text-gray-400 dark:text-gray-500 text-center py-1">暂无记录</p >
+      ) : (
+        <div className="space-y-1 max-h-24 overflow-y-auto">
+          {transactionHistory.map((record, idx) => (
+            <div key={idx} className="flex justify-between items-center text-[9px] bg-gray-50 dark:bg-[#1a1a1a] p-1 rounded">
+              <span className="text-gray-600 dark:text-gray-400">{record.date.slice(5)}</span>
+              <span className="font-bold text-gray-900 dark:text-gray-100">{record.quantity}</span>
+              <span className="font-bold text-gray-900 dark:text-gray-100">
+                {currencySymbol}{record.price.toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+
 
       {/* 消息提示 */}
       {message && (

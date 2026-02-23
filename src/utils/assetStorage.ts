@@ -1,6 +1,9 @@
 import { Asset } from '@/src/constants/types';
 import { eventBus } from './eventBus';
 
+// 内存缓存 Map，键为资产 symbol，值为资产对象
+let assetsMap: Map<string, Asset> | null = null;
+
 export const getCurrentUserId = (): string | null => {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('currentUserId');
@@ -13,26 +16,49 @@ export const setCurrentUserId = (userId: string | null) => {
   } else {
     localStorage.removeItem('currentUserId');
   }
+  assetsMap = null; // 切换用户时清空缓存
   eventBus.emit('userChanged', userId);
 };
 
-export function getAssetBySymbol(symbol: string): Asset | null {
+function getAssetsKey(): string | null {
+  const userId = getCurrentUserId();
+  return userId ? `assets_${userId}` : null;
+}
+
+function loadAssetsMap(): void {
   const assetsKey = getAssetsKey();
-  if (!assetsKey) return null;
-  const stored = localStorage.getItem(assetsKey);
-  if (!stored) return null;
+  if (!assetsKey) {
+    assetsMap = new Map();
+    return;
+  }
+  const data = localStorage.getItem(assetsKey);
+  if (!data) {
+    assetsMap = new Map();
+    return;
+  }
   try {
-    const assets = JSON.parse(stored) as Asset[];
-    return assets.find(a => a.symbol === symbol) || null;
-  } catch {
-    return null;
+    const assets = JSON.parse(data) as Asset[];
+    // 数据清洗（保持与 getAssets 一致）
+    const cleanedAssets = assets.map(asset => ({
+      ...asset,
+      type: asset.type || 'stock',
+      purchaseDate: asset.purchaseDate,
+      costPrice: asset.costPrice,
+    }));
+    assetsMap = new Map(cleanedAssets.map(asset => [asset.symbol, asset]));
+  } catch (error) {
+    console.error('Invalid asset data:', error);
+    localStorage.removeItem(assetsKey);
+    assetsMap = new Map();
   }
 }
 
-const getAssetsKey = (): string | null => {
-  const userId = getCurrentUserId();
-  return userId ? `assets_${userId}` : null;
-};
+export function getAssetBySymbol(symbol: string): Asset | null {
+  if (!assetsMap) {
+    loadAssetsMap();
+  }
+  return assetsMap?.get(symbol) || null;
+}
 
 export const getAssets = (): Asset[] => {
   if (typeof window === 'undefined') return [];
@@ -45,15 +71,19 @@ export const getAssets = (): Asset[] => {
 
   try {
     const assets = JSON.parse(data) as Asset[];
-    return assets.map(asset => ({
+    const cleanedAssets = assets.map(asset => ({
       ...asset,
       type: asset.type || 'stock',
       purchaseDate: asset.purchaseDate,
       costPrice: asset.costPrice,
     }));
+    // 更新缓存
+    assetsMap = new Map(cleanedAssets.map(asset => [asset.symbol, asset]));
+    return cleanedAssets;
   } catch (error) {
     console.error('Invalid asset data:', error);
     localStorage.removeItem(assetsKey);
+    assetsMap = null;
     return [];
   }
 };
@@ -67,7 +97,7 @@ export const addAsset = (newAsset: Asset) => {
     return;
   }
 
-  const assets = getAssets();
+  const assets = getAssets(); // 会自动更新缓存
   const existingIndex = assets.findIndex((asset: Asset) => asset.symbol === newAsset.symbol);
 
   if (existingIndex !== -1) {
@@ -90,6 +120,8 @@ export const addAsset = (newAsset: Asset) => {
   }
 
   localStorage.setItem(assetsKey, JSON.stringify(assets));
+  // 更新缓存
+  assetsMap = new Map(assets.map(asset => [asset.symbol, asset]));
   eventBus.emit('assetsUpdated');
 };
 
@@ -101,6 +133,8 @@ export const removeAsset = (symbol: string) => {
 
   const assets = getAssets().filter((asset: Asset) => asset.symbol !== symbol);
   localStorage.setItem(assetsKey, JSON.stringify(assets));
+  // 更新缓存
+  assetsMap = new Map(assets.map(asset => [asset.symbol, asset]));
   eventBus.emit('assetsUpdated');
 };
 
@@ -108,5 +142,6 @@ export const clearCurrentUserAssets = () => {
   const assetsKey = getAssetsKey();
   if (assetsKey) {
     localStorage.removeItem(assetsKey);
+    assetsMap = null;
   }
 };

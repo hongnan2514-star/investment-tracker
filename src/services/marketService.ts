@@ -3,6 +3,8 @@ import { eventBus } from '@/src/utils/eventBus';
 import { getAssets } from '@/src/utils/assetStorage';
 import { recordSnapshot } from './historyService';
 
+// 注意：不再导入数据库相关函数
+
 export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
   if (assets.length === 0) return assets;
 
@@ -72,9 +74,19 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
     recordSnapshot();
   }
 
-  // 8. 通知所有组件资产已更新
+  // 8. 在后台异步更新历史数据（通过API，不阻塞主流程）
+  updatedAssets.forEach(asset => {
+    if (asset.type === 'stock' || asset.type === 'etf' || asset.type === 'crypto') {
+      fetch('/api/history/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asset })
+      }).catch(err => console.error(`后台历史更新请求失败 ${asset.symbol}:`, err));
+    }
+  });
+
+  // 9. 通知所有组件资产已更新
   eventBus.emit('assetsUpdated', updatedAssets);
   
   return updatedAssets;
 }
-

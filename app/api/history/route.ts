@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFundHistory } from '@/src/services/fundHistoryDB'; // 基金历史（从本地数据库）
 import { queryFinnhub } from '@/app/api/data-sources/finnhub'; // 用于股票历史（需调整）
+import { getCryptoHistory, saveCryptoHistory, needsCryptoUpdate } from '@/src/services/fundHistoryDB';
+import { queryCryptoHistory } from '@/app/api/data-sources/crypto-ccxt';
 
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get('symbol');
