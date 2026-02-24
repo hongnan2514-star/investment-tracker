@@ -1,6 +1,11 @@
+// app/api/data-sources/crypto-ccxt.ts
 import ccxt, { Exchange, Ticker } from 'ccxt';
 import { DataSourceResult, UnifiedAsset } from './types';
 
+/**
+ * 查询单个加密货币的实时行情（通过 KuCoin 交易所）
+ * @param symbol 用户输入的代码，如 "BTC"
+ */
 export async function queryCryptoCCXT(symbol: string): Promise<DataSourceResult> {
     const cleanSymbol = symbol.toUpperCase().trim();
     const baseMarket = `${cleanSymbol}/USDT`;
@@ -122,6 +127,60 @@ export async function queryCryptoHistory(symbol: string, days: number = 365): Pr
     return history;
   } catch (error) {
     console.error('[CCXT] 获取历史数据失败:', error);
+    return null;
+  }
+}
+
+/**
+ * 获取加密货币OHLCV数据（支持不同时间粒度）
+ * @param symbol 基础币种，如 "BTC"
+ * @param timeframe 时间粒度，如 '5m', '15m', '1h'
+ * @param limit 获取条数，默认288
+ * @returns 按时间升序的 { timestamp: number, close: number } 数组
+ */
+export async function queryCryptoOHLCV(
+  symbol: string,
+  timeframe: string = '5m',
+  limit: number = 288
+): Promise<{ timestamp: number; close: number }[] | null> {
+  const cleanSymbol = symbol.toUpperCase().trim();
+  const marketSymbol = `${cleanSymbol}/USDT`;
+
+  const exchange: Exchange = new ccxt.binance({
+    enableRateLimit: true,
+    options: { defaultType: 'spot' }
+  });
+
+  try {
+    await exchange.loadMarkets();
+    if (!exchange.markets?.[marketSymbol]) {
+      console.log(`[CCXT] 交易对 ${marketSymbol} 不存在`);
+      return null;
+    }
+
+    // 计算起始时间戳（毫秒）
+    // exchange.parseTimeframe(timeframe) 返回以秒为单位的时间间隔
+    const since = exchange.parse8601(
+      new Date(Date.now() - limit * exchange.parseTimeframe(timeframe) * 1000).toISOString()
+    );
+    const ohlcvs = await exchange.fetchOHLCV(marketSymbol, timeframe, since, limit);
+
+    // 过滤出有效的 OHLCV 条目：
+    // - ohlcv 存在且长度至少为5（包含时间、开、高、低、收）
+    // - 收盘价（索引4）必须为 number 类型
+    // 使用类型谓词将类型收窄为明确的元组，以便后续使用
+    const validOHLCVs = ohlcvs.filter(
+      (ohlcv): ohlcv is [number, number, number, number, number, number] => 
+        ohlcv && ohlcv.length >= 5 && typeof ohlcv[4] === 'number'
+    );
+
+    // 映射为所需格式，此时 close 已确认为 number 类型
+    return validOHLCVs.map(ohlcv => ({
+      timestamp: Math.floor(ohlcv[0] / 1000), // 转换为秒级时间戳（Unix 时间戳）
+      close: ohlcv[4],
+    }));
+  } catch (error) {
+    console.error('[CCXT] 获取OHLCV失败:', error);
     return null;
   }
 }

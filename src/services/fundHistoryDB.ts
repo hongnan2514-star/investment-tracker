@@ -390,3 +390,81 @@ export function needsCryptoUpdate(symbol: string): boolean {
   return lastDate < threshold;
 }
 
+// ========== 加密货币分钟级数据 ==========
+export interface CryptoMinute {
+  symbol: string;        // 交易对，如 "BTC/USDT"
+  timestamp: number;     // Unix 秒级时间戳（分钟的开始时间）
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  resolution: string;    // 分辨率，例如 '5m', '15m'
+}
+
+// 在 db.exec 块中添加表（需放在现有的 db.exec 内）
+db.exec(`
+  CREATE TABLE IF NOT EXISTS crypto_minute_history (
+    symbol TEXT,
+    timestamp INTEGER,
+    resolution TEXT,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL,
+    volume REAL,
+    PRIMARY KEY (symbol, timestamp, resolution)
+  );
+  CREATE INDEX IF NOT EXISTS idx_crypto_minute_symbol_time ON crypto_minute_history(symbol, timestamp DESC);
+`);
+
+/**
+ * 保存加密货币分钟级数据
+ */
+export function saveCryptoMinute(records: CryptoMinute[]) {
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO crypto_minute_history (symbol, timestamp, resolution, open, high, low, close, volume)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const transaction = db.transaction((records) => {
+    for (const r of records) {
+      insert.run(r.symbol, r.timestamp, r.resolution, r.open, r.high, r.low, r.close, r.volume);
+    }
+  });
+  transaction(records);
+}
+
+/**
+ * 获取最近 N 条分钟级数据（按时间降序）
+ * @param symbol 交易对
+ * @param resolution 分辨率，如 '5m', '15m'
+ * @param limit 条数，默认288（24小时*12个5分钟）
+ */
+export function getCryptoMinuteHistory(symbol: string, resolution: string, limit: number = 288): CryptoMinute[] {
+  const stmt = db.prepare(`
+    SELECT * FROM crypto_minute_history
+    WHERE symbol = ? AND resolution = ?
+    ORDER BY timestamp DESC
+    LIMIT ?
+  `);
+  return stmt.all(symbol, resolution, limit) as CryptoMinute[];
+}
+
+/**
+ * 检查是否需要更新分钟级数据
+ * @param symbol 交易对
+ * @param resolution 分辨率，如 '5m'
+ * @param maxAgeSeconds 最大允许的数据年龄（秒），例如 5*60 表示5分钟
+ */
+export function needsCryptoMinuteUpdate(symbol: string, resolution: string, maxAgeSeconds: number): boolean {
+  const stmt = db.prepare(`
+    SELECT timestamp FROM crypto_minute_history
+    WHERE symbol = ? AND resolution = ?
+    ORDER BY timestamp DESC LIMIT 1
+  `);
+  const row = stmt.get(symbol, resolution) as { timestamp: number } | undefined;
+  if (!row) return true;
+  const lastTime = row.timestamp * 1000;
+  const now = Date.now();
+  return (now - lastTime) > maxAgeSeconds * 1000;
+}

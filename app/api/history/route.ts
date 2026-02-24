@@ -1,12 +1,15 @@
+// app/api/history/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getFundHistory } from '@/src/services/fundHistoryDB'; // 基金历史（从本地数据库）
 import { queryFinnhub } from '@/app/api/data-sources/finnhub'; // 用于股票历史（需调整）
 import { getCryptoHistory, saveCryptoHistory, needsCryptoUpdate } from '@/src/services/fundHistoryDB';
-import { queryCryptoHistory } from '@/app/api/data-sources/crypto-ccxt';
+import { queryCryptoOHLCV } from '@/app/api/data-sources/crypto-ccxt';
 
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get('symbol');
   const type = request.nextUrl.searchParams.get('type');
+  const range = request.nextUrl.searchParams.get('range') || '1d';  // 默认日线
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '365');
 
   if (!symbol || !type) {
     return NextResponse.json({ error: '缺少参数' }, { status: 400 });
@@ -16,9 +19,13 @@ export async function GET(request: NextRequest) {
     let history: { date: string; value: number }[] = [];
 
     if (type === 'fund') {
+      if (range === '1d'){
       // 基金：从本地数据库获取最近一年数据
-      const fundHistory = getFundHistory(symbol, 365); // 假设返回 FundNav[]
+      const fundHistory = getFundHistory(symbol, limit); // 假设返回 FundNav[]
       history = fundHistory.map(item => ({ date: item.date, value: item.nav }));
+      } else {
+      history = []      
+    }
     } else if (type === 'stock' || type === 'etf') {
       // 股票/ETF：调用 Finnhub 获取一年日线数据
       // Finnhub 的 /stock/candle 接口需要 from/to 时间戳
@@ -35,17 +42,34 @@ export async function GET(request: NextRequest) {
           value: data.c[index],
         }));
       }
-    } else if (type === 'crypto') {
-      // 加密货币：使用 CCXT 获取历史（需要选择一个交易所，如 binance）
-      // 这里简单返回空数组，可根据需要实现
-      history = [];
+    }  else if (type === 'crypto') {
+  const resolution = range;
+  if (['5m', '15m', '30m', '1h'].includes(resolution)) {
+    const baseSymbol = symbol.split('/')[0]; // 从 "BTC/USDT" 获取 "BTC"
+    const minuteData = await queryCryptoOHLCV(baseSymbol, resolution, limit);
+    // 更健壮的判断：确保 minuteData 是数组
+    if (minuteData && Array.isArray(minuteData)) {
+      history = minuteData
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .map(item => ({
+          date: new Date(item.timestamp * 1000).toISOString(),
+          value: item.close,
+        }));
     } else {
-      // 其他类型暂不支持历史
+      console.warn(`[Crypto] 无法获取 ${symbol} 的 ${resolution} 数据`);
+      history = [];
+    }
+  } else {
+    const cryptoHistory = getCryptoHistory(symbol, limit);
+    history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
+  }
+} else {
       history = [];
     }
 
     return NextResponse.json({ success: true, data: history });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[历史API] 错误:', error);
+    return NextResponse.json({ success: false, data: [], error: error.message });
   }
 }

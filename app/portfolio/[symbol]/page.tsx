@@ -41,15 +41,18 @@ export default function AssetDetailPage() {
 
   useEffect(() => {
     if (!asset) return;
+
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`/api/history?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}`);
+        const res = await fetch(`/api/history?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&range=1h&limit=24`);
         const json = await res.json();
-        if (json.success) {
+        if (json.success && json.data && json.data.length > 0) {
           setAssetHistory(json.data.map((item: any) => ({ value: item.value })));
+        } else {
+          console.log('无最新数据,保持现有数据');
         }
       } catch (error) {
-        console.error('获取历史失败', error);
+        console.error('获取24小时历史数据失败,保持现有数据', error);
       }
     };
     fetchHistory();
