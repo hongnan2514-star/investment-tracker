@@ -1,20 +1,7 @@
 // src/services/fundHistoryDB.ts
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+import { neon } from '@neondatabase/serverless';
 
-// --- 调试输出开始 ---
-console.log('======= fundHistoryDB 调试信息 =======');
-const dbPathForDebug = path.join(process.cwd(), 'data', 'fund_history.db');
-console.log('dbPath (JSON):', JSON.stringify(dbPathForDebug));
-console.log('process.cwd():', process.cwd());
-// 打印所有环境变量名（不包含值，避免泄露敏感信息）
-console.log('环境变量列表:', Object.keys(process.env).sort().join(', '));
-// 可选：如果怀疑特定变量有问题，可以打印其值（注意安全）
-// 例如 console.log('MONGODB_URI:', process.env.MONGODB_URI);
-console.log('======= 调试输出结束 =======\n');
-// --- 调试输出结束 ---
-
+// ==================== 类型定义 ====================
 export interface FundNav {
   code: string;
   date: string;      // YYYY-MM-DD
@@ -23,80 +10,45 @@ export interface FundNav {
   change: number;    // 日增长率
 }
 
-const DB_PATH = path.join(process.cwd(), 'data', 'fund_history.db');
-
-// 确保 data 目录存在
-if (!fs.existsSync(path.dirname(DB_PATH))) {
-  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+export interface StockPrice {
+  symbol: string;
+  date: string;      // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }
 
-// 使用 try-catch 包裹数据库初始化，捕获详细错误
-let db: Database.Database;
-try {
-  db = new Database(DB_PATH);
-} catch (err) {
-  console.error('❌ 数据库打开失败，详细错误:');
-  console.error(err);
-  // 重新抛出错误，让应用停止
-  throw err;
+export interface CryptoPrice {
+  symbol: string;    // 例如 "BTC/USDT"
+  date: string;      // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }
 
-// 初始化数据库表
-db.exec(`
-  CREATE TABLE IF NOT EXISTS fund_info (
-    code TEXT PRIMARY KEY,
-    name TEXT,
-    last_update TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS fund_nav_history (
-    code TEXT,
-    date TEXT,
-    nav REAL,
-    accum_nav REAL,
-    change REAL,
-    PRIMARY KEY (code, date)
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_fund_nav_code_date ON fund_nav_history(code, date);
-  CREATE INDEX IF NOT EXISTS idx_fund_nav_date ON fund_nav_history(date);
-
-  -- 股票历史价格表
-  CREATE TABLE IF NOT EXISTS stock_price_history (
-    symbol TEXT,
-    date TEXT,
-    open REAL,
-    high REAL,
-    low REAL,
-    close REAL,
-    volume INTEGER,
-    PRIMARY KEY (symbol, date)
-  );
-  CREATE INDEX IF NOT EXISTS idx_stock_price_symbol_date ON stock_price_history(symbol, date);
-
-  -- 加密货币历史价格表
-  CREATE TABLE IF NOT EXISTS crypto_price_history (
-    symbol TEXT,
-    date TEXT,
-    open REAL,
-    high REAL,
-    low REAL,
-    close REAL,
-    volume REAL,
-    PRIMARY KEY (symbol, date)
-  );
-  CREATE INDEX IF NOT EXISTS idx_crypto_symbol_date ON crypto_price_history(symbol, date);
-`);
-
-// 添加 source 列（如果不存在），用于区分数据来源
-const tableInfo = db.prepare(`PRAGMA table_info(fund_info)`).all() as any[];
-const hasSource = tableInfo.some(col => col.name === 'source');
-if (!hasSource) {
-  db.exec(`ALTER TABLE fund_info ADD COLUMN source TEXT DEFAULT 'sina';`);
+export interface CryptoMinute {
+  symbol: string;        // 交易对，如 "BTC/USDT"
+  timestamp: number;     // Unix 秒级时间戳（分钟的开始时间）
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  resolution: string;    // 分辨率，例如 '5m', '15m'
 }
+
+// ==================== 数据库连接 ====================
+// 从环境变量获取 Neon PostgreSQL 连接字符串（Vercel 自动注入，本地需在 .env.local 中配置）
+const sql = neon(process.env.POSTGRES_URL!);
+
+// ==================== 基金相关函数 ====================
 
 /**
- * 从新浪财经获取基金历史净值数据
+ * 从新浪财经获取基金历史净值数据（不依赖数据库）
  * @param code 基金代码，如 "017174"
  * @param years 获取几年数据，默认1年
  */
@@ -126,10 +78,10 @@ export async function fetchFundHistoryFromSina(code: string, years: number = 1):
     }
 
     const data = await response.json();
-    
-    if (data.result && data.result.data && data.result.data.length > 0) {
+
+    if (data.result?.data?.length > 0) {
       console.log(`[新浪财经] 获取到 ${data.result.data.length} 条原始数据`);
-      
+
       const history: FundNav[] = data.result.data.map((item: any) => ({
         code: code,
         date: item.nav_date,
@@ -143,13 +95,13 @@ export async function fetchFundHistoryFromSina(code: string, years: number = 1):
       const cutoffDate = new Date();
       cutoffDate.setFullYear(cutoffDate.getFullYear() - years);
       const cutoffStr = cutoffDate.toISOString().split('T')[0];
-      
+
       const filteredHistory = history.filter(item => item.date >= cutoffStr);
-      
+
       console.log(`[新浪财经] 过滤后得到 ${filteredHistory.length} 条数据`);
       return filteredHistory;
     } else {
-      console.warn(`[新浪财经] 未找到基金 ${code} 的数据，完整响应:`, JSON.stringify(data).substring(0, 200));
+      console.warn(`[新浪财经] 未找到基金 ${code} 的数据`);
       return [];
     }
   } catch (error) {
@@ -159,21 +111,19 @@ export async function fetchFundHistoryFromSina(code: string, years: number = 1):
 }
 
 /**
- * 保存基金历史净值到数据库
+ * 保存基金历史净值到数据库（异步）
  */
-export function saveFundHistory(records: FundNav[]) {
-  const insert = db.prepare(`
-    INSERT OR REPLACE INTO fund_nav_history (code, date, nav, accum_nav, change)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-
-  const transaction = db.transaction((records) => {
-    for (const r of records) {
-      insert.run(r.code, r.date, r.nav, r.accumNav, r.change);
-    }
-  });
-
-  transaction(records);
+export async function saveFundHistory(records: FundNav[]): Promise<void> {
+  for (const r of records) {
+    await sql`
+      INSERT INTO fund_nav_history (code, date, nav, accum_nav, change)
+      VALUES (${r.code}, ${r.date}, ${r.nav}, ${r.accumNav}, ${r.change})
+      ON CONFLICT (code, date) DO UPDATE SET
+        nav = EXCLUDED.nav,
+        accum_nav = EXCLUDED.accum_nav,
+        change = EXCLUDED.change
+    `;
+  }
 }
 
 /**
@@ -181,26 +131,25 @@ export function saveFundHistory(records: FundNav[]) {
  * @param code 基金代码
  * @param days 获取最近多少天的数据，默认365天
  */
-export function getFundHistory(code: string, days: number = 365): FundNav[] {
-  const stmt = db.prepare(`
+export async function getFundHistory(code: string, days: number = 365): Promise<FundNav[]> {
+  const result = await sql`
     SELECT * FROM fund_nav_history 
-    WHERE code = ? 
-    AND date >= date('now', ?)
+    WHERE code = ${code}
+    AND date >= CURRENT_DATE - ${days} * INTERVAL '1 day'
     ORDER BY date ASC
-  `);
-  
-  return stmt.all(code, `-${days} days`) as FundNav[];
+  `;
+  return result as FundNav[];
 }
 
 /**
  * 检查是否需要更新（根据数据来源智能判断）
  */
-export function needsUpdate(code: string): boolean {
-  const stmt = db.prepare(`
-    SELECT last_update, source FROM fund_info WHERE code = ?
-  `);
-  const info = stmt.get(code) as { last_update: string; source: string } | undefined;
-  
+export async function needsUpdate(code: string): Promise<boolean> {
+  const result = await sql`
+    SELECT last_update, source FROM fund_info WHERE code = ${code}
+  `;
+  const info = result[0] as { last_update: string; source: string } | undefined;
+
   if (!info) return true; // 没有记录，需要更新
 
   const today = new Date().toISOString().split('T')[0];
@@ -221,90 +170,82 @@ export function needsUpdate(code: string): boolean {
 /**
  * 获取基金信息（名称和来源）
  */
-export function getFundInfo(code: string): { name: string; source: string } | undefined {
-  const stmt = db.prepare(`SELECT name, source FROM fund_info WHERE code = ?`);
-  return stmt.get(code) as { name: string; source: string } | undefined;
+export async function getFundInfo(code: string): Promise<{ name: string; source: string } | undefined> {
+  const result = await sql`
+    SELECT name, source FROM fund_info WHERE code = ${code}
+  `;
+  return result[0] as { name: string; source: string } | undefined;
 }
 
 /**
  * 保存基金名称和来源（自动更新 last_update 为今天）
- * 添加错误处理和日志输出
  */
-export function saveFundInfo(code: string, name: string, source: string = 'sina') {
-  try {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO fund_info (code, name, last_update, source)
-      VALUES (?, ?, date('now'), ?)
-    `);
-    stmt.run(code, name, source);
-    console.log(`[DB] 基金信息保存成功: ${code} -> ${name} (来源: ${source})`);
-  } catch (error) {
-    console.error(`[DB] 基金信息保存失败: ${code}`, error);
-  }
+export async function saveFundInfo(code: string, name: string, source: string = 'sina'): Promise<void> {
+  await sql`
+    INSERT INTO fund_info (code, name, last_update, source)
+    VALUES (${code}, ${name}, CURRENT_DATE, ${source})
+    ON CONFLICT (code) DO UPDATE SET
+      name = EXCLUDED.name,
+      last_update = EXCLUDED.last_update,
+      source = EXCLUDED.source
+  `;
+  console.log(`[DB] 基金信息保存成功: ${code} -> ${name} (来源: ${source})`);
 }
 
 /**
  * 获取所有已存在基金代码（用于自动更新）
  */
-export function getAllFundCodes(): string[] {
-  const stmt = db.prepare(`SELECT code FROM fund_info`);
-  const rows = stmt.all() as { code: string }[];
-  return rows.map(row => row.code);
+export async function getAllFundCodes(): Promise<string[]> {
+  const result = await sql`SELECT code FROM fund_info`;
+  return result.map((row: any) => row.code);
 }
 
-// ========== 股票历史数据 ==========
-export interface StockPrice {
-  symbol: string;
-  date: string;      // YYYY-MM-DD
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
+// ==================== 股票相关函数 ====================
 
 /**
  * 获取股票历史价格
  * @param symbol 股票代码（如 "AAPL"）
  * @param days 获取最近多少天的数据，默认365天
  */
-export function getStockHistory(symbol: string, days: number = 365): StockPrice[] {
-  const stmt = db.prepare(`
+export async function getStockHistory(symbol: string, days: number = 365): Promise<StockPrice[]> {
+  const result = await sql`
     SELECT * FROM stock_price_history 
-    WHERE symbol = ? 
-    AND date >= date('now', ?)
+    WHERE symbol = ${symbol}
+    AND date >= CURRENT_DATE - ${days} * INTERVAL '1 day'
     ORDER BY date ASC
-  `);
-  return stmt.all(symbol, `-${days} days`) as StockPrice[];
+  `;
+  return result as StockPrice[];
 }
 
 /**
  * 保存股票历史价格（批量）
  */
-export function saveStockHistory(records: StockPrice[]) {
-  const insert = db.prepare(`
-    INSERT OR REPLACE INTO stock_price_history (symbol, date, open, high, low, close, volume)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  const transaction = db.transaction((records) => {
-    for (const r of records) {
-      insert.run(r.symbol, r.date, r.open, r.high, r.low, r.close, r.volume);
-    }
-  });
-  transaction(records);
+export async function saveStockHistory(records: StockPrice[]): Promise<void> {
+  for (const r of records) {
+    await sql`
+      INSERT INTO stock_price_history (symbol, date, open, high, low, close, volume)
+      VALUES (${r.symbol}, ${r.date}, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume})
+      ON CONFLICT (symbol, date) DO UPDATE SET
+        open = EXCLUDED.open,
+        high = EXCLUDED.high,
+        low = EXCLUDED.low,
+        close = EXCLUDED.close,
+        volume = EXCLUDED.volume
+    `;
+  }
 }
 
 /**
  * 检查是否需要更新股票历史数据
  * 如果最近一条数据距今超过3天，则返回 true（需要更新）
  */
-export function needsStockUpdate(symbol: string): boolean {
-  const stmt = db.prepare(`
+export async function needsStockUpdate(symbol: string): Promise<boolean> {
+  const result = await sql`
     SELECT date FROM stock_price_history 
-    WHERE symbol = ? 
+    WHERE symbol = ${symbol}
     ORDER BY date DESC LIMIT 1
-  `);
-  const row = stmt.get(symbol) as { date: string } | undefined;
+  `;
+  const row = result[0] as { date: string } | undefined;
   if (!row) return true;
   const lastDate = new Date(row.date);
   const threshold = new Date();
@@ -312,77 +253,52 @@ export function needsStockUpdate(symbol: string): boolean {
   return lastDate < threshold;
 }
 
-// ========== 加密货币历史数据 ==========
-export interface CryptoPrice {
-  symbol: string;    // 例如 "BTC/USDT"
-  date: string;      // YYYY-MM-DD
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
-
-// 创建表（在 db.exec 部分添加）
-// 请确保已在初始化时执行该 SQL
-/*
-db.exec(`
-  CREATE TABLE IF NOT EXISTS crypto_price_history (
-    symbol TEXT,
-    date TEXT,
-    open REAL,
-    high REAL,
-    low REAL,
-    close REAL,
-    volume REAL,
-    PRIMARY KEY (symbol, date)
-  );
-  CREATE INDEX IF NOT EXISTS idx_crypto_symbol_date ON crypto_price_history(symbol, date);
-`);
-*/
+// ==================== 加密货币日线数据 ====================
 
 /**
- * 获取加密货币历史价格
+ * 获取加密货币历史价格（日线）
  * @param symbol 交易对，如 "BTC/USDT"
  * @param days 获取最近多少天的数据，默认365天
  */
-export function getCryptoHistory(symbol: string, days: number = 365): CryptoPrice[] {
-  const stmt = db.prepare(`
+export async function getCryptoHistory(symbol: string, days: number = 365): Promise<CryptoPrice[]> {
+  const result = await sql`
     SELECT * FROM crypto_price_history 
-    WHERE symbol = ? 
-    AND date >= date('now', ?)
+    WHERE symbol = ${symbol}
+    AND date >= CURRENT_DATE - ${days} * INTERVAL '1 day'
     ORDER BY date ASC
-  `);
-  return stmt.all(symbol, `-${days} days`) as CryptoPrice[];
+  `;
+  return result as CryptoPrice[];
 }
 
 /**
  * 保存加密货币历史价格（批量）
  */
-export function saveCryptoHistory(records: CryptoPrice[]) {
-  const insert = db.prepare(`
-    INSERT OR REPLACE INTO crypto_price_history (symbol, date, open, high, low, close, volume)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  const transaction = db.transaction((records) => {
-    for (const r of records) {
-      insert.run(r.symbol, r.date, r.open, r.high, r.low, r.close, r.volume);
-    }
-  });
-  transaction(records);
+export async function saveCryptoHistory(records: CryptoPrice[]): Promise<void> {
+  for (const r of records) {
+    await sql`
+      INSERT INTO crypto_price_history (symbol, date, open, high, low, close, volume)
+      VALUES (${r.symbol}, ${r.date}, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume})
+      ON CONFLICT (symbol, date) DO UPDATE SET
+        open = EXCLUDED.open,
+        high = EXCLUDED.high,
+        low = EXCLUDED.low,
+        close = EXCLUDED.close,
+        volume = EXCLUDED.volume
+    `;
+  }
 }
 
 /**
  * 检查是否需要更新加密货币历史数据
  * 如果最近一条数据距今超过1天，则返回 true（需要更新）
  */
-export function needsCryptoUpdate(symbol: string): boolean {
-  const stmt = db.prepare(`
+export async function needsCryptoUpdate(symbol: string): Promise<boolean> {
+  const result = await sql`
     SELECT date FROM crypto_price_history 
-    WHERE symbol = ? 
+    WHERE symbol = ${symbol}
     ORDER BY date DESC LIMIT 1
-  `);
-  const row = stmt.get(symbol) as { date: string } | undefined;
+  `;
+  const row = result[0] as { date: string } | undefined;
   if (!row) return true;
   const lastDate = new Date(row.date);
   const threshold = new Date();
@@ -390,48 +306,24 @@ export function needsCryptoUpdate(symbol: string): boolean {
   return lastDate < threshold;
 }
 
-// ========== 加密货币分钟级数据 ==========
-export interface CryptoMinute {
-  symbol: string;        // 交易对，如 "BTC/USDT"
-  timestamp: number;     // Unix 秒级时间戳（分钟的开始时间）
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  resolution: string;    // 分辨率，例如 '5m', '15m'
-}
-
-// 在 db.exec 块中添加表（需放在现有的 db.exec 内）
-db.exec(`
-  CREATE TABLE IF NOT EXISTS crypto_minute_history (
-    symbol TEXT,
-    timestamp INTEGER,
-    resolution TEXT,
-    open REAL,
-    high REAL,
-    low REAL,
-    close REAL,
-    volume REAL,
-    PRIMARY KEY (symbol, timestamp, resolution)
-  );
-  CREATE INDEX IF NOT EXISTS idx_crypto_minute_symbol_time ON crypto_minute_history(symbol, timestamp DESC);
-`);
+// ==================== 加密货币分钟级数据 ====================
 
 /**
  * 保存加密货币分钟级数据
  */
-export function saveCryptoMinute(records: CryptoMinute[]) {
-  const insert = db.prepare(`
-    INSERT OR REPLACE INTO crypto_minute_history (symbol, timestamp, resolution, open, high, low, close, volume)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const transaction = db.transaction((records) => {
-    for (const r of records) {
-      insert.run(r.symbol, r.timestamp, r.resolution, r.open, r.high, r.low, r.close, r.volume);
-    }
-  });
-  transaction(records);
+export async function saveCryptoMinute(records: CryptoMinute[]): Promise<void> {
+  for (const r of records) {
+    await sql`
+      INSERT INTO crypto_minute_history (symbol, timestamp, resolution, open, high, low, close, volume)
+      VALUES (${r.symbol}, ${r.timestamp}, ${r.resolution}, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume})
+      ON CONFLICT (symbol, timestamp, resolution) DO UPDATE SET
+        open = EXCLUDED.open,
+        high = EXCLUDED.high,
+        low = EXCLUDED.low,
+        close = EXCLUDED.close,
+        volume = EXCLUDED.volume
+    `;
+  }
 }
 
 /**
@@ -440,14 +332,14 @@ export function saveCryptoMinute(records: CryptoMinute[]) {
  * @param resolution 分辨率，如 '5m', '15m'
  * @param limit 条数，默认288（24小时*12个5分钟）
  */
-export function getCryptoMinuteHistory(symbol: string, resolution: string, limit: number = 288): CryptoMinute[] {
-  const stmt = db.prepare(`
+export async function getCryptoMinuteHistory(symbol: string, resolution: string, limit: number = 288): Promise<CryptoMinute[]> {
+  const result = await sql`
     SELECT * FROM crypto_minute_history
-    WHERE symbol = ? AND resolution = ?
+    WHERE symbol = ${symbol} AND resolution = ${resolution}
     ORDER BY timestamp DESC
-    LIMIT ?
-  `);
-  return stmt.all(symbol, resolution, limit) as CryptoMinute[];
+    LIMIT ${limit}
+  `;
+  return result as CryptoMinute[];
 }
 
 /**
@@ -456,13 +348,13 @@ export function getCryptoMinuteHistory(symbol: string, resolution: string, limit
  * @param resolution 分辨率，如 '5m'
  * @param maxAgeSeconds 最大允许的数据年龄（秒），例如 5*60 表示5分钟
  */
-export function needsCryptoMinuteUpdate(symbol: string, resolution: string, maxAgeSeconds: number): boolean {
-  const stmt = db.prepare(`
+export async function needsCryptoMinuteUpdate(symbol: string, resolution: string, maxAgeSeconds: number): Promise<boolean> {
+  const result = await sql`
     SELECT timestamp FROM crypto_minute_history
-    WHERE symbol = ? AND resolution = ?
+    WHERE symbol = ${symbol} AND resolution = ${resolution}
     ORDER BY timestamp DESC LIMIT 1
-  `);
-  const row = stmt.get(symbol, resolution) as { timestamp: number } | undefined;
+  `;
+  const row = result[0] as { timestamp: number } | undefined;
   if (!row) return true;
   const lastTime = row.timestamp * 1000;
   const now = Date.now();

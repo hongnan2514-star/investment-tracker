@@ -1,3 +1,4 @@
+// src/services/fundService.ts
 import { fetchFundHistoryFromSina, saveFundHistory, getFundHistory, needsUpdate, getFundInfo, saveFundInfo } from './fundHistoryDB';
 import { queryAKShareFund } from '@/app/api/data-sources/akshare';
 import { DataSourceResult, UnifiedAsset } from '@/app/api/data-sources/types';
@@ -21,7 +22,8 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
   console.log(`[基金服务] 开始搜索基金: ${cleanCode}`);
 
   try {
-    const needUpdate = needsUpdate(cleanCode);
+    // 注意：needsUpdate 现在是异步，需要 await
+    const needUpdate = await needsUpdate(cleanCode);
     console.log(`[基金服务] needUpdate = ${needUpdate}`);
 
     let history: FundNav[] = [];
@@ -47,14 +49,14 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
             change: akResult.data.changePercent ?? 0
           };
           history = [fakeNav];
-          // 保存到数据库
-          saveFundHistory(history);
+          // 保存到数据库（异步）
+          await saveFundHistory(history);
           navCache.set(cleanCode, fakeNav);
           // 保存基金信息（标记为 akshare 源）
           if (akResult.data.name) {
-            saveFundInfo(cleanCode, akResult.data.name, 'akshare');
+            await saveFundInfo(cleanCode, akResult.data.name, 'akshare');
           } else {
-            saveFundInfo(cleanCode, cleanCode, 'akshare');
+            await saveFundInfo(cleanCode, cleanCode, 'akshare');
           }
         } else {
           console.error(`[基金服务] AKShare 也失败，无法获取数据`);
@@ -70,21 +72,21 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
       // 如果新浪财经有数据，并且没有使用 AKShare，才执行保存
       if (history.length > 0 && history[0].code === cleanCode && !usedAKShare) {
         console.log(`[基金服务] 保存 ${history.length} 条历史数据到数据库...`);
-        saveFundHistory(history);
+        await saveFundHistory(history);
         const latest = history[history.length - 1];
         navCache.set(cleanCode, latest);
         // 保存基金信息（名称暂时未知，先用 code 代替，source 为 sina）
-        saveFundInfo(cleanCode, cleanCode, 'sina');
+        await saveFundInfo(cleanCode, cleanCode, 'sina');
         console.log(`[基金服务] 最新净值: ${latest.nav} (${latest.date})`);
       }
     } else {
       console.log(`[基金服务] 使用缓存数据`);
     }
 
-    // 获取基金名称
+    // 获取基金名称（异步）
     let fundName = cleanCode;
     try {
-      const info = getFundInfo(cleanCode);
+      const info = await getFundInfo(cleanCode);
       if (info && info.name) {
         fundName = info.name;
         console.log(`[基金服务] 基金名称: ${fundName}`);
@@ -94,7 +96,7 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
     }
 
     // 从数据库获取完整历史数据（用于走势图）
-    const dbHistory = getFundHistory(cleanCode, 365);
+    const dbHistory = await getFundHistory(cleanCode, 365);
     console.log(`[基金服务] 从数据库读取到 ${dbHistory.length} 条历史数据`);
 
     let latestNav = navCache.get(cleanCode);
@@ -150,7 +152,7 @@ export async function updateFundData(code: string): Promise<void> {
   console.log(`[自动更新] 开始更新基金: ${cleanCode}`);
 
   try {
-    const needUpdate = needsUpdate(cleanCode);
+    const needUpdate = await needsUpdate(cleanCode);
     if (!needUpdate) {
       console.log(`[自动更新] 基金 ${cleanCode} 今日已更新，跳过`);
       return;
@@ -175,7 +177,7 @@ export async function updateFundData(code: string): Promise<void> {
         history = [fakeNav];
         source = 'akshare';
         if (akResult.data.name) {
-          saveFundInfo(cleanCode, akResult.data.name, source);
+          await saveFundInfo(cleanCode, akResult.data.name, source);
         }
       } else {
         console.warn(`[自动更新] 基金 ${cleanCode} 无法从任何源获取数据`);
@@ -184,9 +186,9 @@ export async function updateFundData(code: string): Promise<void> {
     }
 
     if (history.length > 0) {
-      saveFundHistory(history);
-      const info = getFundInfo(cleanCode);
-      saveFundInfo(cleanCode, info?.name || cleanCode, source);
+      await saveFundHistory(history);
+      const info = await getFundInfo(cleanCode);
+      await saveFundInfo(cleanCode, info?.name || cleanCode, source);
       console.log(`[自动更新] 基金 ${cleanCode} 已保存 ${history.length} 条数据`);
     }
   } catch (error) {
