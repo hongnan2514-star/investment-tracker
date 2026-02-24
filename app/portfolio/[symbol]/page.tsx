@@ -296,10 +296,11 @@ useEffect(() => {
               type="number"
               step="0.01"
               min="0.01"
-              value={buyQuantity}
-              onChange={(e) => setBuyQuantity(e.target.value)}
+              max={asset.holdings}
+              value={sellQuantity}
+              onChange={(e) => setSellQuantity(e.target.value)}
               placeholder="数量"
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-1.5 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
             />
           </div>
           <div className="relative">
@@ -308,10 +309,10 @@ useEffect(() => {
               type="number"
               step="0.01"
               min="0"
-              value={buyPrice}
-              onChange={(e) => setBuyPrice(e.target.value)}
+              value={sellPrice}
+              onChange={(e) => setSellPrice(e.target.value)}
               placeholder="价格"
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-1.5 pl-6 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-6 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
             />
           </div>
           <div>
