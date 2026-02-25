@@ -1,3 +1,4 @@
+// src/utils/assetStorage.ts
 import { Asset } from '@/src/constants/types';
 import { eventBus } from './eventBus';
 

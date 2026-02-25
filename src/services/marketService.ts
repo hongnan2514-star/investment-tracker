@@ -5,16 +5,12 @@ import { getAssets } from '@/src/utils/assetStorage';
 import { recordSnapshot } from './historyService';
 import { queryCryptoOHLCV } from '@/app/api/data-sources/crypto-ccxt';
 
-// ⚠️ 注意：不再导入 needsCryptoMinuteUpdate 和 saveCryptoMinute，改为通过 API 调用
-
 export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
   if (assets.length === 0) return assets;
 
-  // 1. 获取最新的资产列表（确保实时性）
   const currentAssets = getAssets();
   const currentSymbols = new Set(currentAssets.map(a => a.symbol));
 
-  // 2. 只刷新当前真正存在的资产
   const validAssets = assets.filter(asset => currentSymbols.has(asset.symbol));
 
   if (validAssets.length === 0) {
@@ -23,20 +19,53 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
 
   const priceMap = new Map();
 
-  // 3. 并发请求所有资产的最新价格
+  // 并发获取所有资产的最新价格
   await Promise.all(validAssets.map(async (asset) => {
-    try {
-      const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
-      const data = await response.json();
-
-      if (data.price) {
-        priceMap.set(asset.symbol, {
-          price: data.price,
-          changePercent: data.changePercent || 0
-        });
+    if (asset.type === 'crypto') {
+      // 加密货币：从数据库分钟级历史获取最新价格和涨跌幅
+      try {
+        // 请求2条数据（limit=2）以便计算涨跌幅
+        const res = await fetch(`/api/crypto/minute?symbol=${encodeURIComponent(asset.symbol)}&resolution=5m&limit=2`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const latest = data[0]; // 最新一条（按timestamp DESC）
+            let changePercent = 0;
+            // 如果有前一条数据，计算涨跌幅
+            if (data.length >= 2) {
+              const previous = data[1];
+              if (previous.close > 0) {
+                changePercent = ((latest.close - previous.close) / previous.close) * 100;
+              }
+            }
+            priceMap.set(asset.symbol, {
+              price: latest.close,
+              changePercent: changePercent, // 基于前一条的涨跌幅
+            });
+            console.log(`[分钟价格] ${asset.symbol} 最新收盘价: ${latest.close}, 涨跌幅: ${changePercent.toFixed(2)}%`);
+          } else {
+            console.warn(`[分钟价格] ${asset.symbol} 无分钟数据`);
+          }
+        } else {
+          console.warn(`[分钟价格] API 请求失败: ${res.status}`);
+        }
+      } catch (error) {
+        console.error(`[分钟价格] 获取 ${asset.symbol} 失败:`, error);
       }
-    } catch (error) {
-      console.error(`更新 ${asset.symbol} 失败:`, error);
+    } else {
+      // 非加密货币：原有实时查询（股票、基金等）
+      try {
+        const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
+        const data = await response.json();
+        if (data.price) {
+          priceMap.set(asset.symbol, {
+            price: data.price,
+            changePercent: data.changePercent || 0
+          });
+        }
+      } catch (error) {
+        console.error(`更新 ${asset.symbol} 失败:`, error);
+      }
     }
   }));
 
@@ -60,7 +89,7 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
     localStorage.setItem(`asset_${asset.symbol}`, JSON.stringify(asset));
   });
 
-  // 6. 清理可能残留的已删除资产的 storage 条目
+  // 6. 清理已删除资产的 storage 条目
   const allKeys = Object.keys(localStorage);
   allKeys.forEach(key => {
     if (key.startsWith('asset_')) {
@@ -71,24 +100,20 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
     }
   });
 
-  // 7. 在所有资产更新成功后，记录总资产快照（用于走势图）
+  // 7. 记录总资产快照
   if (updatedAssets.length > 0) {
     recordSnapshot();
   }
 
-  // 8. 在后台异步更新历史数据（通过 API，不阻塞主流程）
+  // 8. 后台异步更新历史数据（通过 API）
   updatedAssets.forEach(asset => {
-    // ---------- 加密货币分钟级数据更新（改为 API 方式）----------
     if (asset.type === 'crypto') {
-      const resolution = '5m';  // 可根据需要改为 '15m'
-      const maxAge = 5 * 60;    // 5分钟（与分辨率一致）
-
-      // 先通过 API 检查是否需要更新
+      const resolution = '5m';
+      const maxAge = 5 * 60;
       fetch(`/api/crypto/needs-update?symbol=${encodeURIComponent(asset.symbol)}&resolution=${resolution}&maxAge=${maxAge}`)
         .then(res => res.json())
         .then(({ needsUpdate }) => {
           if (needsUpdate) {
-            // 获取最新分钟数据
             return queryCryptoOHLCV(asset.symbol.split('/')[0], resolution, 288);
           }
         })
@@ -98,13 +123,12 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
               symbol: asset.symbol,
               timestamp: item.timestamp,
               resolution: resolution,
-              open: item.close,   // 如果将来有真实 OHLC，可替换
+              open: item.close,
               high: item.close,
               low: item.close,
               close: item.close,
               volume: 0,
             }));
-            // 通过 API 保存到数据库
             return fetch('/api/crypto/minute', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -120,7 +144,6 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
         .catch(err => console.error(`更新分钟历史失败 ${asset.symbol}:`, err));
     }
 
-    // ---------- 原有的日线/股票历史更新（保持不变）----------
     if (asset.type === 'stock' || asset.type === 'etf' || asset.type === 'crypto') {
       fetch('/api/history/update', {
         method: 'POST',

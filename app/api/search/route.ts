@@ -101,21 +101,24 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (type === 'crypto') {
-      console.log(`[搜索路由] 开始搜索加密货币: ${trimmedSymbol}`);
-      const cryptoResult = await queryCryptoCCXT(trimmedSymbol);
-      if (cryptoResult.success) {
-        return NextResponse.json({
-          success: true,
-          ...cryptoResult.data,
-          source: cryptoResult.source
-        });
-      } else {
-        return NextResponse.json(
-          { error: cryptoResult.error || '加密货币搜索失败' },
-          { status: 404 }
-        );
-      }
-    } else if (type === 'metal') {
+  console.log(`[搜索路由] 开始搜索加密货币: ${trimmedSymbol}`);
+  // 提取基础币种（例如从 "BTC/USDT" 中提取 "BTC"）
+  const baseSymbol = trimmedSymbol.split('/')[0];
+  console.log(`[搜索路由] 提取基础币种: ${baseSymbol}`);
+  const cryptoResult = await queryCryptoCCXT(baseSymbol);
+  if (cryptoResult.success) {
+    return NextResponse.json({
+      success: true,
+      ...cryptoResult.data,
+      source: cryptoResult.source
+    });
+  } else {
+    return NextResponse.json(
+      { error: cryptoResult.error || '加密货币搜索失败' },
+      { status: 404 }
+    );
+  }
+} else if (type === 'metal') {
       console.log(`[搜索路由] 开始搜索贵金属: ${trimmedSymbol}`);
       const result = await queryJuheGold(trimmedSymbol);
       if (result.success) {

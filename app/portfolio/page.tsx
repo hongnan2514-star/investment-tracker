@@ -180,7 +180,7 @@ useEffect(() => {
 
   useEffect(() => {
     refreshPrices();
-    refreshTimer.current = setInterval(refreshPrices, 10000);
+    refreshTimer.current = setInterval(refreshPrices, 60000);
     return () => {
       if (refreshTimer.current) {
         clearInterval(refreshTimer.current as number);
@@ -431,6 +431,22 @@ const sortedAssets = useMemo(() => {
       touchStartY.current = null;
     }
   };
+
+  useEffect(() => {
+  const handleUpdate = () => {
+    const updated = getAssets();
+  console.log('收到 assetsUpdated 事件，最新资产:', updated);
+  setAssets(updated);
+  };
+
+  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleUpdate);
+  const unsubscribeUser = eventBus.subscribe('userChanged', handleUpdate);
+
+  return () => {
+    unsubscribeAssets();
+    unsubscribeUser();
+  };
+}, []);
 
   useEffect(() => {
     setAssets(getAssets());
