@@ -101,7 +101,7 @@ export async function queryCryptoHistory(symbol: string, days: number = 365): Pr
   const cleanSymbol = symbol.toUpperCase().trim();
   const marketSymbol = `${cleanSymbol}/USDT`;
 
-  const exchange: Exchange = new ccxt.binance({
+  const exchange: Exchange = new ccxt.kucoin({
     enableRateLimit: true,
     options: { defaultType: 'spot' }
   });
@@ -146,7 +146,7 @@ export async function queryCryptoOHLCV(
   const cleanSymbol = symbol.toUpperCase().trim();
   const marketSymbol = `${cleanSymbol}/USDT`;
 
-  const exchange: Exchange = new ccxt.binance({
+  const exchange: Exchange = new ccxt.kucoin({
     enableRateLimit: true,
     options: { defaultType: 'spot' }
   });
