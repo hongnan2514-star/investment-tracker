@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
   console.log('[Cron] 开始自动更新基金数据...');
   
-  const codes = getAllFundCodes();
+  const codes = await getAllFundCodes();
   console.log(`[Cron] 共找到 ${codes.length} 只基金需要检查`);
 
   const results = [];
