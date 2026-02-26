@@ -1,13 +1,16 @@
+// app/settings/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Lock, Bell, Moon, Info, LogOut } from 'lucide-react';
 import { setCurrentUserId, clearCurrentUserAssets } from '@/src/utils/assetStorage';
 import { useTheme } from '@/app/ThemeProvider';
+import { useCurrency, currencySymbols } from '@/src/services/currency'; // 新增导入
 
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const { currency } = useCurrency(); // 获取当前货币
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -149,6 +152,23 @@ export default function SettingsPage() {
           <span className="text-sm text-gray-500 dark:text-gray-400">
             {theme === 'light' ? '浅色' : '深色'}
           </span>
+        </button>
+
+        {/* 计价货币 - 新增 */}
+        <button
+          onClick={() => router.push('/settings/currency')}
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl border-b border-gray-100 dark:border-gray-700"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-gray-500 dark:text-gray-400 text-xl">💰</span>
+            <span className="text-gray-700 dark:text-gray-300">计价货币</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {currencySymbols[currency]} {currency}
+            </span>
+            <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
+          </div>
         </button>
 
         {/* 关于我们 */}

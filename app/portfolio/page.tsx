@@ -7,7 +7,6 @@ import {  // 图标
   PieChart, Bitcoin, Activity, Car, Blocks, MoreVertical, ChevronDown, ListFilterPlus
 } from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
-import { CAR_BRANDS, CarBrand } from '@/src/constants/carBrands';
 import { Asset } from '@/src/constants/types';
 import { addAsset, getAssets, removeAsset } from '@/src/utils/assetStorage';
 import { refreshAllAssets } from '@/src/services/marketService';
@@ -15,6 +14,7 @@ import { eventBus } from '@/src/utils/eventBus';
 import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCache';
 import { useTheme } from '../ThemeProvider';
 import Link from 'next/link';
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency';  // 计价单位
 
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   stock: { name: '股票', color: '#1e67f7' },
@@ -85,6 +85,9 @@ export default function PortfolioPage() {
   const [selectedBrandName, setSelectedBrandName] = useState<string>('');
   const [loadingCarData, setLoadingCarData] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [convertedAssets, setConvertedAssets] = useState<Asset[]>([]);  // 转换后的资产列表（价格和市值已按目标货币转换）
+  const { currency } = useCurrency(); // 获取当前货币代码
+  const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -120,7 +123,7 @@ export default function PortfolioPage() {
   }, [assets]);
 
 const filteredAndSortedAssets = useMemo(() => {
-  const filtered = assets.filter(asset => !hiddenAssetTypes.has(asset.type));
+  const filtered = convertedAssets.filter(asset => !hiddenAssetTypes.has(asset.type));
   return [...filtered].sort((a, b) => {
     if (sortBy === 'marketValue') {
       return sortOrder === 'asc' ? a.marketValue - b.marketValue : b.marketValue - a.marketValue;
@@ -130,7 +133,7 @@ const filteredAndSortedAssets = useMemo(() => {
       return sortOrder === 'asc' ? aProfit - bProfit : bProfit - aProfit;
     }
   });
-}, [assets, hiddenAssetTypes, sortBy, sortOrder]);
+}, [convertedAssets, hiddenAssetTypes, sortBy, sortOrder]);
 
   useEffect(() => {
     const unsubscribe = eventBus.subscribe('userChanged', () => {
@@ -187,6 +190,37 @@ useEffect(() => {
       }
     };
   }, []);
+
+  // 当 assets 或 currency 变化时，重新计算转换后的值
+useEffect(() => {
+  const convertAll = async () => {
+    if (assets.length === 0) {
+      setConvertedAssets([]);
+      return;
+    }
+
+    const converted = await Promise.all(
+      assets.map(async (asset) => {
+        // 源货币：使用 asset.currency，如果没有则默认 'USD'
+        const fromCurrency = asset.currency || 'USD';
+        // 转换价格、市值和成本价（如果存在）
+        const [newPrice, newMarketValue, newCostPrice] = await Promise.all([
+          convert(asset.price, fromCurrency as any, currency),
+          convert(asset.marketValue, fromCurrency as any, currency),
+          asset.costPrice ? convert(asset.costPrice, fromCurrency as any, currency) : Promise.resolve(undefined)
+        ]);
+        return {
+          ...asset,
+          price: newPrice,
+          marketValue: newMarketValue,
+          costPrice: newCostPrice, // 成本价也被转换
+        };
+      })
+    );
+    setConvertedAssets(converted);
+  };
+  convertAll();
+}, [assets, currency, convert]);
 
   useEffect(() => {
     refreshPrices();
@@ -448,9 +482,11 @@ const sortedAssets = useMemo(() => {
   };
 }, []);
 
-  useEffect(() => {
-    setAssets(getAssets());
-  }, []);
+  const handleUpdate = () => {
+  const updated = getAssets();
+  console.log('收到 assetsUpdated 事件，最新资产:', updated);
+  setAssets(updated); // 更新原始资产列表
+};
 
   // 汽车添加处理（纯手动输入）
   const handleAddCarAsset = () => {
@@ -1042,6 +1078,8 @@ const renderSearch = () => {
         <ListFilterPlus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
       </button>
     </header>
+
+    {converting && <div className="text-xs text-blue-500 text-center py-1">汇率更新中...</div>}
 
     {/* 排序菜单 */}
     {showSortMenu && (

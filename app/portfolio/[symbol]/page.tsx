@@ -248,27 +248,38 @@ export default function AssetDetailPage() {
         </div>
 
         {/* 走势图 */}
-        <div className="mt-4 h-24 w-full">
-          {assetHistory.length < 2 ? (
-            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-              暂无数据
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={assetHistory}>
-                <YAxis domain={['auto', 'auto']} hide={true} />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+<div className="mt-4 h-24 w-full">
+  {assetHistory.length < 2 ? (
+    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+      暂无数据
+    </div>
+  ) : (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={assetHistory}>
+        <YAxis domain={['auto', 'auto']} hide={true} />
+        {/* 光晕线：半透明、较粗 */}
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
+          strokeWidth={6}
+          strokeOpacity={0.3}
+          dot={false}
+          isAnimationActive={false}
+        />
+        {/* 主线：不透明、较细 */}
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  )}
+</div>
       </div>
 
       {/* 交易卡片 - 加仓/卖出 */}

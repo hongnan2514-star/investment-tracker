@@ -1,24 +1,24 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { getAssets } from '@/src/utils/assetStorage';
 import { Asset } from '@/src/constants/types';
 import { eventBus } from '@/src/utils/eventBus';
 import { getHistoryData, HistoryPoint, recordSnapshot } from '@/src/services/historyService';
 import ExpandedChart from './ExpandedChart';
-
-const currencySymbolMap: Record<string, string> = {
-  USD: '$',
-  CNY: '¥',
-};
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency'; // 新增导入
 
 export default function SummaryCard() {
-  const [totalValue, setTotalValue] = useState<number>(0);
-  const [todayProfit, setTodayProfit] = useState<number>(0);
+  const [totalValue, setTotalValue] = useState<number>(0);          // 原始总值（默认 USDT）
+  const [todayProfit, setTodayProfit] = useState<number>(0);        // 原始收益（默认 USDT）
+  const [convertedTotal, setConvertedTotal] = useState<number>(0);  // 转换后总值
+  const [convertedProfit, setConvertedProfit] = useState<number>(0); // 转换后收益
   const [historyData, setHistoryData] = useState<HistoryPoint[]>([]);
-  const [currency, setCurrency] = useState<string>("USD");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+
+  const { currency, symbol } = useCurrency();                // 获取当前货币和符号
+  const { convert, loading } = useCurrencyConverter();       // 转换函数和加载状态
 
   const formatLargeNumber = (num: number): string => {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -27,12 +27,12 @@ export default function SummaryCard() {
     return num.toFixed(2);
   };
 
-  const updateTotals = () => {
+  // 更新原始数据（假设资产以 USDT 计价）
+  const updateTotals = useCallback(() => {
     const assets = getAssets();
     if (assets.length === 0) {
       setTotalValue(0);
       setTodayProfit(0);
-      setCurrency('USD');
       return;
     }
 
@@ -44,13 +44,26 @@ export default function SummaryCard() {
 
     setTotalValue(total);
     setTodayProfit(profit);
-    setCurrency(assets[0].currency);
-  };
+  }, []);
 
-  const updateHistory = () => {
+  // 当原始数据或货币变化时，重新转换金额
+  useEffect(() => {
+    const convertValues = async () => {
+      // 假设原始资产以 USDT 计价
+      const [newTotal, newProfit] = await Promise.all([
+        convert(totalValue, 'USDT', currency),
+        convert(todayProfit, 'USDT', currency),
+      ]);
+      setConvertedTotal(newTotal);
+      setConvertedProfit(newProfit);
+    };
+    convertValues();
+  }, [totalValue, todayProfit, currency, convert]);
+
+  const updateHistory = useCallback(() => {
     const data = getHistoryData(24);
     setHistoryData(data);
-  };
+  }, []);
 
   useEffect(() => {
     recordSnapshot();
@@ -63,7 +76,7 @@ export default function SummaryCard() {
     });
 
     return () => unsubscribeAssets();
-  }, []);
+  }, [updateTotals, updateHistory]);
 
   useEffect(() => {
     const unsubscribeUser = eventBus.subscribe('userChanged', () => {
@@ -71,12 +84,10 @@ export default function SummaryCard() {
       updateHistory();
     });
     return () => unsubscribeUser();
-  }, []);
-
-  const getCurrencySymbol = () => currencySymbolMap[currency] || currency;
+  }, [updateTotals, updateHistory]);
 
   const getYAxisDomain = (): [number, number] => {
-    if (historyData.length === 0) return [0, totalValue || 100];
+    if (historyData.length === 0) return [0, convertedTotal || 100];
     const values = historyData.map(p => p.value);
     const min = Math.min(...values);
     const max = Math.max(...values);
@@ -84,15 +95,14 @@ export default function SummaryCard() {
     return [Math.max(0, min - padding), max + padding];
   };
 
-  const chartColor = todayProfit >= 0 ? '#22c55e' : '#ef4444';
-  const profitSign = todayProfit > 0 ? '+' : todayProfit < 0 ? '-' : '';
+  const chartColor = convertedProfit >= 0 ? '#22c55e' : '#ef4444';
+  const profitSign = convertedProfit > 0 ? '+' : convertedProfit < 0 ? '-' : '';
   const profitColorClass = 
-    todayProfit > 0 ? 'text-green-500' : 
-    todayProfit < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400';
+    convertedProfit > 0 ? 'text-green-500' : 
+    convertedProfit < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400';
 
   const handleClose = () => {
     setIsClosing(true);
-    // 动画结束后再真正关闭
     setTimeout(() => {
       setIsExpanded(false);
       setIsClosing(false);
@@ -105,21 +115,22 @@ export default function SummaryCard() {
         <div className="flex flex-col">
           <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mb-1">
             <span className="text-xs font-semibold">总资产估值</span>
+            {loading && <span className="text-xs text-blue-500 animate-pulse">汇率更新中...</span>}
           </div>
           <div className="flex items-baseline gap-1">
             <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-gray-100">
-              {getCurrencySymbol()}{formatLargeNumber(totalValue)}
+              {symbol}{formatLargeNumber(convertedTotal)}
             </h2>
           </div>
           <p className={`text-sm font-bold mt-2 ${profitColorClass}`}>
-            今日收益 {profitSign}{getCurrencySymbol()}{formatLargeNumber(Math.abs(todayProfit))}
-            {totalValue > 0 && (
-              <> ({profitSign}{(todayProfit / totalValue * 100).toFixed(2)}%)</>
+            今日收益 {profitSign}{symbol}{formatLargeNumber(Math.abs(convertedProfit))}
+            {convertedTotal > 0 && (
+              <> ({profitSign}{(convertedProfit / convertedTotal * 100).toFixed(2)}%)</>
             )}
           </p >
         </div>
 
-        {/* 迷你走势图 - 仅在未展开且未关闭动画时显示 */}
+        {/* 迷你走势图 */}
         {!isExpanded && !isClosing && (
           <div
             className="w-24 h-12 mb-2 cursor-pointer hover:opacity-80 transition active:scale-95"
@@ -148,7 +159,7 @@ export default function SummaryCard() {
         )}
       </div>
 
-      {/* 展开区域 - 使用动画控制显隐和滑入滑出 */}
+      {/* 展开区域 */}
       {(isExpanded || isClosing) && (
         <div
           className={`mt-6 border-t border-gray-100 dark:border-gray-800 pt-6 transition-all duration-300 ease-in-out transform ${
@@ -162,9 +173,9 @@ export default function SummaryCard() {
           }}
         >
           <ExpandedChart 
-            totalValue={totalValue} 
-            currencySymbol={getCurrencySymbol()} 
-            todayProfit={todayProfit}
+            totalValue={convertedTotal} 
+            currencySymbol={symbol} 
+            todayProfit={convertedProfit}
             onClose={handleClose}
           />
         </div>
