@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
-import { getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
+import { getAssets,getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
@@ -31,19 +31,28 @@ export default function AssetDetailPage() {
   // 错误/成功提示
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // 加载资产数据
-  const loadAsset = () => {
-    const found = getAssetBySymbol(decodeURIComponent(symbol));
-    setAsset(found || null);
-    setLoading(false);
-  };
-
   useEffect(() => {
+  const loadAsset = () => {
+  console.log('=== loadAsset 开始执行 ===');
+  
+  const allAssets = getAssets();
+  console.log('所有资产列表:', allAssets.map(a => ({ symbol: a.symbol, price: a.price })));
+  
+  const found = getAssetBySymbol(decodeURIComponent(symbol));
+  console.log('当前资产:', found);
+  
+  // 即使 found 和之前的 asset 相同，也强制更新状态
+  setAsset(found ? { ...found } : null); // 使用展开运算符创建新对象
+  setLoading(false);
+};
+
+  loadAsset();
+  const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
+    console.log('收到 assetsUpdated 事件');
     loadAsset();
-    // 监听资产更新事件，保持数据同步
-    const unsubscribe = eventBus.subscribe('assetsUpdated', loadAsset);
-    return () => unsubscribe();
-  }, [symbol]);
+  });
+  return () => unsubscribe();
+}, [symbol]);
 
   // 获取走势图数据
   useEffect(() => {

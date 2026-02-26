@@ -55,31 +55,47 @@ function loadAssetsMap(): void {
 }
 
 export function getAssetBySymbol(symbol: string): Asset | null {
+  console.log(`[getAssetBySymbol] 开始查找: ${symbol}`);
+  console.log(`[getAssetBySymbol] assetsMap 是否存在:`, !!assetsMap);
+  
   if (!assetsMap) {
+    console.log('[getAssetBySymbol] assetsMap 为空，重新加载');
     loadAssetsMap();
   }
-  return assetsMap?.get(symbol) || null;
+  
+  const result = assetsMap?.get(symbol) || null;
+  console.log(`[getAssetBySymbol] 查找结果:`, result);
+  return result;
 }
 
 export const getAssets = (): Asset[] => {
+  console.log('[getAssets] 开始执行');
   if (typeof window === 'undefined') return [];
 
   const assetsKey = getAssetsKey();
+  console.log('[getAssets] assetsKey:', assetsKey);
   if (!assetsKey) return [];
 
   const data = localStorage.getItem(assetsKey);
+  console.log('[getAssets] localStorage 原始数据:', data ? data.substring(0, 100) + '...' : 'null');
+  
   if (!data) return [];
 
   try {
     const assets = JSON.parse(data) as Asset[];
+    console.log('[getAssets] 从 localStorage 读取到:', assets.map(a => ({ symbol: a.symbol, price: a.price })));
+    
     const cleanedAssets = assets.map(asset => ({
       ...asset,
       type: asset.type || 'stock',
       purchaseDate: asset.purchaseDate,
       costPrice: asset.costPrice,
     }));
-    // 更新缓存
+    
+    // 强制更新缓存，即使已有缓存也重新设置
     assetsMap = new Map(cleanedAssets.map(asset => [asset.symbol, asset]));
+    console.log('[getAssets] 已更新缓存');
+    
     return cleanedAssets;
   } catch (error) {
     console.error('Invalid asset data:', error);
