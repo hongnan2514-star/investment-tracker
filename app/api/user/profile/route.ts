@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const user = await User.findOneAndUpdate(
       { phone },
       { $set: updateData },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!user) {

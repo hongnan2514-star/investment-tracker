@@ -29,12 +29,18 @@ export default function ProfilePage() {
   // 删除 getOrCreateUser 函数，不再本地生成
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsLoggedIn(true);
-    }
-  }, []);
+  const storedUser = localStorage.getItem('user');
+  if (storedUser) {
+    setUser(JSON.parse(storedUser));
+  }
+
+  const handleUserChange = () => {
+    const updated = localStorage.getItem('user');
+    if (updated) setUser(JSON.parse(updated));
+  };
+  window.addEventListener('user-changed', handleUserChange);
+  return () => window.removeEventListener('user-changed', handleUserChange);
+}, []);
 
   const handleSendOtp = async () => {
     if (!phoneNumber || phoneNumber.length !== 11) return;

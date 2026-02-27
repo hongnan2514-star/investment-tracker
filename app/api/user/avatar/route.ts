@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     await User.findOneAndUpdate(
       { phone: userId },
       { avatarUrl: blob.url },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     return NextResponse.json({ avatarUrl: blob.url });
