@@ -1266,8 +1266,8 @@ const renderSearch = () => {
             </div>
 
             <div className="text-right flex-shrink-0 max-w-[90px]">
-              <p className={`text-base font-black truncate ${profitLossColor}`} title={`${currencySymbolMap[asset.currency]}${asset.marketValue.toFixed(2)}`}>
-                {currencySymbolMap[asset.currency]}{formatLargeNumber(asset.marketValue)}
+              <p className={`text-base font-black truncate ${profitLossColor}`} title={`${asset.marketValue.toFixed(2)}`}>
+                  {formatLargeNumber(asset.marketValue)}
               </p >
               {displayPercent !== 0 && (
                 <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
@@ -1289,14 +1289,14 @@ const renderSearch = () => {
                 {asset.costPrice ? '市价/成本' : '市价'}
               </p >
               {asset.costPrice ? (
-                <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${currencySymbolMap[asset.currency]}${asset.price.toFixed(2)} / ${currencySymbolMap[asset.currency]}${asset.costPrice.toFixed(2)}`}>
-                  {currencySymbolMap[asset.currency]}{asset.price.toFixed(2)} / {currencySymbolMap[asset.currency]}{asset.costPrice.toFixed(2)}
-                </p >
-              ) : (
-                <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${currencySymbolMap[asset.currency]}${asset.price.toFixed(2)}`}>
-                  {currencySymbolMap[asset.currency]}{asset.price.toFixed(2)}
-                </p >
-              )}
+  <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${asset.price.toFixed(2)} / ${asset.costPrice.toFixed(2)}`}>
+    {asset.price.toFixed(2)} / {asset.costPrice.toFixed(2)}
+  </p >
+) : (
+  <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${asset.price.toFixed(2)}`}>
+    {asset.price.toFixed(2)}
+  </p >
+)}
             </div>
             <button
               onClick={(e) => {

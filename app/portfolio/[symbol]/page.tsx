@@ -5,15 +5,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
-import { getAssets,getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
+import { getAssets, getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency'; // 新增导入
 
 export default function AssetDetailPage() {
   const { symbol } = useParams() as { symbol: string };
   const router = useRouter();
   const [asset, setAsset] = useState<Asset | null>(null);
+  const [convertedAsset, setConvertedAsset] = useState<Asset | null>(null); // 转换后的资产
   const [loading, setLoading] = useState(true);
   const [assetHistory, setAssetHistory] = useState<{ value: number }[]>([]);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
@@ -31,28 +33,52 @@ export default function AssetDetailPage() {
   // 错误/成功提示
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-  const loadAsset = () => {
-  console.log('=== loadAsset 开始执行 ===');
-  
-  const allAssets = getAssets();
-  console.log('所有资产列表:', allAssets.map(a => ({ symbol: a.symbol, price: a.price })));
-  
-  const found = getAssetBySymbol(decodeURIComponent(symbol));
-  console.log('当前资产:', found);
-  
-  // 即使 found 和之前的 asset 相同，也强制更新状态
-  setAsset(found ? { ...found } : null); // 使用展开运算符创建新对象
-  setLoading(false);
-};
+  // 货币转换
+  const { currency } = useCurrency();
+  const { convert } = useCurrencyConverter();
 
-  loadAsset();
-  const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
-    console.log('收到 assetsUpdated 事件');
+  // 加载原始资产
+  const loadAsset = () => {
+    console.log('=== loadAsset 开始执行 ===');
+    const allAssets = getAssets();
+    console.log('所有资产列表:', allAssets.map(a => ({ symbol: a.symbol, price: a.price })));
+    const found = getAssetBySymbol(decodeURIComponent(symbol));
+    console.log('当前资产:', found);
+    setAsset(found ? { ...found } : null);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     loadAsset();
-  });
-  return () => unsubscribe();
-}, [symbol]);
+    const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
+      console.log('收到 assetsUpdated 事件');
+      loadAsset();
+    });
+    return () => unsubscribe();
+  }, [symbol]);
+
+  // 当原始资产或货币变化时，进行转换
+  useEffect(() => {
+    const convertAsset = async () => {
+      if (!asset) {
+        setConvertedAsset(null);
+        return;
+      }
+      const fromCurrency = asset.currency || 'USD';
+      const [newPrice, newMarketValue, newCostPrice] = await Promise.all([
+        convert(asset.price, fromCurrency as any, currency),
+        convert(asset.marketValue, fromCurrency as any, currency),
+        asset.costPrice ? convert(asset.costPrice, fromCurrency as any, currency) : Promise.resolve(undefined),
+      ]);
+      setConvertedAsset({
+        ...asset,
+        price: newPrice,
+        marketValue: newMarketValue,
+        costPrice: newCostPrice,
+      });
+    };
+    convertAsset();
+  }, [asset, currency, convert]);
 
   // 获取走势图数据
   useEffect(() => {
@@ -74,11 +100,6 @@ export default function AssetDetailPage() {
     fetchHistory();
   }, [asset]);
 
-  const formatCurrency = (value: number, currency: string = 'CNY') => {
-    const symbolMap: Record<string, string> = { CNY: '¥', USD: '$' };
-    return `${symbolMap[currency] || currency}${value.toFixed(2)}`;
-  };
-
   const handleBuy = () => {
     if (!asset) return;
     const qty = parseFloat(buyQuantity);
@@ -97,12 +118,11 @@ export default function AssetDetailPage() {
       ...asset,
       holdings: newHoldings,
       costPrice: newCostPrice,
-      marketValue: newHoldings * asset.price, // 使用当前市价计算
+      marketValue: newHoldings * asset.price,
       lastUpdated: new Date().toISOString(),
     };
 
     addAsset(updatedAsset);
-    // 立即重新加载资产（监听器会触发，但为了即时反馈可以手动设置）
     setAsset(updatedAsset);
     eventBus.emit('assetsUpdated');
     setMessage({ type: 'success', text: '加仓成功' });
@@ -183,7 +203,9 @@ export default function AssetDetailPage() {
     );
   }
 
-  const currencySymbol = asset.currency === 'CNY' ? '¥' : asset.currency === 'USD' ? '$' : asset.currency;
+  // 使用转换后的资产显示，如果没有转换完成则用原始值（但通常很快）
+  const displayAsset = convertedAsset || asset;
+  const currencySymbol = asset.currency === 'CNY' ? '¥' : asset.currency === 'USD' ? '$' : asset.currency; // 仅用于表单提示
   const cachedLogo = getCachedLogo(asset.symbol);
   const logoSrc = cachedLogo || asset.logoUrl;
 
@@ -216,12 +238,12 @@ export default function AssetDetailPage() {
             </div>
           </div>
 
-          {/* 右侧四个指标竖排 */}
+          {/* 右侧四个指标竖排（去除货币符号） */}
           <div className="flex flex-col gap-0 ml-auto min-w-[130px]">
             <div className="leading-4">
               <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">当前市价</span>
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                {currencySymbol}{formatLargeNumber(asset.price)}
+                {formatLargeNumber(displayAsset.price)}
               </span>
             </div>
             <div className="leading-4">
@@ -233,53 +255,49 @@ export default function AssetDetailPage() {
             <div className="leading-4">
               <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">成本均价</span>
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                {asset.costPrice ? (
-                  <>{currencySymbol}{formatLargeNumber(asset.costPrice)}</>
-                ) : '--'}
+                {displayAsset.costPrice ? formatLargeNumber(displayAsset.costPrice) : '--'}
               </span>
             </div>
             <div className="leading-4">
               <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">持仓金额</span>
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                {currencySymbol}{formatLargeNumber(asset.marketValue)}
+                {formatLargeNumber(displayAsset.marketValue)}
               </span>
             </div>
           </div>
         </div>
 
         {/* 走势图 */}
-<div className="mt-4 h-24 w-full">
-  {assetHistory.length < 2 ? (
-    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-      暂无数据
-    </div>
-  ) : (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={assetHistory}>
-        <YAxis domain={['auto', 'auto']} hide={true} />
-        {/* 光晕线：半透明、较粗 */}
-        <Line
-          type="monotone"
-          dataKey="value"
-          stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
-          strokeWidth={6}
-          strokeOpacity={0.3}
-          dot={false}
-          isAnimationActive={false}
-        />
-        {/* 主线：不透明、较细 */}
-        <Line
-          type="monotone"
-          dataKey="value"
-          stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
-          strokeWidth={2}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  )}
-</div>
+        <div className="mt-4 h-24 w-full">
+          {assetHistory.length < 2 ? (
+            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+              暂无数据
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={assetHistory}>
+                <YAxis domain={['auto', 'auto']} hide={true} />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
+                  strokeWidth={6}
+                  strokeOpacity={0.3}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
       </div>
 
       {/* 交易卡片 - 加仓/卖出 */}
@@ -288,31 +306,29 @@ export default function AssetDetailPage() {
           {/* 左侧加仓/卖出按钮及表单（占3/5） */}
           <div className="w-3/5">
             {/* 加仓/卖出按钮带滑动背景块 */}
-            {/* 加仓/卖出按钮带滑动背景块 */}
-<div className="relative flex bg-gray-200 dark:bg-gray-700 rounded-lg mb-2">
-  {/* 滑块 */}
-  <div
-    className={`absolute top-0 bottom-0 w-1/2 rounded-lg transition-all duration-300 ease-in-out ${
-      activeTab === 'buy' ? 'left-0 bg-green-600' : 'left-1/2 bg-red-600'
-    }`}
-  />
-  <button
-    className={`flex-1 py-2 text-xs font-bold rounded-lg relative z-10 ${
-      activeTab === 'buy' ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-    }`}
-    onClick={() => setActiveTab('buy')}
-  >
-    加仓
-  </button>
-  <button
-    className={`flex-1 py-2 text-xs font-bold rounded-lg relative z-10 ${
-      activeTab === 'sell' ? 'text-white' : 'text-gray-700 dark:text-gray-300'
-    }`}
-    onClick={() => setActiveTab('sell')}
-  >
-    卖出
-  </button>
-</div>
+            <div className="relative flex bg-gray-200 dark:bg-gray-700 rounded-lg mb-2">
+              <div
+                className={`absolute top-0 bottom-0 w-1/2 rounded-lg transition-all duration-300 ease-in-out ${
+                  activeTab === 'buy' ? 'left-0 bg-green-600' : 'left-1/2 bg-red-600'
+                }`}
+              />
+              <button
+                className={`flex-1 py-2 text-xs font-bold rounded-lg relative z-10 ${
+                  activeTab === 'buy' ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                }`}
+                onClick={() => setActiveTab('buy')}
+              >
+                加仓
+              </button>
+              <button
+                className={`flex-1 py-2 text-xs font-bold rounded-lg relative z-10 ${
+                  activeTab === 'sell' ? 'text-white' : 'text-gray-700 dark:text-gray-300'
+                }`}
+                onClick={() => setActiveTab('sell')}
+              >
+                卖出
+              </button>
+            </div>
 
             {/* 加仓表单 */}
             {activeTab === 'buy' && (
@@ -329,17 +345,16 @@ export default function AssetDetailPage() {
                   />
                 </div>
                 <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs">{currencySymbol}</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={buyPrice}
-                    onChange={(e) => setBuyPrice(e.target.value)}
-                    placeholder="价格"
-                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-6 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-                  />
-                </div>
+  <input
+    type="number"
+    step="0.01"
+    min="0"
+    value={buyPrice}
+    onChange={(e) => setBuyPrice(e.target.value)}
+    placeholder="价格"
+    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+  />
+</div>
                 <div>
                   <input
                     type="date"
@@ -375,17 +390,16 @@ export default function AssetDetailPage() {
                   />
                 </div>
                 <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs">{currencySymbol}</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={sellPrice}
-                    onChange={(e) => setSellPrice(e.target.value)}
-                    placeholder="价格"
-                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-6 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-                  />
-                </div>
+  <input
+    type="number"
+    step="0.01"
+    min="0"
+    value={sellPrice}
+    onChange={(e) => setSellPrice(e.target.value)}
+    placeholder="价格"
+    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+  />
+</div>
                 <div>
                   <input
                     type="date"
@@ -420,7 +434,7 @@ export default function AssetDetailPage() {
                     <span className="text-gray-600 dark:text-gray-400">{record.date.slice(5)}</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">{record.quantity}</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">
-                      {currencySymbol}{record.price.toFixed(2)}
+                      {currencySymbol}{record.price.toFixed(2)} {/* 模拟记录保留原始货币符号 */}
                     </span>
                   </div>
                 ))}
