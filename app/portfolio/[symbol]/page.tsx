@@ -221,7 +221,7 @@ export default function AssetDetailPage() {
       </button>
 
       {/* 资产概览卡片 */}
-      <div className="rounded-3xl p-6 shadow-lg mb-6">
+      <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
         <div className="flex justify-between items-start gap-4 max-w-full overflow-hidden">
           {/* 左侧 Logo 和名称 */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -268,7 +268,7 @@ export default function AssetDetailPage() {
         </div>
 
         {/* 走势图 */}
-        <div className="mt-4 h-24 w-full">
+        <div className="mt-4 h-50 w-full">
           {assetHistory.length < 2 ? (
             <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
               暂无数据
@@ -301,7 +301,7 @@ export default function AssetDetailPage() {
       </div>
 
       {/* 交易卡片 - 加仓/卖出 */}
-      <div className="rounded-3xl p-3 md:p-6 shadow-lg mb-6">
+      <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">
         <div className="flex flex-row gap-2">
           {/* 左侧加仓/卖出按钮及表单（占3/5） */}
           <div className="w-3/5">

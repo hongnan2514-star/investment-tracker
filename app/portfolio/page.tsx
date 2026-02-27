@@ -84,8 +84,8 @@ export default function PortfolioPage() {
   const [selectedBrandId, setSelectedBrandId] = useState<string>('');
   const [selectedBrandName, setSelectedBrandName] = useState<string>('');
   const [loadingCarData, setLoadingCarData] = useState(false);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [convertedAssets, setConvertedAssets] = useState<Asset[]>([]);  // 转换后的资产列表（价格和市值已按目标货币转换）
+  const [assets, setAssets] = useState<Asset[]>(() => getAssets());
+  const [convertedAssets, setConvertedAssets] = useState<Asset[]>(() => getAssets());  // 转换后的资产列表（价格和市值已按目标货币转换）
   const { currency } = useCurrency(); // 获取当前货币代码
   const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
   const [isRefreshing, setIsRefreshing] = useState(false);
