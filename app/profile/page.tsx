@@ -29,17 +29,29 @@ export default function ProfilePage() {
   // 删除 getOrCreateUser 函数，不再本地生成
 
   useEffect(() => {
-  const storedUser = localStorage.getItem('user');
-  if (storedUser) {
-    setUser(JSON.parse(storedUser));
-  }
+  // 从 localStorage 加载用户信息的函数
+  const loadUser = () => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+      setIsLoggedIn(true);
+    } else {
+      setUser(null);
+      setIsLoggedIn(false);
+    }
+  };
 
+  loadUser(); // 初始化
+
+  // 监听用户变更事件（登录/登出）
   const handleUserChange = () => {
-    const updated = localStorage.getItem('user');
-    if (updated) setUser(JSON.parse(updated));
+    loadUser();
   };
   window.addEventListener('user-changed', handleUserChange);
-  return () => window.removeEventListener('user-changed', handleUserChange);
+
+  return () => {
+    window.removeEventListener('user-changed', handleUserChange);
+  };
 }, []);
 
   const handleSendOtp = async () => {
