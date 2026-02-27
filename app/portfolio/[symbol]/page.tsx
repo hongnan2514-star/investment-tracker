@@ -239,7 +239,7 @@ export default function AssetDetailPage() {
           </div>
 
           {/* 右侧四个指标竖排（去除货币符号） */}
-          <div className="flex flex-col gap-0 ml-auto min-w-[130px]">
+          <div className="flex flex-col gap-0 ml-auto ml-10 min-w-[130px]">
             <div className="leading-4">
               <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">当前市价</span>
               <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
@@ -268,7 +268,7 @@ export default function AssetDetailPage() {
         </div>
 
         {/* 走势图 */}
-        <div className="mt-4 h-50 w-full">
+        <div className="mt-4 h-45 w-full">
           {assetHistory.length < 2 ? (
             <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
               暂无数据
