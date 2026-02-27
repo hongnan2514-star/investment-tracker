@@ -4,13 +4,19 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { currencyNames, currencySymbols, useCurrency, CurrencyCode } from '@/src/services/currency';
+import { useUser } from '@/src/hooks/useUser'; // 导入用户 Hook
 
 export default function CurrencyPage() {
   const router = useRouter();
   const { currency, setCurrency } = useCurrency();
+  const { user, updateUser } = useUser(); // 获取用户信息和更新函数
 
-  const handleSelect = (code: CurrencyCode) => {
-    setCurrency(code);
+  const handleSelect = async (code: CurrencyCode) => {
+    setCurrency(code); // 更新本地状态和 localStorage
+    if (user) {
+      // 如果已登录，将偏好同步到服务器
+      await updateUser({ preferredCurrency: code });
+    }
     router.back(); // 返回上一页
   };
 

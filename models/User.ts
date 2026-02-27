@@ -3,8 +3,10 @@ import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema({
   phone: { type: String, required: true, unique: true },
+  passwordHash: { type: String },
+  name: { type: String, default: '' },
   avatarUrl: { type: String, default: '' },
-  passwordHash: { type: String }, // 允许为空，表示尚未设置密码
+  preferredCurrency: { type: String, default: 'USD' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

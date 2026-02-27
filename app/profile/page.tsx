@@ -1,9 +1,11 @@
+// app/profile/page.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Mail, LogOut, Smartphone, Send, ChevronRight, Key, Settings } from 'lucide-react';
 import Image from 'next/image';
 import { setCurrentUserId, clearCurrentUserAssets } from '@/src/utils/assetStorage';
+import { eventBus } from '@/src/utils/eventBus'; // 确保导入 eventBus
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -24,21 +26,7 @@ export default function ProfilePage() {
   const [resetStep, setResetStep] = useState<'phone' | 'otp'>('phone');
   const [resetCountdown, setResetCountdown] = useState(0);
 
-  const getOrCreateUser = (phone: string) => {
-    const key = `user_${phone}`;
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      return JSON.parse(stored);
-    } else {
-      const defaultUser = {
-        phone,
-        name: `用户${phone.slice(-4)}`,
-        avatar: null,
-      };
-      localStorage.setItem(key, JSON.stringify(defaultUser));
-      return defaultUser;
-    }
-  };
+  // 删除 getOrCreateUser 函数，不再本地生成
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -89,11 +77,23 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.success) {
-        const userInfo = getOrCreateUser(phoneNumber);
+        // 从服务器获取用户信息（假设返回 data.user）
+        // 如果 data.user 不存在，可能需要调用另一个接口或由后端完善
+        const userInfo = data.user || {
+          phone: phoneNumber,
+          name: `用户${phoneNumber.slice(-4)}`,
+          avatarUrl: '',
+          preferredCurrency: 'USD',
+        };
         setCurrentUserId(phoneNumber);
         setUser(userInfo);
         setIsLoggedIn(true);
+        // 存储完整用户信息到 localStorage
         localStorage.setItem('user', JSON.stringify(userInfo));
+        // 存储货币偏好到 localStorage，供货币服务使用
+        localStorage.setItem('preferred_currency', userInfo.preferredCurrency || 'USD');
+        // 触发用户变更事件
+        eventBus.emit('userChanged', phoneNumber);
         setShowLoginForm(false);
         setOtpSent(false);
         setPhoneNumber('');
@@ -119,11 +119,13 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.success) {
-        const userInfo = getOrCreateUser(phoneNumber);
+        const userInfo = data.user; // 密码登录 API 应该返回 user 对象
         setCurrentUserId(phoneNumber);
         setUser(userInfo);
         setIsLoggedIn(true);
         localStorage.setItem('user', JSON.stringify(userInfo));
+        localStorage.setItem('preferred_currency', userInfo.preferredCurrency || 'USD');
+        eventBus.emit('userChanged', phoneNumber);
         setShowLoginForm(false);
         setPhoneNumber('');
         setPassword('');
@@ -182,6 +184,8 @@ export default function ProfilePage() {
           setResetOtp('');
           setResetPassword('');
           setPhoneNumber('');
+          // 切换到密码登录模式
+          setLoginMethod('password');
         } else {
           alert(data.message || '重置失败');
         }
@@ -196,8 +200,10 @@ export default function ProfilePage() {
   const handleLogout = () => {
     setCurrentUserId(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('preferred_currency');
     setIsLoggedIn(false);
     setUser(null);
+    eventBus.emit('userChanged', null);
   };
 
   const resetForm = () => {
@@ -409,7 +415,7 @@ export default function ProfilePage() {
     );
   };
 
-  return (
+   return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4">
       <header className="mb-6 px-2 flex justify-between items-center">
         <div>
@@ -434,8 +440,8 @@ export default function ProfilePage() {
             >
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {user?.avatar ? (
-                    <Image src={user.avatar} alt={user.name} width={80} height={80} className="object-cover" />
+                  {user?.avatarUrl ? (
+                    <Image src={user.avatarUrl} alt={user.name} width={80} height={80} className="object-cover" />
                   ) : (
                     <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                       {user?.name?.charAt(0).toUpperCase() || '?'}

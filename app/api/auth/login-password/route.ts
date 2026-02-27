@@ -36,9 +36,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       user: {
-        phone,
-        name: `用户${phone.slice(-4)}`, // 如果你有 name 字段，也可以从 user.name 获取
+        phone: user.phone,
+        name: user.name || `用户${phone.slice(-4)}`, // 如果你有 name 字段，也可以从 user.name 获取
         avatarUrl: user.avatarUrl || '', // 返回头像 URL
+        preferredCurrency: user.preferredCurrency || 'USD',
       },
     });
   } catch (error) {
