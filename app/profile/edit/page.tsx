@@ -1,16 +1,18 @@
+// app/profile/edit/page.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Save } from 'lucide-react';
+import { ChevronLeft, Save, Loader2 } from 'lucide-react';
 import AvatarEditor from 'react-avatar-editor';
 
 export default function EditProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [nickname, setNickname] = useState('');
-  const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);      // 最终展示的头像 URL
+  const [selectedImage, setSelectedImage] = useState<string | null>(null); // 待裁剪的图片
   const [scale, setScale] = useState(1.2);
+  const [loading, setLoading] = useState(false);
   const editorRef = useRef<AvatarEditor>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -20,7 +22,7 @@ export default function EditProfilePage() {
       const userData = JSON.parse(storedUser);
       setUser(userData);
       setNickname(userData.name || '');
-      setAvatarBase64(userData.avatar || null);
+      setAvatarUrl(userData.avatarUrl || null);  // 注意字段名 avatarUrl（与后端一致）
     } else {
       router.push('/profile');
     }
@@ -51,12 +53,34 @@ export default function EditProfilePage() {
     fileInputRef.current?.click();
   };
 
-  const handleCropConfirm = () => {
-    if (editorRef.current && selectedImage) {
-      const canvas = editorRef.current.getImageScaledToCanvas();
-      const croppedBase64 = canvas.toDataURL('image/jpeg');
-      setAvatarBase64(croppedBase64);
-      setSelectedImage(null);
+  const handleCropConfirm = async () => {
+    if (!editorRef.current || !selectedImage || !user) return;
+
+    // 从 canvas 获取裁剪后的 Blob
+    const canvas = editorRef.current.getImageScaledToCanvas();
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob(resolve as any, 'image/jpeg'));
+    const formData = new FormData();
+    formData.append('avatar', blob, 'avatar.jpg');
+    formData.append('userId', user.phone);
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/user/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.avatarUrl) {
+        setAvatarUrl(data.avatarUrl);    // 更新预览
+        setSelectedImage(null);           // 退出裁剪模式
+      } else {
+        alert('头像上传失败');
+      }
+    } catch (error) {
+      console.error('上传出错:', error);
+      alert('网络错误');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -64,21 +88,44 @@ export default function EditProfilePage() {
     setSelectedImage(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return;
 
-    const updatedUser = {
-      ...user,
-      name: nickname.trim() || user.name,
-      avatar: avatarBase64,
-    };
-
-    const phone = user.phone;
-    if (phone) {
-      localStorage.setItem(`user_${phone}`, JSON.stringify(updatedUser));
+    setLoading(true);
+    try {
+      // 调用个人信息更新接口
+      const res = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: user.phone,
+          name: nickname.trim() || user.name,
+          avatarUrl: avatarUrl,          // 如果有新头像 URL 就传过去
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // 更新本地存储
+        const updatedUser = {
+          ...user,
+          name: data.user.name,
+          avatarUrl: data.user.avatarUrl,
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        // 触发用户变更事件（其他组件可监听更新）
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('user-changed'));
+        }
+        router.back();
+      } else {
+        alert(data.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存出错:', error);
+      alert('网络错误');
+    } finally {
+      setLoading(false);
     }
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    router.back();
   };
 
   const getInitial = () => {
@@ -89,7 +136,7 @@ export default function EditProfilePage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-black p-4 flex items-center justify-center">
-        <p className="text-gray-500 dark:text-gray-400">加载中...</p>
+        <p className="text-gray-500 dark:text-gray-400">加载中...</p >
       </div>
     );
   }
@@ -107,6 +154,12 @@ export default function EditProfilePage() {
       </header>
 
       <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md space-y-6">
+        {loading && (
+          <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center z-10 rounded-3xl">
+            <Loader2 className="animate-spin text-blue-600" size={40} />
+          </div>
+        )}
+
         {selectedImage ? (
           // 裁剪模式
           <div className="space-y-4">
@@ -141,13 +194,15 @@ export default function EditProfilePage() {
             <div className="flex gap-2">
               <button
                 onClick={handleCropConfirm}
-                className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition"
+                disabled={loading}
+                className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
               >
-                确认裁剪
+                {loading ? '上传中...' : '确认裁剪'}
               </button>
               <button
                 onClick={handleCropCancel}
-                className="flex-1 bg-gray-200 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 font-bold py-3 rounded-xl hover:bg-gray-300 dark:hover:bg-[#2a2a2a] transition"
+                disabled={loading}
+                className="flex-1 bg-gray-200 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 font-bold py-3 rounded-xl hover:bg-gray-300 dark:hover:bg-[#2a2a2a] transition disabled:opacity-50"
               >
                 取消
               </button>
@@ -161,8 +216,8 @@ export default function EditProfilePage() {
                 onClick={handleAvatarClick}
                 className="relative w-24 h-24 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden cursor-pointer group border-2 border-transparent hover:border-blue-400 transition"
               >
-                {avatarBase64 ? (
-                  <img src={avatarBase64} alt="avatar" className="w-full h-full object-cover" />
+                {avatarUrl ? (
+                  < img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">{getInitial()}</span>
                 )}
@@ -177,7 +232,7 @@ export default function EditProfilePage() {
                 accept="image/*"
                 className="hidden"
               />
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">点击头像上传照片</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">点击头像上传照片</p >
             </div>
 
             <div>
@@ -193,9 +248,10 @@ export default function EditProfilePage() {
 
             <button
               onClick={handleSave}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Save size={20} />
+              {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
               保存修改
             </button>
           </>
