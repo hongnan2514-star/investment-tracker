@@ -4,7 +4,55 @@ import { eventBus } from '@/src/utils/eventBus';
 import { getAssets, getCurrentUserId } from '@/src/utils/assetStorage';
 import { recordSnapshot } from './historyService';
 import { queryCryptoOHLCV } from '@/app/api/data-sources/crypto-ccxt';
-import { isUSMarketOpen } from '../utils/marketTime';
+
+// 判断美股当前是否处于交易时段（基于北京时间）
+function isUSMarketOpen(): boolean {
+  const now = new Date();
+
+  // 1. 周末判断（周日=0，周六=6）
+  const day = now.getDay();
+  if (day === 0 || day === 6) return false;
+
+  // 2. 判断夏令时/冬令时并计算交易时段（北京时间）
+  const year = now.getFullYear();
+  // 计算3月第二个周日
+  const marchSecondSunday = (() => {
+    const date = new Date(year, 2, 1);
+    let sundayCount = 0;
+    for (let d = 1; d <= 14; d++) {
+      const dte = new Date(year, 2, d);
+      if (dte.getDay() === 0) {
+        sundayCount++;
+        if (sundayCount === 2) return new Date(year, 2, d);
+      }
+    }
+    return new Date(year, 2, 14); // fallback
+  })();
+
+  // 计算11月第一个周日
+  const novFirstSunday = (() => {
+    const date = new Date(year, 10, 1);
+    for (let d = 1; d <= 7; d++) {
+      const dte = new Date(year, 10, d);
+      if (dte.getDay() === 0) return new Date(year, 10, d);
+    }
+    return new Date(year, 10, 7); // fallback
+  })();
+
+  const isDST = now >= marchSecondSunday && now < novFirstSunday;
+
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const currentTime = hours + minutes / 60;
+
+  if (isDST) {
+    // 夏令时交易时段：21:30 - 次日04:00
+    return currentTime >= 21.5 || currentTime < 4;
+  } else {
+    // 冬令时交易时段：22:30 - 次日05:00
+    return currentTime >= 22.5 || currentTime < 5;
+  }
+}
 
 export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
   if (assets.length === 0) return assets;
@@ -57,12 +105,27 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
       } catch (error) {
         console.error(`[价格调试] ${asset.symbol} 获取失败:`, error);
       }
-    } else {
+    } else if (asset.type === 'stock' || asset.type === 'etf') {
       // 股票/ETF：检查市场是否开放
       if (!isUSMarketOpen()) {
         console.log(`[市场休市] 跳过 ${asset.symbol} 的价格更新`);
         return; // 不更新该资产，priceMap 中无此资产，后面将保留原价
       }
+      // 原有实时查询
+      try {
+        const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
+        const data = await response.json();
+        if (data.price) {
+          priceMap.set(asset.symbol, {
+            price: data.price,
+            changePercent: data.changePercent || 0
+          });
+        }
+      } catch (error) {
+        console.error(`更新 ${asset.symbol} 失败:`, error);
+      }
+    } else {
+      // 其他类型（基金、汽车等）保持原有实时查询（假设都通过 /api/search）
       try {
         const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
         const data = await response.json();
@@ -99,20 +162,18 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
     return asset;
   });
 
-  // 5. 获取正确的存储键并更新主存储（关键修复）
+  // 5. 获取正确的存储键并更新主存储
   const userId = getCurrentUserId();
   const assetsKey = userId ? `assets_${userId}` : null;
 
   if (assetsKey) {
     console.log('[写入调试] 开始更新主存储，key:', assetsKey);
     
-    // 读取当前所有资产
     const currentData = localStorage.getItem(assetsKey);
     let allAssets: Asset[] = currentData ? JSON.parse(currentData) : [];
     
     console.log('[写入调试] 更新前所有资产:', allAssets.map(a => ({ symbol: a.symbol, price: a.price })));
     
-    // 使用 priceMap 更新资产价格
     allAssets = allAssets.map(asset => {
       const update = priceMap.get(asset.symbol);
       if (update) {
@@ -133,21 +194,18 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
       return asset;
     });
     
-    // 写回主存储
     localStorage.setItem(assetsKey, JSON.stringify(allAssets));
     console.log('[写入调试] 已更新主存储，新数据:', allAssets.map(a => ({ symbol: a.symbol, price: a.price })));
     
-    // 验证写入
     const verify = localStorage.getItem(assetsKey);
     console.log('[写入调试] 验证主存储:', verify ? JSON.parse(verify).map((a: any) => ({ symbol: a.symbol, price: a.price })) : '失败');
     
-    // 更新缓存（通过 getAssets 会自动更新）
-    getAssets();
+    getAssets(); // 更新缓存
   } else {
     console.warn('[写入调试] 无法获取用户ID，跳过存储');
   }
 
-  // 6. 清理已删除资产的 storage 条目（注意：这里只清理旧的单条存储格式）
+  // 6. 清理已删除资产的 storage 条目（清理旧的单条存储格式）
   const allKeys = Object.keys(localStorage);
   allKeys.forEach(key => {
     if (key.startsWith('asset_')) {
