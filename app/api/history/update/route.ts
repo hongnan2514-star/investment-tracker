@@ -1,42 +1,21 @@
+// app/api/history/update/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { needsStockUpdate, saveStockHistory } from '@/src/services/fundHistoryDB';
+import { needsStockUpdate, saveStockHistory, StockPrice } from '@/src/services/fundHistoryDB';
 import { needsCryptoUpdate, saveCryptoHistory } from '@/src/services/fundHistoryDB';
 import { queryCryptoHistory } from '@/app/api/data-sources/crypto-ccxt';
+import { fetchYahooHistory } from '@/app/api/data-sources/yahoo-finance';
 
 async function updateStockHistory(symbol: string): Promise<{ updated: boolean; count?: number }> {
   try {
-    if (!needsStockUpdate(symbol)) return { updated: false };
+    if (!(await needsStockUpdate(symbol))) return { updated: false };
 
-    const apiKey = process.env.ALPHA_VANTAGE_KEY;
-    if (!apiKey) {
-      console.warn('缺少 Alpha Vantage API Key');
+    const stockPrices = await fetchYahooHistory(symbol, 365);
+    if (!stockPrices || stockPrices.length === 0) {
+      console.warn(`获取股票历史失败 ${symbol}: 无数据`);
       return { updated: false };
     }
 
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${symbol}&apikey=${apiKey}&outputsize=compact`;
-    const res = await fetch(url);
-    const data = await res.json();
-
-    if (data['Error Message'] || data['Note'] || !data['Time Series (Daily)']) {
-      console.warn(`获取股票历史失败 ${symbol}:`, data['Note'] || data['Error Message']);
-      return { updated: false };
-    }
-
-    const timeSeries = data['Time Series (Daily)'];
-    const stockPrices: any[] = [];
-    for (const [date, values] of Object.entries(timeSeries)) {
-      const v: any = values;
-      stockPrices.push({
-        symbol,
-        date,
-        open: parseFloat(v['1. open']),
-        high: parseFloat(v['2. high']),
-        low: parseFloat(v['3. low']),
-        close: parseFloat(v['4. close']),
-        volume: parseInt(v['6. volume'], 10)
-      });
-    }
-    saveStockHistory(stockPrices);
+    await saveStockHistory(stockPrices);
     console.log(`[历史更新] 股票 ${symbol} 历史数据已保存 (${stockPrices.length}条)`);
     return { updated: true, count: stockPrices.length };
   } catch (error) {
@@ -47,7 +26,7 @@ async function updateStockHistory(symbol: string): Promise<{ updated: boolean; c
 
 async function updateCryptoHistory(baseSymbol: string): Promise<{ updated: boolean; count?: number }> {
   try {
-    if (!needsCryptoUpdate(baseSymbol)) return { updated: false };
+    if (!(await needsCryptoUpdate(baseSymbol))) return { updated: false };
 
     const history = await queryCryptoHistory(baseSymbol, 365);
     if (!history || history.length === 0) {
@@ -64,7 +43,7 @@ async function updateCryptoHistory(baseSymbol: string): Promise<{ updated: boole
       close: item.close,
       volume: 0,
     }));
-    saveCryptoHistory(records);
+    await saveCryptoHistory(records);
     console.log(`[历史更新] 加密货币 ${baseSymbol} 历史数据已保存 (${records.length}条)`);
     return { updated: true, count: records.length };
   } catch (error) {
@@ -82,7 +61,6 @@ export async function POST(request: NextRequest) {
     if (type === 'stock' || type === 'etf') {
       result = await updateStockHistory(symbol);
     } else if (type === 'crypto') {
-      // 从资产符号中提取基础币种（例如 "BTC/USDT" 取 "BTC"）
       const baseSymbol = symbol.split('/')[0];
       result = await updateCryptoHistory(baseSymbol);
     } else {

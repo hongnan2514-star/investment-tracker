@@ -1,21 +1,16 @@
 // /app/api/data-sources/yahoo-finance.ts
 import { DataSourceResult, UnifiedAsset } from "./types";
 import { fetchWithTimeout } from "./_untils";
+import { StockPrice } from '@/src/services/fundHistoryDB';
 
 export async function queryYahooFinance(symbol: string): Promise<DataSourceResult> {
     try {
-        // 使用 yahoo-finance2 库的API(无需安装, 直接调用其公开端点)
-        // 注意: 这是非官方API, 可能随时变化
         const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d`;
         const response = await fetchWithTimeout(url, 2500);
         const data = await response.json();
 
-        // 检查响应结构是否正确
         if (!data.chart?.result?.[0]?.meta) {
-            return { success: false, 
-                     data: null, 
-                     error: 'No data from Yahoo', 
-                     source: 'Yahoo Finance' };
+            return { success: false, data: null, error: 'No data from Yahoo', source: 'Yahoo Finance' };
         }
 
         const result = data.chart.result[0];
@@ -31,14 +26,64 @@ export async function queryYahooFinance(symbol: string): Promise<DataSourceResul
             type: meta.instrumentType === 'ETF' ? 'etf' : 'stock',
             source: 'Yahoo Finance',
             lastUpdated: new Date().toISOString(),
-            raw: meta // 保留原始数据用于调试
+            raw: meta
         };
 
         return { success: true, data: asset, source: 'Yahoo Finance' };
     } catch (error: any) {
-        return { success: false, 
-                 data: null, 
-                 error: error.message, 
-                 source: 'Yahoo Finance'}
+        return { success: false, data: null, error: error.message, source: 'Yahoo Finance' };
+    }
+}
+
+/**
+ * 从 Yahoo Finance 获取股票历史 K 线数据
+ * @param symbol 股票代码，如 AAPL
+ * @param days 需要获取的天数，默认365
+ * @returns StockPrice 数组，如果失败返回 null
+ */
+export async function fetchYahooHistory(symbol: string, days: number = 365): Promise<StockPrice[] | null> {
+    try {
+        const to = Math.floor(Date.now() / 1000);
+        const from = to - days * 24 * 60 * 60;
+
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&period1=${from}&period2=${to}`;
+        const response = await fetchWithTimeout(url, 10000);
+        const data = await response.json();
+
+        if (!data.chart?.result?.[0]) {
+            console.warn(`Yahoo历史数据获取失败: ${symbol}`, data);
+            return null;
+        }
+
+        const result = data.chart.result[0];
+        const timestamps: number[] = result.timestamp;
+        const quotes = result.indicators?.quote?.[0];
+        if (!timestamps || !quotes) return null;
+
+        const stockPrices: StockPrice[] = [];
+        for (let i = 0; i < timestamps.length; i++) {
+            const open = quotes.open?.[i];
+            const high = quotes.high?.[i];
+            const low = quotes.low?.[i];
+            const close = quotes.close?.[i];
+            const volume = quotes.volume?.[i];
+
+            if (open == null || high == null || low == null || close == null || volume == null) continue;
+
+            stockPrices.push({
+                symbol,
+                date: new Date(timestamps[i] * 1000).toISOString().split('T')[0],
+                open,
+                high,
+                low,
+                close,
+                volume,
+            });
+        }
+
+        return stockPrices.length > 0 ? stockPrices : null;
+    } catch (error) {
+        console.error(`Yahoo历史数据请求失败 ${symbol}:`, error);
+        return null;
     }
 }

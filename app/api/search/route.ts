@@ -1,5 +1,5 @@
+// app/api/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { queryAlphaVantage } from "@/app/api/data-sources/alpha-vantage";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
 import { queryFinnhub } from "@/app/api/data-sources/finnhub";
 import { searchFund } from "@/src/services/fundService";
@@ -31,7 +31,7 @@ function normalizeAStockSymbol(symbol: string): string {
 }
 
 /**
- * 搜索股票或ETF（优先使用 Finnhub，降级到 Yahoo/Alpha Vantage）
+ * 搜索股票或ETF（优先使用 Finnhub，降级到 Yahoo）
  */
 async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null> {
   // 检查缓存
@@ -55,13 +55,7 @@ async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null
     return yahooResult;
   }
 
-  // 3. 最后尝试 Alpha Vantage
-  const avResult = await queryAlphaVantage(symbol);
-  if (avResult.success && avResult.data) {
-    stockCache.set(symbol, { data: avResult, timestamp: Date.now() });
-    return avResult;
-  }
-
+  // 移除 Alpha Vantage 后备
   return null;
 }
 
@@ -101,24 +95,23 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (type === 'crypto') {
-  console.log(`[搜索路由] 开始搜索加密货币: ${trimmedSymbol}`);
-  // 提取基础币种（例如从 "BTC/USDT" 中提取 "BTC"）
-  const baseSymbol = trimmedSymbol.split('/')[0];
-  console.log(`[搜索路由] 提取基础币种: ${baseSymbol}`);
-  const cryptoResult = await queryCryptoCCXT(baseSymbol);
-  if (cryptoResult.success) {
-    return NextResponse.json({
-      success: true,
-      ...cryptoResult.data,
-      source: cryptoResult.source
-    });
-  } else {
-    return NextResponse.json(
-      { error: cryptoResult.error || '加密货币搜索失败' },
-      { status: 404 }
-    );
-  }
-} else if (type === 'metal') {
+      console.log(`[搜索路由] 开始搜索加密货币: ${trimmedSymbol}`);
+      const baseSymbol = trimmedSymbol.split('/')[0];
+      console.log(`[搜索路由] 提取基础币种: ${baseSymbol}`);
+      const cryptoResult = await queryCryptoCCXT(baseSymbol);
+      if (cryptoResult.success) {
+        return NextResponse.json({
+          success: true,
+          ...cryptoResult.data,
+          source: cryptoResult.source
+        });
+      } else {
+        return NextResponse.json(
+          { error: cryptoResult.error || '加密货币搜索失败' },
+          { status: 404 }
+        );
+      }
+    } else if (type === 'metal') {
       console.log(`[搜索路由] 开始搜索贵金属: ${trimmedSymbol}`);
       const result = await queryJuheGold(trimmedSymbol);
       if (result.success) {

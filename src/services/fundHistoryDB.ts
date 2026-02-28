@@ -41,6 +41,19 @@ export interface CryptoMinute {
   resolution: string;    // 分辨率，例如 '5m', '15m'
 }
 
+// ==================== 股票分钟级数据 ====================
+export interface StockMinute {
+  symbol: string;
+  timestamp: number;      // Unix 秒级时间戳
+  resolution: string;     // 分辨率，例如 '5m'
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+
 // ==================== 数据库连接 ====================
 // 从环境变量获取 Neon PostgreSQL 连接字符串（Vercel 自动注入，本地需在 .env.local 中配置）
 const sql = neon(process.env.POSTGRES_URL!);
@@ -251,6 +264,167 @@ export async function needsStockUpdate(symbol: string): Promise<boolean> {
   const threshold = new Date();
   threshold.setDate(threshold.getDate() - 3);
   return lastDate < threshold;
+}
+
+/**
+ * 保存股票分钟级数据（批量，冲突忽略）
+ */
+export async function saveStockMinute(records: StockMinute[]): Promise<void> {
+  for (const r of records) {
+    await sql`
+      INSERT INTO stock_minute_history (symbol, timestamp, resolution, open, high, low, close, volume)
+      VALUES (${r.symbol}, ${r.timestamp}, ${r.resolution}, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume})
+      ON CONFLICT (symbol, timestamp, resolution) DO NOTHING
+    `;
+  }
+}
+
+/**
+ * 获取最近 N 条股票分钟级数据（按时间降序）
+ * @param symbol 股票代码（带后缀，如 "AAPL" 或 "600519.SS"）
+ * @param resolution 分辨率，固定为 '5m'
+ * @param limit 条数，默认288（24小时*12个5分钟）
+ */
+export async function getStockMinuteHistory(symbol: string, resolution: string, limit: number = 288): Promise<StockMinute[]> {
+  const result = await sql`
+    SELECT * FROM stock_minute_history
+    WHERE symbol = ${symbol} AND resolution = ${resolution}
+    ORDER BY timestamp DESC
+    LIMIT ${limit}
+  `;
+  return result as StockMinute[];
+}
+
+/**
+ * 检查是否需要更新股票分钟级数据
+ * @param symbol 股票代码
+ * @param resolution 分辨率，如 '5m'
+ * @param maxAgeSeconds 最大允许的数据年龄（秒），例如 15*60 表示15分钟
+ */
+export async function needsStockMinuteUpdate(symbol: string, resolution: string, maxAgeSeconds: number): Promise<boolean> {
+  const result = await sql`
+    SELECT timestamp FROM stock_minute_history
+    WHERE symbol = ${symbol} AND resolution = ${resolution}
+    ORDER BY timestamp DESC LIMIT 1
+  `;
+  const row = result[0] as { timestamp: number } | undefined;
+  if (!row) return true;
+  const lastTime = row.timestamp * 1000;
+  const now = Date.now();
+  return (now - lastTime) > maxAgeSeconds * 1000;
+}
+
+/**
+ * 从 Yahoo Finance 获取股票5分钟数据并更新到数据库（冲突忽略）
+ * @param symbol 股票代码（带后缀，如 "AAPL" 或 "600519.SS"）
+ * @param days 最多获取多少天的数据（Yahoo 分钟数据最多支持60天）
+ */
+
+export async function updateStockMinuteHistory(symbol: string): Promise<number> {
+  const maxRetries = 3;
+  const baseDelay = 5000; // 5秒基础等待
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // 计算最近5天的范围（足够5个交易日）
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - 5 * 24 * 60 * 60; // 5天前
+
+      // 使用 query2 端点，模拟浏览器请求头
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=15m&period1=${from}&period2=${to}`;
+      console.log(`获取 ${symbol} 15分钟数据 (尝试 ${attempt}/${maxRetries})`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json,text/plain,*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': 'https://finance.yahoo.com/',
+        },
+      });
+      clearTimeout(timeoutId);
+
+      // 处理频率限制
+      if (res.status === 429) {
+        const waitTime = baseDelay * Math.pow(2, attempt - 1); // 指数退避：5s, 10s, 20s
+        console.warn(`Yahoo 频率限制 (429)，等待 ${waitTime/1000} 秒后重试...`);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, waitTime));
+          continue;
+        } else {
+          console.error(`达到最大重试次数，放弃获取 ${symbol} 分钟数据`);
+          return 0;
+        }
+      }
+
+      if (!res.ok) {
+        console.warn(`Yahoo请求失败 (${res.status})`);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, baseDelay));
+          continue;
+        }
+        return 0;
+      }
+
+      const data = await res.json();
+
+      // 处理Yahoo返回的业务错误
+      if (data.chart?.error) {
+        console.error(`Yahoo错误:`, data.chart.error);
+        return 0;
+      }
+
+      if (!data.chart?.result?.[0]) {
+        console.warn(`Yahoo返回空数据`);
+        return 0;
+      }
+
+      const result = data.chart.result[0];
+      const timestamps: number[] = result.timestamp;
+      const quote = result.indicators?.quote?.[0];
+      if (!timestamps || !quote) return 0;
+
+      // 构建记录
+      const records: StockMinute[] = [];
+      for (let i = 0; i < timestamps.length; i++) {
+        const open = quote.open?.[i];
+        const high = quote.high?.[i];
+        const low = quote.low?.[i];
+        const close = quote.close?.[i];
+        const volume = quote.volume?.[i];
+        if (open == null || high == null || low == null || close == null || volume == null) continue;
+
+        records.push({
+          symbol,
+          timestamp: timestamps[i],
+          resolution: '15m',
+          open,
+          high,
+          low,
+          close,
+          volume,
+        });
+      }
+
+      if (records.length > 0) {
+        await saveStockMinute(records);
+        console.log(`[股票分钟更新] ${symbol} 已保存 ${records.length} 条15分钟数据`);
+        return records.length;
+      }
+      return 0;
+    } catch (error: any) {
+      console.error(`请求异常:`, error.message);
+      if (attempt < maxRetries) {
+        const waitTime = baseDelay * Math.pow(2, attempt - 1);
+        await new Promise(r => setTimeout(r, waitTime));
+      }
+    }
+  }
+  return 0;
 }
 
 // ==================== 加密货币日线数据 ====================

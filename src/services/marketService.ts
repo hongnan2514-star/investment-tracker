@@ -4,6 +4,7 @@ import { eventBus } from '@/src/utils/eventBus';
 import { getAssets, getCurrentUserId } from '@/src/utils/assetStorage';
 import { recordSnapshot } from './historyService';
 import { queryCryptoOHLCV } from '@/app/api/data-sources/crypto-ccxt';
+import { isUSMarketOpen } from '../utils/marketTime';
 
 export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
   if (assets.length === 0) return assets;
@@ -57,7 +58,11 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
         console.error(`[价格调试] ${asset.symbol} 获取失败:`, error);
       }
     } else {
-      // 非加密货币：原有实时查询（股票、基金等）
+      // 股票/ETF：检查市场是否开放
+      if (!isUSMarketOpen()) {
+        console.log(`[市场休市] 跳过 ${asset.symbol} 的价格更新`);
+        return; // 不更新该资产，priceMap 中无此资产，后面将保留原价
+      }
       try {
         const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
         const data = await response.json();
