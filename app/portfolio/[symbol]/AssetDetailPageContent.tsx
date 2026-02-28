@@ -86,7 +86,7 @@ export default function AssetDetailPage() {
 
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`/api/history?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&range=1h&limit=24`);
+        const res = await fetch(`/api/history?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&range=1h&limit=40`);
         const json = await res.json();
         if (json.success && json.data?.length > 0) {
           setAssetHistory(json.data.map((item: any) => ({ value: item.value })));
@@ -271,7 +271,6 @@ export default function AssetDetailPage() {
 <div className="mt-4 h-45 w-full">
   {assetHistory.length < 2 ? (
     <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-      暂无数据
     </div>
   ) : (
     <ResponsiveContainer width="100%" height="100%">

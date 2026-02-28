@@ -138,7 +138,6 @@ export default function SummaryCard() {
           >
             {historyData.length < 2 ? (
               <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-                暂无数据
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
