@@ -1,3 +1,4 @@
+// components/dashboard/ExpandedChart.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, Tooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts';

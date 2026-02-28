@@ -268,36 +268,43 @@ export default function AssetDetailPage() {
         </div>
 
         {/* 走势图 */}
-        <div className="mt-4 h-45 w-full">
-          {assetHistory.length < 2 ? (
-            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-              暂无数据
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={assetHistory}>
-                <YAxis domain={['auto', 'auto']} hide={true} />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
-                  strokeWidth={6}
-                  strokeOpacity={0.3}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={asset.changePercent && asset.changePercent >= 0 ? '#22c55e' : '#ef4444'}
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+<div className="mt-4 h-45 w-full">
+  {assetHistory.length < 2 ? (
+    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+      暂无数据
+    </div>
+  ) : (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={assetHistory}>
+        <defs>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <YAxis domain={['auto', 'auto']} hide={true} />
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke={
+            asset.changePercent != null
+              ? asset.changePercent >= 0
+                ? '#22c55e'
+                : '#ef4444'
+              : '#6b7280' // 灰色
+          }
+          strokeWidth={2}
+          dot={false}
+          filter="url(#glow)"
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  )}
+</div>
       </div>
 
       {/* 交易卡片 - 加仓/卖出 */}
