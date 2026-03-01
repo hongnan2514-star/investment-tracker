@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Lock, Bell, Moon, Info, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Bell, Moon, Info, LogOut,CircleDollarSign } from 'lucide-react';
 import { setCurrentUserId, clearCurrentUserAssets } from '@/src/utils/assetStorage';
 import { useTheme } from '@/app/ThemeProvider';
 import { useCurrency, currencySymbols } from '@/src/services/currency'; // 新增导入
@@ -73,9 +73,9 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">设置</h1>
       </header>
 
-      <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md space-y-2">
+      <div className="bg-gray-50 dark:bg-black rounded-3xl p-6 space-y-2">
         {/* 修改密码 */}
-        <div className="border-b border-gray-100 dark:border-gray-700 pb-2">
+        <div className="pb-2">
           <button
             onClick={() => {
               if (!isLoggedIn) {
@@ -131,7 +131,7 @@ export default function SettingsPage() {
         {/* 通知设置 */}
         <button
           onClick={() => alert('通知设置开发中')}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl border-b border-gray-100 dark:border-gray-700"
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
         >
           <div className="flex items-center gap-3">
             <Bell size={20} className="text-gray-500 dark:text-gray-400" />
@@ -143,7 +143,7 @@ export default function SettingsPage() {
         {/* 主题设置 */}
         <button
           onClick={toggleTheme}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl border-b border-gray-100 dark:border-gray-700"
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
         >
           <div className="flex items-center gap-3">
             <Moon size={20} className="text-gray-500 dark:text-gray-400" />
@@ -157,10 +157,10 @@ export default function SettingsPage() {
         {/* 计价货币 - 新增 */}
         <button
           onClick={() => router.push('/settings/currency')}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl border-b border-gray-100 dark:border-gray-700"
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
         >
           <div className="flex items-center gap-3">
-            <span className="text-gray-500 dark:text-gray-400 text-xl">💰</span>
+            <CircleDollarSign size={20} className="text-gray-500 dark:text-gray-400" />
             <span className="text-gray-700 dark:text-gray-300">计价货币</span>
           </div>
           <div className="flex items-center gap-1">
