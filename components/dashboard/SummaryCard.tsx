@@ -124,11 +124,11 @@ export default function SummaryCard() {
 </h2>
           </div>
           <p className={`text-sm font-bold mt-2 ${profitColorClass}`}>
-            今日收益 {profitSign}{formatLargeNumber(Math.abs(convertedProfit))} {currency}
-            {convertedTotal > 0 && (
-              <> ({profitSign}{(convertedProfit / convertedTotal * 100).toFixed(2)}%)</>
-            )}
-          </p >
+  今日收益 {profitSign}{symbol}{formatLargeNumber(Math.abs(convertedProfit))}
+  {convertedTotal > 0 && (
+    <> ({profitSign}{(convertedProfit / convertedTotal * 100).toFixed(2)}%)</>
+  )}
+</p >
         </div>
 
         {/* 迷你走势图 */}
