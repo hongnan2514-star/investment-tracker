@@ -210,13 +210,9 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         >
           <ArrowLeft size={24} />
         </button>
-
-        
-
         {/* 资产概览卡片（完全复制原 AssetDetailPage 的内容） */}
         <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
           {/* 资产概览卡片 */}
-                <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
                   <div className="flex justify-between items-start gap-4 max-w-full overflow-hidden">
                     {/* 左侧 Logo 和名称 */}
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -300,12 +296,8 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             )}
           </div>
                 </div>
-          {/* 为了简洁，省略具体 JSX，实际使用时请完整复制 */}
-          {/* ... */}
         </div>
 
-        {/* 交易卡片（同样复制原内容） */}
-        <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">
           {/* 交易卡片 - 加仓/卖出 */}
       <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">
         <div className="flex flex-row gap-2">
@@ -450,7 +442,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
           </div>
         </div>
       </div>
-        </div>
 
         {/* 消息提示 */}
         {message && (
@@ -461,6 +452,5 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
           </div>
         )}
       </div>
-    </div>
   );
 }
