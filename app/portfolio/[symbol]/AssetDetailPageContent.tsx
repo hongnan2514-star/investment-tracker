@@ -366,6 +366,7 @@ export default function AssetDetailPage() {
                     type="date"
                     value={buyDate}
                     onChange={(e) => setBuyDate(e.target.value)}
+                    placeholder='日期'
                     className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
                     style={{ minWidth: 0 }}
                   />

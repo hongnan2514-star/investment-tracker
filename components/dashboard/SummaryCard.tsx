@@ -119,11 +119,11 @@ export default function SummaryCard() {
           </div>
           <div className="flex items-baseline gap-1">
             <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-gray-100">
-              {symbol}{formatLargeNumber(convertedTotal)}
+              {formatLargeNumber(convertedTotal)} {currency}
             </h2>
           </div>
           <p className={`text-sm font-bold mt-2 ${profitColorClass}`}>
-            今日收益 {profitSign}{symbol}{formatLargeNumber(Math.abs(convertedProfit))}
+            今日收益 {profitSign}{formatLargeNumber(Math.abs(convertedProfit))} {currency}
             {convertedTotal > 0 && (
               <> ({profitSign}{(convertedProfit / convertedTotal * 100).toFixed(2)}%)</>
             )}
