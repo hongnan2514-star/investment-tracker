@@ -16,6 +16,7 @@ import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCach
 import { useTheme } from '../ThemeProvider';
 import Link from 'next/link';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';  // 计价单位
+import AssetDetailDrawer from './AssetDetailDrawer';
 
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   stock: { name: '股票', color: '#1e67f7' },
@@ -92,6 +93,22 @@ export default function PortfolioPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const [selectedAssetSymbol, setSelectedAssetSymbol] = useState<string | null>(null);
+const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+// 打开详情抽屉的函数
+const openAssetDetail = (symbol: string) => {
+  setSelectedAssetSymbol(symbol);
+  setIsDetailOpen(true);
+};
+
+// 关闭详情抽屉的函数
+const closeAssetDetail = () => {
+  setIsDetailOpen(false);
+  // 可选：延迟清除 symbol 以配合动画
+  setTimeout(() => setSelectedAssetSymbol(null), 300);
+};
   
   const [hiddenAssetTypes, setHiddenAssetTypes] = useState<Set<string>>(() => {
   if (typeof window !== 'undefined') {
@@ -107,6 +124,7 @@ export default function PortfolioPage() {
   }
   return new Set();
 });
+
   // 计算单个资产的盈亏率（百分比）
   const getProfitPercent = (asset: Asset): number => {
   if (asset.costPrice && asset.costPrice > 0) {
@@ -1226,10 +1244,10 @@ const renderSearch = () => {
     const logoSrc = cachedLogo || asset.logoUrl;
 
     return (
-      <Link
+      <div
         key={asset.symbol}
-        href={`/portfolio/${encodeURIComponent(asset.symbol)}`}
-        prefetch={false}
+        onClick={() => openAssetDetail(asset.symbol)}
+  className="cursor-pointer" // 确保鼠标显示为手型，如果你喜欢也可以不加，但卡片本身已有一些样式
       >
         <div className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all cursor-pointer">
           <div className="flex justify-between items-start gap-1.5">
@@ -1310,16 +1328,19 @@ const renderSearch = () => {
             </div>
             <button
               onClick={(e) => {
-                e.preventDefault(); // 阻止 Link 跳转
-                handleDeleteAsset(asset.symbol);
-              }}
+  e.stopPropagation(); // 阻止事件冒泡到父级
+  handleDeleteAsset(asset.symbol);
+}}
               className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
+
+             
+
             >
               删除
             </button>
           </div>
         </div>
-      </Link>
+      </div>
     );
   })
 ) : (
@@ -1420,6 +1441,11 @@ const renderSearch = () => {
     >
       <Plus size={36} strokeWidth={3} />
     </button>
+    <AssetDetailDrawer
+  symbol={selectedAssetSymbol}
+  isOpen={isDetailOpen}
+  onClose={closeAssetDetail}
+/>
   </main>
 );
 }
