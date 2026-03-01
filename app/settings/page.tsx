@@ -2,57 +2,21 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Lock, Bell, Moon, Info, LogOut,CircleDollarSign } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Bell, Moon, Info, LogOut, CircleDollarSign } from 'lucide-react';
 import { setCurrentUserId, clearCurrentUserAssets } from '@/src/utils/assetStorage';
 import { useTheme } from '@/app/ThemeProvider';
-import { useCurrency, currencySymbols } from '@/src/services/currency'; // 新增导入
+import { useCurrency, currencySymbols } from '@/src/services/currency';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const { currency } = useCurrency(); // 获取当前货币
+  const { currency } = useCurrency();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
     const user = localStorage.getItem('user');
     setIsLoggedIn(!!user);
   }, []);
-
-  const handleChangePassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      alert('密码至少6位');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert('两次输入的密码不一致');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch('/api/auth/set-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: newPassword }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('密码修改成功');
-        setShowChangePassword(false);
-        setNewPassword('');
-        setConfirmPassword('');
-      } else {
-        alert(data.message || '修改失败');
-      }
-    } catch (error) {
-      alert('网络错误');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     setCurrentUserId(null);
@@ -74,61 +38,26 @@ export default function SettingsPage() {
       </header>
 
       <div className="bg-gray-50 dark:bg-black rounded-3xl p-6 space-y-2">
-        {/* 修改密码 */}
-        <div className="pb-2">
-          <button
-            onClick={() => {
-              if (!isLoggedIn) {
-                alert('请先登录');
-                router.push('/profile');
-                return;
-              }
-              setShowChangePassword(!showChangePassword);
-            }}
-            className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl"
-          >
-            <div className="flex items-center gap-3">
-              <Lock size={20} className="text-gray-500 dark:text-gray-400" />
-              <span className="text-gray-700 dark:text-gray-300">修改密码</span>
-            </div>
-            <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
-          </button>
-          {showChangePassword && isLoggedIn && (
-            <div className="mt-3 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-xl space-y-3">
-              <input
-                type="password"
-                placeholder="新密码（至少6位）"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-white dark:bg-black p-3 rounded-xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 text-black dark:text-white"
-              />
-              <input
-                type="password"
-                placeholder="确认新密码"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-white dark:bg-black p-3 rounded-xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 text-black dark:text-white"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleChangePassword}
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 text-white font-bold py-2 rounded-xl hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
-                >
-                  确认
-                </button>
-                <button
-                  onClick={() => setShowChangePassword(false)}
-                  className="flex-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 font-bold py-2 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-500 transition"
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* 修改密码 - 改为跳转 */}
+        <button
+          onClick={() => {
+            if (!isLoggedIn) {
+              alert('请先登录');
+              router.push('/profile');
+              return;
+            }
+            router.push('/settings/change-password');
+          }}
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl"
+        >
+          <div className="flex items-center gap-3">
+            <Lock size={20} className="text-gray-500 dark:text-gray-400" />
+            <span className="text-gray-700 dark:text-gray-300">修改密码</span>
+          </div>
+          <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
+        </button>
 
-        {/* 通知设置 */}
+        {/* 其他设置项保持不变 */}
         <button
           onClick={() => alert('通知设置开发中')}
           className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
@@ -140,7 +69,6 @@ export default function SettingsPage() {
           <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
         </button>
 
-        {/* 主题设置 */}
         <button
           onClick={toggleTheme}
           className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
@@ -154,7 +82,6 @@ export default function SettingsPage() {
           </span>
         </button>
 
-        {/* 计价货币 - 新增 */}
         <button
           onClick={() => router.push('/settings/currency')}
           className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
@@ -171,7 +98,6 @@ export default function SettingsPage() {
           </div>
         </button>
 
-        {/* 关于我们 */}
         <button
           onClick={() => alert('投资追踪 v1.0.0')}
           className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl"
@@ -183,7 +109,6 @@ export default function SettingsPage() {
           <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
         </button>
 
-        {/* 退出登录 */}
         {isLoggedIn && (
           <div className="pt-4 mt-4">
             <button
