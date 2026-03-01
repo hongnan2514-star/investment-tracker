@@ -185,10 +185,10 @@ export default function SettingsPage() {
 
         {/* 退出登录 */}
         {isLoggedIn && (
-          <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700">
+          <div className="pt-4 mt-4">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 text-red-500 dark:text-red-400 font-bold py-3 rounded-2xl "
+              className="w-full flex items-center justify-center gap-2 text-red-500 dark:text-red-400 font-bold py-3 rounded-2xl border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
             >
               <LogOut size={20} />
               退出登录

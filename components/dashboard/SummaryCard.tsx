@@ -118,9 +118,10 @@ export default function SummaryCard() {
             {loading && <span className="text-xs text-blue-500 animate-pulse">汇率更新中...</span>}
           </div>
           <div className="flex items-baseline gap-1">
-            <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-gray-100">
-              {formatLargeNumber(convertedTotal)} {currency}
-            </h2>
+            <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-gray-100 inline-flex items-baseline gap-1">
+  <span>{formatLargeNumber(convertedTotal)}</span>
+  <span className="text-sm font-normal text-gray-500 dark:text-gray-400">{currency}</span>
+</h2>
           </div>
           <p className={`text-sm font-bold mt-2 ${profitColorClass}`}>
             今日收益 {profitSign}{formatLargeNumber(Math.abs(convertedProfit))} {currency}
