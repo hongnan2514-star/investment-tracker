@@ -123,11 +123,14 @@ export default function SummaryCard() {
   <span className="text-sm font-normal text-gray-500 dark:text-gray-400">{currency}</span>
 </h2>
           </div>
-          <p className={`text-sm font-bold mt-2 ${profitColorClass}`}>
-  今日收益 {profitSign}{symbol}{formatLargeNumber(Math.abs(convertedProfit))}
-  {convertedTotal > 0 && (
-    <> ({profitSign}{(convertedProfit / convertedTotal * 100).toFixed(2)}%)</>
-  )}
+          <p className="text-sm font-bold mt-2">
+  <span className="text-gray-400 dark:text-gray-400">今日收益</span>{' '}
+  <span className={profitColorClass}>
+    {profitSign}{symbol}{formatLargeNumber(Math.abs(convertedProfit))}
+    {convertedTotal > 0 && (
+      <> ({profitSign}{(convertedProfit / convertedTotal * 100).toFixed(2)}%)</>
+    )}
+  </span>
 </p >
         </div>
 
