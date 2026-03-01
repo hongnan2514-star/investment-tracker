@@ -2,10 +2,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, LogOut, Smartphone, Send, ChevronRight, Key, Settings } from 'lucide-react';
+import { User, LogOut, Smartphone, Send, ChevronRight, Settings } from 'lucide-react';
 import Image from 'next/image';
-import { setCurrentUserId, clearCurrentUserAssets } from '@/src/utils/assetStorage';
-import { eventBus } from '@/src/utils/eventBus'; // 确保导入 eventBus
+import { setCurrentUserId } from '@/src/utils/assetStorage';
+import { eventBus } from '@/src/utils/eventBus';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -25,34 +25,27 @@ export default function ProfilePage() {
   const [resetPassword, setResetPassword] = useState('');
   const [resetStep, setResetStep] = useState<'phone' | 'otp'>('phone');
   const [resetCountdown, setResetCountdown] = useState(0);
-
-  // 删除 getOrCreateUser 函数，不再本地生成
+  const [registerStep, setRegisterStep] = useState(false);
+  const [registerPassword, setRegisterPassword] = useState('');
 
   useEffect(() => {
-  // 从 localStorage 加载用户信息的函数
-  const loadUser = () => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsLoggedIn(true);
-    } else {
-      setUser(null);
-      setIsLoggedIn(false);
-    }
-  };
+    const loadUser = () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+        setIsLoggedIn(true);
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
+      }
+    };
 
-  loadUser(); // 初始化
-
-  // 监听用户变更事件（登录/登出）
-  const handleUserChange = () => {
     loadUser();
-  };
-  window.addEventListener('user-changed', handleUserChange);
 
-  return () => {
-    window.removeEventListener('user-changed', handleUserChange);
-  };
-}, []);
+    const handleUserChange = () => loadUser();
+    window.addEventListener('user-changed', handleUserChange);
+    return () => window.removeEventListener('user-changed', handleUserChange);
+  }, []);
 
   const handleSendOtp = async () => {
     if (!phoneNumber || phoneNumber.length !== 11) return;
@@ -95,29 +88,42 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.success) {
-        // 从服务器获取用户信息（假设返回 data.user）
-        // 如果 data.user 不存在，可能需要调用另一个接口或由后端完善
-        const userInfo = data.user || {
-          phone: phoneNumber,
-          name: `用户${phoneNumber.slice(-4)}`,
-          avatarUrl: '',
-          preferredCurrency: 'USD',
-        };
-        setCurrentUserId(phoneNumber);
-        setUser(userInfo);
-        setIsLoggedIn(true);
-        // 存储完整用户信息到 localStorage
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        // 存储货币偏好到 localStorage，供货币服务使用
-        localStorage.setItem('preferred_currency', userInfo.preferredCurrency || 'USD');
-        // 触发用户变更事件
-        eventBus.emit('userChanged', phoneNumber);
-        setShowLoginForm(false);
-        setOtpSent(false);
-        setPhoneNumber('');
-        setOtp('');
+        if (data.exists) {
+          alert('该手机号已注册，请使用密码登录');
+          setLoginMethod('password');
+          setOtpSent(false);
+          setOtp('');
+          setPhoneNumber(data.user.phone);
+        } else {
+          setRegisterStep(true);
+        }
       } else {
         alert(data.message || '验证码错误');
+      }
+    } catch (error) {
+      alert('网络错误');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (registerPassword.length < 6) {
+      alert('密码至少6位');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, password: registerPassword }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loginUser(data.user);
+      } else {
+        alert(data.message || '注册失败');
       }
     } catch (error) {
       alert('网络错误');
@@ -137,16 +143,7 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.success) {
-        const userInfo = data.user; // 密码登录 API 应该返回 user 对象
-        setCurrentUserId(phoneNumber);
-        setUser(userInfo);
-        setIsLoggedIn(true);
-        localStorage.setItem('user', JSON.stringify(userInfo));
-        localStorage.setItem('preferred_currency', userInfo.preferredCurrency || 'USD');
-        eventBus.emit('userChanged', phoneNumber);
-        setShowLoginForm(false);
-        setPhoneNumber('');
-        setPassword('');
+        loginUser(data.user);
       } else {
         alert(data.message || '登录失败');
       }
@@ -202,7 +199,6 @@ export default function ProfilePage() {
           setResetOtp('');
           setResetPassword('');
           setPhoneNumber('');
-          // 切换到密码登录模式
           setLoginMethod('password');
         } else {
           alert(data.message || '重置失败');
@@ -213,6 +209,22 @@ export default function ProfilePage() {
         setLoading(false);
       }
     }
+  };
+
+  const loginUser = (userInfo: any) => {
+    setCurrentUserId(phoneNumber);
+    setUser(userInfo);
+    setIsLoggedIn(true);
+    localStorage.setItem('user', JSON.stringify(userInfo));
+    localStorage.setItem('preferred_currency', userInfo.preferredCurrency || 'USD');
+    eventBus.emit('userChanged', phoneNumber);
+    setShowLoginForm(false);
+    setPhoneNumber('');
+    setPassword('');
+    setOtp('');
+    setOtpSent(false);
+    setRegisterStep(false);
+    setRegisterPassword('');
   };
 
   const handleLogout = () => {
@@ -228,92 +240,143 @@ export default function ProfilePage() {
     setOtpSent(false);
     setOtp('');
     setCountdown(0);
+    setRegisterStep(false);
+    setRegisterPassword('');
   };
 
   const renderLoginForm = () => {
     if (loginMethod === 'otp') {
-      return (
-        <>
-          <div>
-            <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase ml-1">手机号</label>
-            <input
-              type="tel"
-              placeholder="请输入手机号"
-              value={phoneNumber}
-              onChange={(e) => {
-                if (!otpSent) {
-                  setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11));
-                }
-              }}
-              disabled={otpSent}
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium disabled:bg-gray-100 dark:disabled:bg-[#2a2a2a] disabled:text-gray-700 dark:disabled:text-gray-400"
-            />
-          </div>
-
-          {!otpSent && (
+      if (registerStep) {
+        // 注册步骤：显示密码输入
+        return (
+          <>
+            <div className="mb-4">
+              <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase ml-1">手机号</label>
+              <input
+                type="text"
+                value={phoneNumber}
+                disabled
+                className="w-full bg-gray-100 dark:bg-[#2a2a2a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 mt-1 text-black dark:text-white font-medium"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase ml-1">设置密码</label>
+              <input
+                type="password"
+                placeholder="至少6位"
+                value={registerPassword}
+                onChange={(e) => setRegisterPassword(e.target.value)}
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium"
+              />
+            </div>
             <button
-              onClick={handleSendOtp}
-              disabled={!phoneNumber || phoneNumber.length !== 11 || loading}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600 flex items-center justify-center gap-2"
+              onClick={handleRegister}
+              disabled={registerPassword.length < 6 || loading}
+              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600 mt-4"
             >
-              {loading ? '发送中...' : (
-                <>
-                  <Send size={18} />
-                  获取验证码
-                </>
-              )}
+              {loading ? '注册中...' : '完成注册'}
             </button>
-          )}
+            <div className="text-center mt-2">
+              <button
+                onClick={() => {
+                  setRegisterStep(false);
+                  setOtpSent(false);
+                  setOtp('');
+                  setRegisterPassword('');
+                }}
+                className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                返回
+              </button>
+            </div>
+          </>
+        );
+      } else {
+        // 验证码登录表单（原有逻辑）
+        return (
+          <>
+            <div>
+              <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase ml-1">手机号</label>
+              <input
+                type="tel"
+                placeholder="请输入手机号"
+                value={phoneNumber}
+                onChange={(e) => {
+                  if (!otpSent) {
+                    setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11));
+                  }
+                }}
+                disabled={otpSent}
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium disabled:bg-gray-100 dark:disabled:bg-[#2a2a2a] disabled:text-gray-700 dark:disabled:text-gray-400"
+              />
+            </div>
 
-          {otpSent && (
-            <>
-              <div className="-mt-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="请输入验证码"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 text-black dark:text-white font-medium pr-24"
-                    maxLength={6}
-                    autoFocus
-                  />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    {countdown > 0 ? (
-                      <span className="text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">{countdown}s</span>
-                    ) : (
-                      <button
-                        onClick={handleSendOtp}
-                        className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 whitespace-nowrap"
-                      >
-                        重发
-                      </button>
-                    )}
+            {!otpSent && (
+              <button
+                onClick={handleSendOtp}
+                disabled={!phoneNumber || phoneNumber.length !== 11 || loading}
+                className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600 flex items-center justify-center gap-2"
+              >
+                {loading ? '发送中...' : (
+                  <>
+                    <Send size={18} />
+                    获取验证码
+                  </>
+                )}
+              </button>
+            )}
+
+            {otpSent && (
+              <>
+                <div className="-mt-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="请输入验证码"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 text-black dark:text-white font-medium pr-24"
+                      maxLength={6}
+                      autoFocus
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      {countdown > 0 ? (
+                        <span className="text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">{countdown}s</span>
+                      ) : (
+                        <button
+                          onClick={handleSendOtp}
+                          className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 whitespace-nowrap"
+                        >
+                          重发
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <button
-                onClick={handleVerifyOtp}
-                disabled={otp.length !== 6 || loading}
-                className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
-              >
-                {loading ? '登录中...' : '登录'}
-              </button>
-
-              <div className="text-center mt-2">
                 <button
-                  onClick={resetForm}
-                  className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                  onClick={handleVerifyOtp}
+                  disabled={otp.length !== 6 || loading}
+                  className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
                 >
-                  换手机号
+                  {loading ? '验证中...' : '下一步'}
                 </button>
-              </div>
-            </>
-          )}
-        </>
-      );
+
+                <div className="text-center mt-2">
+                  <button
+                    onClick={resetForm}
+                    className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    换手机号
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        );
+      }
     } else {
+      // 密码登录表单
       return (
         <>
           <div>
@@ -433,7 +496,7 @@ export default function ProfilePage() {
     );
   };
 
-   return (
+  return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4">
       <header className="mb-6 px-2 flex justify-between items-center">
         <div>

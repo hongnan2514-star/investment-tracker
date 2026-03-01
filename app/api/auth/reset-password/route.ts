@@ -41,4 +41,4 @@ export async function POST(req: NextRequest) {
     console.error('重置密码错误:', error);
     return NextResponse.json({ success: false, message: '服务器错误' }, { status: 500 });
   }
-}
+} 

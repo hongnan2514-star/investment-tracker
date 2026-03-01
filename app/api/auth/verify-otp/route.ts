@@ -34,30 +34,24 @@ export async function POST(req: NextRequest) {
     // 验证成功，删除验证码
     await Otp.deleteOne({ _id: record._id });
 
-    // 查找或创建用户
-    let user = await User.findOne({ phone: phoneNumber });
-    if (!user) {
-      // 创建新用户，使用默认值
-      const defaultName = `用户${phoneNumber.slice(-4)}`;
-      user = await User.create({
-        phone: phoneNumber,
-        name: defaultName,
-        avatarUrl: '',
-        preferredCurrency: 'USD',
-      });
+    // 查询用户是否存在（不自动创建）
+    const user = await User.findOne({ phone: phoneNumber });
+
+    if (user) {
+      // 用户已存在，返回用户信息（可用于直接登录，但按需求，我们让前端提示使用密码登录）
+      const userInfo = {
+        phone: user.phone,
+        name: user.name || `用户${phoneNumber.slice(-4)}`,
+        avatarUrl: user.avatarUrl || '',
+        preferredCurrency: user.preferredCurrency || 'USD',
+      };
+      return NextResponse.json({ success: true, exists: true, user: userInfo });
+    } else {
+      // 用户不存在
+      return NextResponse.json({ success: true, exists: false });
     }
-
-    // 返回用户信息（排除敏感字段如 passwordHash）
-    const userInfo = {
-      phone: user.phone,
-      name: user.name,
-      avatarUrl: user.avatarUrl,
-      preferredCurrency: user.preferredCurrency,
-    };
-
-    return NextResponse.json({ success: true, user: userInfo });
   } catch (error) {
-    console.error('验证码登录错误:', error);
+    console.error('验证码验证错误:', error);
     return NextResponse.json({ success: false, message: '服务器错误' }, { status: 500 });
   }
 }
