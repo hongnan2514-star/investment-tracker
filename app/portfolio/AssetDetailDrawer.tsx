@@ -1,14 +1,14 @@
 // app/portfolio/AssetDetailDrawer.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
-import { getAssets, getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
+import { getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
+import { CryptoChart, StockChart, ChartRange } from './charts'; // 导入图表组件和类型
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -19,10 +19,9 @@ interface AssetDetailDrawerProps {
 export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDetailDrawerProps) {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [convertedAsset, setConvertedAsset] = useState<Asset | null>(null);
-  const [loading, setLoading] = useState(true); // 资产信息加载状态
-  const [historyLoading, setHistoryLoading] = useState(false); // 历史走势加载状态
-  const [assetHistory, setAssetHistory] = useState<{ value: number }[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const [selectedRange, setSelectedRange] = useState<ChartRange>('15m'); // 图表时间范围
 
   // 加仓表单
   const [buyQuantity, setBuyQuantity] = useState('');
@@ -39,9 +38,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 
   const { currency } = useCurrency();
   const { convert } = useCurrencyConverter();
-
-  // 用于取消历史请求的 AbortController
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   // 加载资产数据
   const loadAsset = () => {
@@ -80,45 +76,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     };
     convertAsset();
   }, [asset, currency, convert]);
-
-  // 获取走势图数据
-  useEffect(() => {
-    if (!asset) return;
-
-    // 取消上一次请求
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    const fetchHistory = async () => {
-      setHistoryLoading(true);
-      setAssetHistory([]); // 立即清空旧数据
-      try {
-        const res = await fetch(
-          `/api/history?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&range=1h&limit=40`,
-          { signal: controller.signal }
-        );
-        const json = await res.json();
-        if (json.success && json.data?.length > 0) {
-          setAssetHistory(json.data.map((item: any) => ({ value: item.value })));
-        }
-      } catch (error) {
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('获取历史数据失败', error);
-        }
-      } finally {
-        setHistoryLoading(false);
-      }
-    };
-
-    fetchHistory();
-
-    return () => {
-      controller.abort();
-    };
-  }, [asset]);
 
   const handleBuy = () => {
     if (!asset) return;
@@ -215,7 +172,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         </button>
         <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-8 text-center">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">资产不存在</h2>
-          <p className="text-gray-500 dark:text-gray-400">未找到对应的资产信息</p>
+          <p className="text-gray-500 dark:text-gray-400">未找到对应的资产信息</p >
         </div>
       </div>
     );
@@ -244,7 +201,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             {/* 左侧 Logo 和名称 */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {logoSrc ? (
-                <img src={logoSrc} alt={asset.name} className="w-12 h-12 object-contain rounded-lg flex-shrink-0" />
+                < img src={logoSrc} alt={asset.name} className="w-12 h-12 object-contain rounded-lg flex-shrink-0" />
               ) : (
                 <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 text-xl font-bold flex-shrink-0">
                   {asset.name.charAt(0).toUpperCase()}
@@ -252,7 +209,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
               )}
               <div className="min-w-0">
                 <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 truncate">{asset.name}</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{asset.symbol}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{asset.symbol}</p >
               </div>
             </div>
 
@@ -285,46 +242,43 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             </div>
           </div>
 
-          {/* 走势图 - 带加载状态 */}
-          <div className="mt-4 h-45 w-full relative">
-            {historyLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-10">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
-              </div>
-            ) : assetHistory.length < 2 ? (
-              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-                暂无走势数据
-              </div>
+          {/* 时间范围按钮组 */}
+          <div className="flex gap-2 mt-4">
+            {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((range) => (
+              <button
+                key={range}
+                onClick={() => setSelectedRange(range)}
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                  selectedRange === range
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {range === '15m' ? '15分钟' : range === '1d' ? '1日' : range === '1M' ? '1月' : '持有以来'}
+              </button>
+            ))}
+          </div>
+
+          {/* 走势图容器 */}
+          <div className="mt-4 h-45 w-full">
+            {asset.type === 'crypto' ? (
+              <CryptoChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                range={selectedRange}
+                purchaseDate={asset.purchaseDate}
+              />
+            ) : asset.type === 'stock' || asset.type === 'etf' ? (
+              <StockChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                range={selectedRange}
+                purchaseDate={asset.purchaseDate}
+              />
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={assetHistory}>
-                  <defs>
-                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feGaussianBlur stdDeviation="3" result="blur" />
-                      <feMerge>
-                        <feMergeNode in="blur" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                  </defs>
-                  <YAxis domain={['auto', 'auto']} hide={true} />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke={
-                      asset.changePercent != null
-                        ? asset.changePercent >= 0
-                          ? '#22c55e'
-                          : '#ef4444'
-                        : '#6b7280'
-                    }
-                    strokeWidth={2}
-                    dot={false}
-                    filter="url(#glow)"
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                暂无走势图
+              </div>
             )}
           </div>
         </div>
