@@ -1,4 +1,4 @@
-// app/portfolio/[symbol]/page.tsx
+// app/portfolio/[symbol]/AssetDetailPageContent.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
