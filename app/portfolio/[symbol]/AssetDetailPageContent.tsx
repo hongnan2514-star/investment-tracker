@@ -242,7 +242,7 @@ export default function AssetDetailPage() {
         </div>
 
         {/* 时间范围按钮组 */}
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-4 red-500">
           {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((range) => (
             <button
               key={range}
