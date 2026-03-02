@@ -39,23 +39,23 @@ export default function SettingsPage() {
 
       <div className="bg-gray-50 dark:bg-black rounded-3xl p-6 space-y-2">
         {/* 修改密码 - 改为跳转 */}
-        <button
-          onClick={() => {
-            if (!isLoggedIn) {
-              alert('请先登录');
-              router.push('/profile');
-              return;
-            }
-            router.push('/settings/change-password');
-          }}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl"
-        >
-          <div className="flex items-center gap-3">
-            <Lock size={20} className="text-gray-500 dark:text-gray-400" />
-            <span className="text-gray-700 dark:text-gray-300">修改密码</span>
-          </div>
-          <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
-        </button>
+<button
+  onClick={() => {
+    if (!isLoggedIn) {
+      alert('请先登录');
+      router.push('/profile');
+      return;
+    }
+    router.push('/settings/change-password');
+  }}
+  className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl"
+>
+  <div className="flex items-center gap-3">
+    <Lock size={20} className="text-gray-500 dark:text-gray-400" />
+    <span className="text-gray-700 dark:text-gray-300">修改密码</span>
+  </div>
+  <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
+</button>
 
         {/* 其他设置项保持不变 */}
         <button

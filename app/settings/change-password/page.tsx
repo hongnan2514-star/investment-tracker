@@ -14,7 +14,6 @@ export default function ChangePasswordPage() {
   const [userPhone, setUserPhone] = useState<string | null>(null);
 
   useEffect(() => {
-    // 从 localStorage 获取当前登录用户的手机号
     const userStr = localStorage.getItem('user');
     if (!userStr) {
       alert('请先登录');

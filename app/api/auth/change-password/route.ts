@@ -1,16 +1,17 @@
 // app/api/auth/change-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { neon } from '@neondatabase/serverless';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// 初始化数据库连接（建议在模块顶层，避免每次请求都创建新连接）
-const sql = neon(process.env.DATABASE_URL!);
-
 export async function POST(req: NextRequest) {
   try {
+    const [{ default: bcrypt }, { default: connectDB }, { default: User }] = await Promise.all([
+      import('bcryptjs'),
+      import('@/lib/mongoose'),
+      import('@/models/User'),
+    ]);
+
     const { phone, oldPassword, newPassword } = await req.json();
 
     // 参数校验
@@ -27,18 +28,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await connectDB();
+
     // 查询用户
-    const users = await sql`SELECT * FROM users WHERE phone = ${phone}`;
-    if (users.length === 0) {
+    const user = await User.findOne({ phone });
+    if (!user) {
       return NextResponse.json(
         { success: false, message: '用户不存在' },
         { status: 404 }
       );
     }
 
-    const user = users[0];
+    // 检查用户是否已设置密码（理论上存在 passwordHash）
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        { success: false, message: '该账号未设置密码，请使用忘记密码功能设置' },
+        { status: 400 }
+      );
+    }
+
     // 验证旧密码
-    const isValid = await bcrypt.compare(oldPassword, user.password_hash);
+    const isValid = await bcrypt.compare(oldPassword, user.passwordHash);
     if (!isValid) {
       return NextResponse.json(
         { success: false, message: '当前密码错误' },
@@ -50,12 +60,10 @@ export async function POST(req: NextRequest) {
     const saltRounds = 10;
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
-    // 更新数据库
-    await sql`
-      UPDATE users 
-      SET password_hash = ${newPasswordHash}, updated_at = NOW() 
-      WHERE phone = ${phone}
-    `;
+    // 更新密码
+    user.passwordHash = newPasswordHash;
+    user.updatedAt = new Date();
+    await user.save();
 
     return NextResponse.json({ success: true, message: '密码修改成功' });
   } catch (error) {
