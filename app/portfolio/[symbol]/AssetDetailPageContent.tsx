@@ -8,18 +8,17 @@ import { Asset } from '@/src/constants/types';
 import { getAssets, getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
-import { useCurrency, useCurrencyConverter } from '@/src/services/currency'; // 新增导入
-import { CryptoChart, StockChart } from '../charts'; // 导入图表组件 
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
+import { CryptoChart, StockChart, ChartRange } from '../charts'; // 导入图表组件和类型
 
 export default function AssetDetailPage() {
   const { symbol } = useParams() as { symbol: string };
   const router = useRouter();
   const [asset, setAsset] = useState<Asset | null>(null);
-  const [convertedAsset, setConvertedAsset] = useState<Asset | null>(null); // 转换后的资产
+  const [convertedAsset, setConvertedAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
-  const [assetHistory, setAssetHistory] = useState<{ value: number }[]>([]);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const [selectedRange, setSelectedRange] = useState<ChartRange>('15m'); // 图表时间范围
 
   // 加仓表单
   const [buyQuantity, setBuyQuantity] = useState('');
@@ -34,11 +33,10 @@ export default function AssetDetailPage() {
   // 错误/成功提示
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // 货币转换
   const { currency } = useCurrency();
   const { convert } = useCurrencyConverter();
 
-  // 加载原始资产
+  // 加载资产
   const loadAsset = () => {
     console.log('=== loadAsset 开始执行 ===');
     const allAssets = getAssets();
@@ -58,7 +56,7 @@ export default function AssetDetailPage() {
     return () => unsubscribe();
   }, [symbol]);
 
-  // 当原始资产或货币变化时，进行转换
+  // 货币转换
   useEffect(() => {
     const convertAsset = async () => {
       if (!asset) {
@@ -80,26 +78,6 @@ export default function AssetDetailPage() {
     };
     convertAsset();
   }, [asset, currency, convert]);
-
-  // 获取走势图数据
-  useEffect(() => {
-    if (!asset) return;
-
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch(`/api/history?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&range=1h&limit=40`);
-        const json = await res.json();
-        if (json.success && json.data?.length > 0) {
-          setAssetHistory(json.data.map((item: any) => ({ value: item.value })));
-        } else {
-          console.log('无最新数据,保持现有数据');
-        }
-      } catch (error) {
-        console.error('获取24小时历史数据失败,保持现有数据', error);
-      }
-    };
-    fetchHistory();
-  }, [asset]);
 
   const handleBuy = () => {
     if (!asset) return;
@@ -168,11 +146,7 @@ export default function AssetDetailPage() {
     { date: '2024-02-18', quantity: 30, price: 320.0 },
     { date: '2024-02-12', quantity: 80, price: 315.5 },
   ];
-  const [transactionHistory, setTransactionHistory] = useState(mockBuyRecords);
-
-  useEffect(() => {
-    setTransactionHistory(activeTab === 'buy' ? mockBuyRecords : mockSellRecords);
-  }, [activeTab]);
+  const transactionHistory = activeTab === 'buy' ? mockBuyRecords : mockSellRecords;
 
   const formatLargeNumber = (num: number): string => {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -204,9 +178,8 @@ export default function AssetDetailPage() {
     );
   }
 
-  // 使用转换后的资产显示，如果没有转换完成则用原始值（但通常很快）
   const displayAsset = convertedAsset || asset;
-  const currencySymbol = asset.currency === 'CNY' ? '¥' : asset.currency === 'USD' ? '$' : asset.currency; // 仅用于表单提示
+  const currencySymbol = asset.currency === 'CNY' ? '¥' : asset.currency === 'USD' ? '$' : asset.currency;
   const cachedLogo = getCachedLogo(asset.symbol);
   const logoSrc = cachedLogo || asset.logoUrl;
 
@@ -239,7 +212,7 @@ export default function AssetDetailPage() {
             </div>
           </div>
 
-          {/* 右侧四个指标竖排（去除货币符号） */}
+          {/* 右侧四个指标竖排 */}
           <div className="flex flex-col gap-0 ml-auto ml-10 min-w-[130px]">
             <div className="leading-4">
               <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">当前市价</span>
@@ -268,19 +241,45 @@ export default function AssetDetailPage() {
           </div>
         </div>
 
-        {/* 走势图 */}
-<div className="mt-4 h-45 w-full">
-  {asset.type === 'crypto' ? (
-    <CryptoChart symbol={asset.symbol} changePercent={asset.changePercent} />
-  ) : asset.type === 'stock' || asset.type === 'etf' ? (
-    <StockChart symbol={asset.symbol} changePercent={asset.changePercent} />
-  ) : (
-    // 其他资产类型暂不处理或显示占位
-    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
-      暂无走势图
-    </div>
-  )}
-</div>
+        {/* 时间范围按钮组 */}
+        <div className="flex gap-2 mt-4">
+          {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((range) => (
+            <button
+              key={range}
+              onClick={() => setSelectedRange(range)}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                selectedRange === range
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {range === '15m' ? '15分钟' : range === '1d' ? '1日' : range === '1M' ? '1月' : '持有以来'}
+            </button>
+          ))}
+        </div>
+
+        {/* 走势图容器 */}
+        <div className="mt-4 h-45 w-full">
+          {asset.type === 'crypto' ? (
+            <CryptoChart
+              symbol={asset.symbol}
+              changePercent={asset.changePercent}
+              range={selectedRange}
+              purchaseDate={asset.purchaseDate}
+            />
+          ) : asset.type === 'stock' || asset.type === 'etf' ? (
+            <StockChart
+              symbol={asset.symbol}
+              changePercent={asset.changePercent}
+              range={selectedRange}
+              purchaseDate={asset.purchaseDate}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+              暂无走势图
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 交易卡片 - 加仓/卖出 */}
@@ -328,22 +327,22 @@ export default function AssetDetailPage() {
                   />
                 </div>
                 <div className="relative">
-  <input
-    type="number"
-    step="0.01"
-    min="0"
-    value={buyPrice}
-    onChange={(e) => setBuyPrice(e.target.value)}
-    placeholder="价格"
-    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-  />
-</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={buyPrice}
+                    onChange={(e) => setBuyPrice(e.target.value)}
+                    placeholder="价格"
+                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                  />
+                </div>
                 <div>
                   <input
                     type="date"
                     value={buyDate}
                     onChange={(e) => setBuyDate(e.target.value)}
-                    placeholder='日期'
+                    placeholder="日期"
                     className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
                     style={{ minWidth: 0 }}
                   />
@@ -374,16 +373,16 @@ export default function AssetDetailPage() {
                   />
                 </div>
                 <div className="relative">
-  <input
-    type="number"
-    step="0.01"
-    min="0"
-    value={sellPrice}
-    onChange={(e) => setSellPrice(e.target.value)}
-    placeholder="价格"
-    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-  />
-</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={sellPrice}
+                    onChange={(e) => setSellPrice(e.target.value)}
+                    placeholder="价格"
+                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                  />
+                </div>
                 <div>
                   <input
                     type="date"
@@ -418,7 +417,7 @@ export default function AssetDetailPage() {
                     <span className="text-gray-600 dark:text-gray-400">{record.date.slice(5)}</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">{record.quantity}</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">
-                      {currencySymbol}{record.price.toFixed(2)} {/* 模拟记录保留原始货币符号 */}
+                      {currencySymbol}{record.price.toFixed(2)}
                     </span>
                   </div>
                 ))}

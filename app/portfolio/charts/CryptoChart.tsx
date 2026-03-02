@@ -5,9 +5,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { Loader2 } from 'lucide-react';
 
+export type ChartRange = '15m' | '1d' | '1M' | 'since_holding';
+
 interface CryptoChartProps {
   symbol: string;
   changePercent: number | null;
+  range: ChartRange;
+  purchaseDate?: string;
 }
 
 export default function CryptoChart({ symbol, changePercent }: CryptoChartProps) {
