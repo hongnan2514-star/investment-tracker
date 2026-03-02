@@ -10,6 +10,7 @@ import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency'; // 新增导入
+import { CryptoChart, StockChart } from '../charts'; // 导入图表组件 
 
 export default function AssetDetailPage() {
   const { symbol } = useParams() as { symbol: string };
@@ -269,39 +270,15 @@ export default function AssetDetailPage() {
 
         {/* 走势图 */}
 <div className="mt-4 h-45 w-full">
-  {assetHistory.length < 2 ? (
-    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-    </div>
+  {asset.type === 'crypto' ? (
+    <CryptoChart symbol={asset.symbol} changePercent={asset.changePercent} />
+  ) : asset.type === 'stock' || asset.type === 'etf' ? (
+    <StockChart symbol={asset.symbol} changePercent={asset.changePercent} />
   ) : (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={assetHistory}>
-        <defs>
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <YAxis domain={['auto', 'auto']} hide={true} />
-        <Line
-          type="monotone"
-          dataKey="value"
-          stroke={
-            asset.changePercent != null
-              ? asset.changePercent >= 0
-                ? '#22c55e'
-                : '#ef4444'
-              : '#6b7280' // 灰色
-          }
-          strokeWidth={2}
-          dot={false}
-          filter="url(#glow)"
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    // 其他资产类型暂不处理或显示占位
+    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+      暂无走势图
+    </div>
   )}
 </div>
       </div>
