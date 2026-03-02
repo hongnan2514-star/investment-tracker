@@ -33,7 +33,7 @@ export default function CryptoChart({ symbol, changePercent }: CryptoChartProps)
       try {
         // 加密货币使用 15分钟线，40条数据
         const res = await fetch(
-          `/api/history?symbol=${encodeURIComponent(symbol)}&type=crypto&range=15m&limit=40`,
+          `/api/history?symbol=${encodeURIComponent(symbol)}&type=crypto&range=15m&limit=120`,
           { signal: controller.signal }
         );
         const json = await res.json();
