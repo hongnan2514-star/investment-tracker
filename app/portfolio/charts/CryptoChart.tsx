@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react';
 export type ChartRange = '15m' | '1d' | '1M' | 'since_holding';
 
 interface CryptoChartProps {
-  symbol: string; 
+  symbol: string;   
   changePercent: number | null;
   purchaseDate?: string;
 }
