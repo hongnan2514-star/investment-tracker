@@ -4,45 +4,26 @@ import {
   getFundHistory, 
   getCryptoHistory, 
   getCryptoMinuteHistory, 
-  getStockHistory
+  getStockHistory,
+  saveCryptoMinute 
 } from '@/src/services/fundHistoryDB';
+import { fetchCryptoMinuteData } from '../data-sources/crypto-ccxt';
 
-// 以下两个函数如果其他地方不再使用，可以安全删除；为兼容性可暂时保留
-function getRequiredBaseLimit(targetResolution: string, targetLimit: number): number {
-  const minutesMap: Record<string, number> = {
-    '5m': 1,
-    '15m': 3,
-    '30m': 6,
-    '1h': 12,
-    '2h': 24,
-    '4h': 48,
-    '6h': 72,
-    '12h': 144,
-    '1d': 288,
+// 判断数据是否陈旧（需要更新）
+function isDataStale(lastTimestamp: number | null, resolution: string): boolean {
+  if (!lastTimestamp) return true; // 无数据，需要拉取
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const ageSeconds = nowSeconds - lastTimestamp;
+
+  // 根据分辨率设定最大允许年龄（秒）
+  const maxAgeMap: Record<string, number> = {
+    '15m': 15 * 60,      // 15分钟
+    '30m': 30 * 60,      // 30分钟
+    '1h': 60 * 60,       // 1小时
   };
-  const factor = minutesMap[targetResolution] || 1;
-  return targetLimit * factor + factor;
-}
-
-function aggregateMinutesToTarget(
-  minuteData: { timestamp: number; close: number }[],
-  targetResolution: string
-): { timestamp: number; close: number }[] {
-  if (minuteData.length === 0) return [];
-  const sorted = minuteData.sort((a, b) => a.timestamp - b.timestamp);
-  const minutes = parseInt(targetResolution.replace('m', '').replace('h', ''));
-  const targetMinutes = targetResolution.endsWith('h') ? minutes * 60 : minutes;
-  const baseMinutes = 5;
-  const groupSize = targetMinutes / baseMinutes;
-  const result: { timestamp: number; close: number }[] = [];
-  for (let i = 0; i < sorted.length; i += groupSize) {
-    const group = sorted.slice(i, i + groupSize);
-    if (group.length === 0) continue;
-    const last = group[group.length - 1];
-    const groupStart = group[0].timestamp;
-    result.push({ timestamp: groupStart, close: last.close });
-  }
-  return result;
+  const maxAge = maxAgeMap[resolution] || 30 * 60; // 默认30分钟
+  return ageSeconds > maxAge;
 }
 
 export async function GET(request: NextRequest) {
@@ -73,7 +54,33 @@ export async function GET(request: NextRequest) {
         const cryptoHistory = await getCryptoHistory(symbol, limit);
         history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
       } else {
-        // 直接查询分钟表，range 作为分辨率参数
+        // 分钟数据：检查是否需要更新
+        const latestData = await getCryptoMinuteHistory(symbol, range, 1);
+        const lastTimestamp = latestData.length > 0 ? latestData[0].timestamp : null;
+
+        if (isDataStale(lastTimestamp, range)) {
+          console.log(`[历史API] ${symbol} ${range} 数据陈旧，触发拉取`);
+          // 提取基础币种（如 "BTC/USDT" -> "BTC"）
+          const baseSymbol = symbol.split('/')[0];
+          // 拉取比请求 limit 稍多的数据，保证连续性
+          const freshData = await fetchCryptoMinuteData(baseSymbol, range, limit * 2);
+          if (freshData && freshData.length > 0) {
+            const records = freshData.map(item => ({
+              symbol, // 保持原格式 "BTC/USDT"
+              timestamp: item.timestamp,
+              resolution: range,
+              open: item.open,
+              high: item.high,
+              low: item.low,
+              close: item.close,
+              volume: item.volume,
+            }));
+            await saveCryptoMinute(records);
+            console.log(`[历史API] 已保存 ${records.length} 条 ${range} 数据`);
+          }
+        }
+
+        // 查询最终数据
         const minuteData = await getCryptoMinuteHistory(symbol, range, limit);
         history = minuteData.map(item => ({
           date: new Date(item.timestamp * 1000).toISOString(),
