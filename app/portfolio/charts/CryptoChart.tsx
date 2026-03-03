@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react';
 export type ChartRange = '15m' | '1d' | '1M' | 'since_holding';
 
 interface CryptoChartProps {
-  symbol: string; 
+  symbol: string;
   changePercent: number | null;
   purchaseDate?: string;
 }
@@ -20,19 +20,19 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const getRequestParams = (range: ChartRange): { apiRange: string; limit: number } => {
-  switch (range) {
-    case '15m':
-      return { apiRange: '15m', limit: 95 };
-    case '1d':   // 代表“1周”按钮
-      return { apiRange: '30m', limit: 95 };
-    case '1M':
-      return { apiRange: '1h', limit: 95 };
-    case 'since_holding':
-      return { apiRange: '1d', limit: 90 };
-    default:
-      return { apiRange: '15m', limit: 95 };
-  }
-};
+    switch (range) {
+      case '15m':
+        return { apiRange: '15m', limit: 95 };
+      case '1d':   // 代表“1周”按钮
+        return { apiRange: '30m', limit: 95 };
+      case '1M':
+        return { apiRange: '1h', limit: 95 };
+      case 'since_holding':
+        return { apiRange: '1d', limit: 90 };
+      default:
+        return { apiRange: '15m', limit: 95 };
+    }
+  };
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -52,7 +52,8 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
         );
         const json = await res.json();
         if (json.success && json.data?.length > 0) {
-          setData(json.data.map((item: any) => ({ value: item.value })));
+          // ✅ 反转数据，使时间从左到右递增（旧 → 新）
+          setData(json.data.map((item: any) => ({ value: item.value })).reverse());
         }
       } catch (error) {
         if (error instanceof Error && error.name !== 'AbortError') {
@@ -92,7 +93,7 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
 
   return (
     <div className="flex flex-col h-full">
-      {/* 按钮组 - 等间距均匀排列 */}
+      {/* 按钮组 */}
       <div className="flex justify-between px-2 mb-2">
         {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((r) => (
           <button
@@ -108,7 +109,7 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
           </button>
         ))}
       </div>
-      {/* 走势图容器 */}
+      {/* 走势图 */}
       <div className="flex-1 w-full min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
