@@ -5,7 +5,8 @@ import {
   getCryptoHistory, 
   getCryptoMinuteHistory, 
   getStockHistory,
-  saveCryptoMinute 
+  saveCryptoMinute,
+  getCryptoHistorySince,
 } from '@/src/services/fundHistoryDB';
 import { fetchCryptoMinuteData } from '../data-sources/crypto-ccxt';
 
@@ -49,9 +50,16 @@ export async function GET(request: NextRequest) {
     } else if (type === 'stock' || type === 'etf') {
       const stockHistory = await getStockHistory(symbol, limit);
       history = stockHistory.map(item => ({ date: item.date, value: item.close }));
-    } else if (type === 'crypto') {
+    }  else if (type === 'crypto') {
       if (range === '1d') {
         const cryptoHistory = await getCryptoHistory(symbol, limit);
+        history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
+      } else if (range === 'since_holding') {
+        const startDate = request.nextUrl.searchParams.get('startDate');
+        if (!startDate) {
+          return NextResponse.json({ error: '缺少 startDate 参数' }, { status: 400 });
+        }
+        const cryptoHistory = await getCryptoHistorySince(symbol, startDate);
         history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
       } else {
         // 分钟数据：检查是否需要更新
@@ -60,13 +68,11 @@ export async function GET(request: NextRequest) {
 
         if (isDataStale(lastTimestamp, range)) {
           console.log(`[历史API] ${symbol} ${range} 数据陈旧，触发拉取`);
-          // 提取基础币种（如 "BTC/USDT" -> "BTC"）
           const baseSymbol = symbol.split('/')[0];
-          // 拉取比请求 limit 稍多的数据，保证连续性
           const freshData = await fetchCryptoMinuteData(baseSymbol, range, limit * 2);
           if (freshData && freshData.length > 0) {
             const records = freshData.map(item => ({
-              symbol, // 保持原格式 "BTC/USDT"
+              symbol,
               timestamp: item.timestamp,
               resolution: range,
               open: item.open,
@@ -80,7 +86,6 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // 查询最终数据
         const minuteData = await getCryptoMinuteHistory(symbol, range, limit);
         history = minuteData.map(item => ({
           date: new Date(item.timestamp * 1000).toISOString(),

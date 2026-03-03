@@ -534,3 +534,18 @@ export async function needsCryptoMinuteUpdate(symbol: string, resolution: string
   const now = Date.now();
   return (now - lastTime) > maxAgeSeconds * 1000;
 }
+
+/**
+ * 获取从指定日期到现在的加密货币日线历史（按日期升序）
+ * @param symbol 交易对，如 "BTC/USDT"
+ * @param startDate 起始日期，格式 YYYY-MM-DD
+ */
+export async function getCryptoHistorySince(symbol: string, startDate: string): Promise<CryptoPrice[]> {
+  const result = await sql`
+    SELECT * FROM crypto_price_history 
+    WHERE symbol = ${symbol}
+    AND date >= ${startDate}
+    ORDER BY date ASC
+  `;
+  return result as CryptoPrice[];
+}

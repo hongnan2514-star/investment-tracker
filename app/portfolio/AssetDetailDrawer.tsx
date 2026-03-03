@@ -268,6 +268,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
       symbol={asset.symbol}
       changePercent={asset.changePercent}
       purchaseDate={asset.purchaseDate}
+      costPrice={asset.costPrice}
     />
   ) : asset.type === 'stock' || asset.type === 'etf' ? (
     <StockChart

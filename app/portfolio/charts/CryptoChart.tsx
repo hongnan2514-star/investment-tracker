@@ -11,26 +11,27 @@ interface CryptoChartProps {
   symbol: string;
   changePercent: number | null;
   purchaseDate?: string;
+  costPrice?: number; // 新增：成本价，用于持有以来走势的第一个点
 }
 
-export default function CryptoChart({ symbol, changePercent, purchaseDate }: CryptoChartProps) {
+export default function CryptoChart({ symbol, changePercent, purchaseDate, costPrice }: CryptoChartProps) {
   const [range, setRange] = useState<ChartRange>('15m');
-  const [data, setData] = useState<{ value: number }[]>([]);
+  const [data, setData] = useState<{ date: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const getRequestParams = (range: ChartRange): { apiRange: string; limit: number } => {
+  const getRequestParams = (range: ChartRange): { apiRange: string; limit: number; isSinceHolding: boolean } => {
     switch (range) {
       case '15m':
-        return { apiRange: '15m', limit: 95 };
+        return { apiRange: '15m', limit: 95, isSinceHolding: false };
       case '1d':   // 代表“1周”按钮
-        return { apiRange: '30m', limit: 335 };
+        return { apiRange: '30m', limit: 335, isSinceHolding: false };
       case '1M':
-        return { apiRange: '1h', limit: 95 };
+        return { apiRange: '1h', limit: 95, isSinceHolding: false };
       case 'since_holding':
-        return { apiRange: '1d', limit: 90 };
+        return { apiRange: 'since_holding', limit: 0, isSinceHolding: true };
       default:
-        return { apiRange: '15m', limit: 95 };
+        return { apiRange: '15m', limit: 95, isSinceHolding: false };
     }
   };
 
@@ -41,22 +42,42 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // 标志当前请求是否有效
     let isCurrent = true;
 
     const fetchData = async () => {
       setLoading(true);
       setData([]);
       try {
-        const { apiRange, limit } = getRequestParams(range);
-        const res = await fetch(
-          `/api/history?symbol=${encodeURIComponent(symbol)}&type=crypto&range=${apiRange}&limit=${limit}`,
-          { signal: controller.signal }
-        );
+        const { apiRange, limit, isSinceHolding } = getRequestParams(range);
+        let url: string;
+        if (isSinceHolding && purchaseDate) {
+          url = `/api/history?symbol=${encodeURIComponent(symbol)}&type=crypto&range=since_holding&startDate=${purchaseDate}`;
+        } else {
+          url = `/api/history?symbol=${encodeURIComponent(symbol)}&type=crypto&range=${apiRange}&limit=${limit}`;
+        }
+        const res = await fetch(url, { signal: controller.signal });
         const json = await res.json();
-        // 只有是当前请求才更新数据
         if (isCurrent && json.success && json.data?.length > 0) {
-          setData(json.data.map((item: any) => ({ value: item.value })).reverse());
+          let newData = json.data.map((item: any) => ({ date: item.date, value: item.value }));
+
+          // 分钟数据需反转（数据库返回降序）
+          if (!isSinceHolding) {
+            newData.reverse();
+          }
+
+          // 如果是持有以来且有成本价，插入第一个点
+          if (isSinceHolding && costPrice !== undefined && purchaseDate) {
+            const firstDate = newData.length > 0 ? newData[0].date : null;
+            if (firstDate === purchaseDate) {
+              // 替换当天价格为成本价
+              newData[0] = { date: purchaseDate, value: costPrice };
+            } else {
+              // 在最前面插入成本价点（假设购买日期早于第一条数据）
+              newData = [{ date: purchaseDate, value: costPrice }, ...newData];
+            }
+          }
+
+          setData(newData);
         }
       } catch (error) {
         if (isCurrent && error instanceof Error && error.name !== 'AbortError') {
@@ -73,9 +94,9 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
 
     return () => {
       controller.abort();
-      isCurrent = false; // 清理时标记为非当前
+      isCurrent = false;
     };
-  }, [symbol, range, purchaseDate]);
+  }, [symbol, range, purchaseDate, costPrice]);
 
   const strokeColor = changePercent != null
     ? changePercent >= 0 ? '#22c55e' : '#ef4444'
