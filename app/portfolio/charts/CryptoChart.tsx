@@ -24,7 +24,7 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
       case '15m':
         return { apiRange: '15m', limit: 95 };
       case '1d':   // 代表“1周”按钮
-        return { apiRange: '30m', limit: 95 };
+        return { apiRange: '30m', limit: 335 };
       case '1M':
         return { apiRange: '1h', limit: 95 };
       case 'since_holding':
