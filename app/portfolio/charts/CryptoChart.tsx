@@ -10,7 +10,7 @@ export type ChartRange = '15m' | '1d' | '1M' | 'since_holding';
 interface CryptoChartProps {
   symbol: string;
   changePercent: number | null;
-  purchaseDate?: string; // 用于“持有以来”范围的计算（后续可扩展）
+  purchaseDate?: string;
 }
 
 export default function CryptoChart({ symbol, changePercent, purchaseDate }: CryptoChartProps) {
@@ -19,18 +19,16 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
   const [loading, setLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // 根据 range 获取请求参数
   const getRequestParams = (range: ChartRange): { apiRange: string; limit: number } => {
     switch (range) {
       case '15m':
-        return { apiRange: '15m', limit: 95 };
+        return { apiRange: '15m', limit: 95 };      // 95条15分钟线 ≈ 1天
       case '1d':
-        return { apiRange: '1h', limit: 24 };
+        return { apiRange: '1h', limit: 24 };      // 168条1小时线 = 7天（1周）
       case '1M':
-        return { apiRange: '1d', limit: 30 };
+        return { apiRange: '1d', limit: 30 };       // 30条日线 ≈ 1个月
       case 'since_holding':
-        // 如果有 purchaseDate，可计算实际天数，默认返回90天日线
-        return { apiRange: '1d', limit: 90 };
+        return { apiRange: '1d', limit: 90 };       // 90条日线 ≈ 3个月
       default:
         return { apiRange: '15m', limit: 95 };
     }
@@ -106,7 +104,7 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            {r === '15m' ? '15分钟' : r === '1d' ? '1日' : r === '1M' ? '1月' : '持有以来'}
+            {r === '15m' ? '1日' : r === '1d' ? '1周' : r === '1M' ? '1月' : '持有以来'}
           </button>
         ))}
       </div>
