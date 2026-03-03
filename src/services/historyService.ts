@@ -54,7 +54,7 @@ export function getHistoryData(hours: number = MAX_HOURS): HistoryPoint[] {
   const cutoff = Date.now() - hours * 60 * 60 * 1000;
   return history.filter(point => point.timestamp >= cutoff);
 }
-
+ 
 // 清空历史（当资产清空时调用）
 export function clearHistory(): void {
   localStorage.removeItem(STORAGE_KEY);
