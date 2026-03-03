@@ -10,17 +10,33 @@ export type ChartRange = '15m' | '1d' | '1M' | 'since_holding';
 interface CryptoChartProps {
   symbol: string;
   changePercent: number | null;
-  range: ChartRange;
-  purchaseDate?: string;
+  purchaseDate?: string; // 用于“持有以来”范围的计算（后续可扩展）
 }
 
-export default function CryptoChart({ symbol, changePercent }: CryptoChartProps) {
+export default function CryptoChart({ symbol, changePercent, purchaseDate }: CryptoChartProps) {
+  const [range, setRange] = useState<ChartRange>('15m');
   const [data, setData] = useState<{ value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // 根据 range 获取请求参数
+  const getRequestParams = (range: ChartRange): { apiRange: string; limit: number } => {
+    switch (range) {
+      case '15m':
+        return { apiRange: '15m', limit: 95 };
+      case '1d':
+        return { apiRange: '1h', limit: 24 };
+      case '1M':
+        return { apiRange: '1d', limit: 30 };
+      case 'since_holding':
+        // 如果有 purchaseDate，可计算实际天数，默认返回90天日线
+        return { apiRange: '1d', limit: 90 };
+      default:
+        return { apiRange: '15m', limit: 95 };
+    }
+  };
+
   useEffect(() => {
-    // 取消上一次请求
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -31,9 +47,9 @@ export default function CryptoChart({ symbol, changePercent }: CryptoChartProps)
       setLoading(true);
       setData([]);
       try {
-        // 加密货币使用 15分钟线，40条数据
+        const { apiRange, limit } = getRequestParams(range);
         const res = await fetch(
-          `/api/history?symbol=${encodeURIComponent(symbol)}&type=crypto&range=15m&limit=95`,
+          `/api/history?symbol=${encodeURIComponent(symbol)}&type=crypto&range=${apiRange}&limit=${limit}`,
           { signal: controller.signal }
         );
         const json = await res.json();
@@ -54,7 +70,7 @@ export default function CryptoChart({ symbol, changePercent }: CryptoChartProps)
     return () => {
       controller.abort();
     };
-  }, [symbol]);
+  }, [symbol, range, purchaseDate]);
 
   const strokeColor = changePercent != null
     ? changePercent >= 0 ? '#22c55e' : '#ef4444'
@@ -77,28 +93,49 @@ export default function CryptoChart({ symbol, changePercent }: CryptoChartProps)
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data}>
-        <defs>
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <YAxis domain={['auto', 'auto']} hide={true} />
-        <Line
-          type="monotone"
-          dataKey="value"
-          stroke={strokeColor}
-          strokeWidth={2}
-          dot={false}
-          filter="url(#glow)"
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    <div className="flex flex-col h-full">
+      {/* 按钮组 - 等间距均匀排列 */}
+      <div className="flex justify-between px-2 mb-2">
+        {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((r) => (
+          <button
+            key={r}
+            onClick={() => setRange(r)}
+            className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+              range === r
+                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            {r === '15m' ? '15分钟' : r === '1d' ? '1日' : r === '1M' ? '1月' : '持有以来'}
+          </button>
+        ))}
+      </div>
+      {/* 走势图容器 */}
+      <div className="flex-1 w-full min-h-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data}>
+            <defs>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <YAxis domain={['auto', 'auto']} hide={true} />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={strokeColor}
+              strokeWidth={2}
+              dot={false}
+              filter="url(#glow)"
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
   );
 }

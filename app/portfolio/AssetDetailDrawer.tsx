@@ -242,46 +242,46 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             </div>
           </div>
 
-          {/* 时间范围按钮组 */}
           {/* 时间范围按钮组 - 优化样式 */}
-<div className="flex justify-between mt-4 px-2">
-  {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((range) => (
-    <button
-      key={range}
-      onClick={() => setSelectedRange(range)}
-      className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-        selectedRange === range
-          ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-      }`}
-    >
-      {range === '15m' ? '15分钟' : range === '1d' ? '1日' : range === '1M' ? '1月' : '持有以来'}
-    </button>
-  ))}
-</div>
+{asset.type !== 'crypto' && (
+  <div className="flex justify-between mt-4 px-2">
+    {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((range) => (
+      <button
+        key={range}
+        onClick={() => setSelectedRange(range)}
+        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+          selectedRange === range
+            ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+        }`}
+      >
+        {range === '15m' ? '15分钟' : range === '1d' ? '1日' : range === '1M' ? '1月' : '持有以来'}
+      </button>
+    ))}
+  </div>
+)}
 
           {/* 走势图容器 */}
           <div className="mt-4 h-45 w-full">
-            {asset.type === 'crypto' ? (
-              <CryptoChart
-                symbol={asset.symbol}
-                changePercent={asset.changePercent}
-                range={selectedRange}
-                purchaseDate={asset.purchaseDate}
-              />
-            ) : asset.type === 'stock' || asset.type === 'etf' ? (
-              <StockChart
-                symbol={asset.symbol}
-                changePercent={asset.changePercent}
-                range={selectedRange}
-                purchaseDate={asset.purchaseDate}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
-                暂无走势图
-              </div>
-            )}
-          </div>
+  {asset.type === 'crypto' ? (
+    <CryptoChart
+      symbol={asset.symbol}
+      changePercent={asset.changePercent}
+      purchaseDate={asset.purchaseDate}
+    />
+  ) : asset.type === 'stock' || asset.type === 'etf' ? (
+    <StockChart
+      symbol={asset.symbol}
+      changePercent={asset.changePercent}
+      range={selectedRange}
+      purchaseDate={asset.purchaseDate}
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+      暂无走势图
+    </div>
+  )}
+</div>
         </div>
 
         {/* 交易卡片 - 加仓/卖出 */}
