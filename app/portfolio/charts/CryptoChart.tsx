@@ -41,6 +41,9 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    // 标志当前请求是否有效
+    let isCurrent = true;
+
     const fetchData = async () => {
       setLoading(true);
       setData([]);
@@ -51,16 +54,18 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
           { signal: controller.signal }
         );
         const json = await res.json();
-        if (json.success && json.data?.length > 0) {
-          // ✅ 反转数据，使时间从左到右递增（旧 → 新）
+        // 只有是当前请求才更新数据
+        if (isCurrent && json.success && json.data?.length > 0) {
           setData(json.data.map((item: any) => ({ value: item.value })).reverse());
         }
       } catch (error) {
-        if (error instanceof Error && error.name !== 'AbortError') {
+        if (isCurrent && error instanceof Error && error.name !== 'AbortError') {
           console.error('获取加密货币历史数据失败', error);
         }
       } finally {
-        setLoading(false);
+        if (isCurrent) {
+          setLoading(false);
+        }
       }
     };
 
@@ -68,6 +73,7 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
 
     return () => {
       controller.abort();
+      isCurrent = false; // 清理时标记为非当前
     };
   }, [symbol, range, purchaseDate]);
 
