@@ -20,19 +20,19 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate }: Cry
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const getRequestParams = (range: ChartRange): { apiRange: string; limit: number } => {
-    switch (range) {
-      case '15m':
-        return { apiRange: '15m', limit: 95 };      // 95条15分钟线 ≈ 1天
-      case '1d':
-        return { apiRange: '1h', limit: 24 };      // 168条1小时线 = 7天（1周）
-      case '1M':
-        return { apiRange: '1d', limit: 30 };       // 30条日线 ≈ 1个月
-      case 'since_holding':
-        return { apiRange: '1d', limit: 90 };       // 90条日线 ≈ 3个月
-      default:
-        return { apiRange: '15m', limit: 95 };
-    }
-  };
+  switch (range) {
+    case '15m':
+      return { apiRange: '15m', limit: 95 };
+    case '1d':   // 代表“1周”按钮
+      return { apiRange: '30m', limit: 95 };
+    case '1M':
+      return { apiRange: '1h', limit: 95 };
+    case 'since_holding':
+      return { apiRange: '1d', limit: 90 };
+    default:
+      return { apiRange: '15m', limit: 95 };
+  }
+};
 
   useEffect(() => {
     if (abortControllerRef.current) {

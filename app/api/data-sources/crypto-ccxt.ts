@@ -227,31 +227,34 @@ export async function queryCryptoHistory(symbol: string, days: number = 365): Pr
   return null;
 }
 
+// ========== 新增：分钟级 OHLCV 完整数据获取 ==========
+
+// 共享的分钟数据交易所列表（按偏好顺序，可根据需要调整）
+const MINUTE_DATA_EXCHANGES = ['kucoin', 'gateio', 'okx', 'coinbase'];
+
 /**
- * 获取加密货币OHLCV数据（支持不同时间粒度）
+ * 获取加密货币分钟级 OHLCV 完整数据（包含 open/high/low/close/volume）
  * @param symbol 基础币种，如 "BTC"
- * @param timeframe 时间粒度，如 '5m', '15m', '1h'
+ * @param timeframe 时间粒度，如 '5m', '15m', '30m', '1h'
  * @param limit 获取条数，默认288
- * @returns 按时间升序的 { timestamp: number, close: number } 数组
+ * @returns 按时间升序的完整 OHLCV 数据数组，失败返回 null
  */
-export async function queryCryptoOHLCV(
+export async function fetchCryptoMinuteData(
   symbol: string,
   timeframe: string = '5m',
   limit: number = 288
-): Promise<{ timestamp: number; close: number }[] | null> {
+): Promise<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }[] | null> {
   const cleanSymbol = symbol.toUpperCase().trim();
   const marketSymbol = `${cleanSymbol}/USDT`;
 
-  // 按偏好顺序排列的交易所列表（越靠前越优先）
-  const exchangesToTry = ['kucoin', 'gateio', 'okx', 'coinbase'];
   let lastError: any = null;
 
-  for (const exchangeId of exchangesToTry) {
+  for (const exchangeId of MINUTE_DATA_EXCHANGES) {
     try {
-      console.log(`[CCXT] 尝试交易所: ${exchangeId} for ${marketSymbol}`);
+      console.log(`[CCXT] 尝试交易所: ${exchangeId} 获取分钟数据 for ${marketSymbol} ${timeframe}`);
       const exchange: Exchange = new (ccxt as any)[exchangeId]({
         enableRateLimit: true,
-        timeout: 20000, // 增加到20秒
+        timeout: 20000,
         options: { defaultType: 'spot' }
       });
 
@@ -261,26 +264,47 @@ export async function queryCryptoOHLCV(
         continue;
       }
 
-      const since = exchange.parse8601(new Date(Date.now() - limit * exchange.parseTimeframe(timeframe) * 1000).toISOString());
+      // 计算起始时间戳（当前时间减去需要的数据时长）
+      const since = exchange.parse8601(
+        new Date(Date.now() - limit * exchange.parseTimeframe(timeframe) * 1000).toISOString()
+      );
       const ohlcvs = await exchange.fetchOHLCV(marketSymbol, timeframe, since, limit);
 
       const validOHLCVs = ohlcvs.filter(
-        (ohlcv): ohlcv is [number, number, number, number, number, number] => 
-          ohlcv && ohlcv.length >= 5 && typeof ohlcv[4] === 'number'
+        (ohlcv): ohlcv is [number, number, number, number, number, number] =>
+          ohlcv && ohlcv.length >= 6 && typeof ohlcv[4] === 'number' && typeof ohlcv[5] === 'number'
       );
 
-      console.log(`[CCXT] 从 ${exchangeId} 成功获取 ${validOHLCVs.length} 条数据`);
+      console.log(`[CCXT] 从 ${exchangeId} 成功获取 ${validOHLCVs.length} 条完整数据`);
       return validOHLCVs.map(ohlcv => ({
-        timestamp: Math.floor(ohlcv[0] / 1000),
+        timestamp: Math.floor(ohlcv[0] / 1000), // 转为秒级时间戳
+        open: ohlcv[1],
+        high: ohlcv[2],
+        low: ohlcv[3],
         close: ohlcv[4],
+        volume: ohlcv[5],
       }));
     } catch (error: any) {
-      console.error(`[CCXT] 从 ${exchangeId} 获取OHLCV失败:`, error.message);
+      console.error(`[CCXT] 从 ${exchangeId} 获取分钟数据失败:`, error.message);
       lastError = error;
       // 继续尝试下一个交易所
     }
   }
 
-  console.error('[CCXT] 所有交易所均失败:', lastError);
+  console.error('[CCXT] 所有交易所获取分钟数据均失败:', lastError);
   return null;
+}
+
+/**
+ * 获取加密货币 OHLCV 数据（简化版，仅返回 timestamp 和 close）
+ * 保留此函数以兼容旧代码，内部直接调用 fetchCryptoMinuteData
+ */
+export async function queryCryptoOHLCV(
+  symbol: string,
+  timeframe: string = '5m',
+  limit: number = 288
+): Promise<{ timestamp: number; close: number }[] | null> {
+  const fullData = await fetchCryptoMinuteData(symbol, timeframe, limit);
+  if (!fullData) return null;
+  return fullData.map(item => ({ timestamp: item.timestamp, close: item.close }));
 }
