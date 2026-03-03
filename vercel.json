@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/update-stocks-daily",
       "schedule": "30 21 * * *"
-    },
-    {
-      "path": "/api/cron/update-crypto-30m",
-      "schedule": "*/30 * * * *"
     }
   ]
 }
