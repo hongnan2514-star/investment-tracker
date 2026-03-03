@@ -264,7 +264,6 @@ export default function AssetDetailPage() {
             <CryptoChart
               symbol={asset.symbol}
               changePercent={asset.changePercent}
-              range={selectedRange}
               purchaseDate={asset.purchaseDate}
             />
           ) : asset.type === 'stock' || asset.type === 'etf' ? (
