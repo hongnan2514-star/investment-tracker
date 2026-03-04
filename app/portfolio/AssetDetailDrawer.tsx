@@ -350,7 +350,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   onFocus={() => setIsBuyDateFocused(true)}
   onBlur={() => setIsBuyDateFocused(false)}
   placeholder="日期"
-  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none placeholder:text-gray-400"
   style={{ minWidth: 0 }}
 />
                   </div>
@@ -398,7 +398,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   onFocus={() => setIsSellDateFocused(true)}
   onBlur={() => setIsSellDateFocused(false)}
   placeholder="日期"
-  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none placeholder:text-gray-400"
   style={{ minWidth: 0 }}
 />
                   </div>
