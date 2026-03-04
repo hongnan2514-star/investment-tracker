@@ -25,7 +25,7 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate, costP
       case '15m':
         return { apiRange: '15m', limit: 95, isSinceHolding: false };
       case '1d':   // 代表“1周”按钮
-        return { apiRange: '30m', limit: 335, isSinceHolding: false };
+        return { apiRange: '1h', limit: 168, isSinceHolding: false };
       case '1M':
         return { apiRange: '6h', limit: 120, isSinceHolding: false };
       case 'since_holding':
