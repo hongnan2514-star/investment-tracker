@@ -23,6 +23,8 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
   const [selectedRange, setSelectedRange] = useState<ChartRange>('15m'); // 图表时间范围
 
+  const [isBuyDateFocused, setIsBuyDateFocused] = useState(false);
+  const [isSellDateFocused, setIsSellDateFocused] = useState(false);
   // 加仓表单
   const [buyQuantity, setBuyQuantity] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
@@ -342,13 +344,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                   </div>
                   <div>
                     <input
-                      type="date"
-                      value={buyDate}
-                      onChange={(e) => setBuyDate(e.target.value)}
-                      placeholder="日期"
-                      className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-                      style={{ minWidth: 0 }}
-                    />
+  type={isBuyDateFocused || buyDate ? 'date' : 'text'}
+  value={buyDate}
+  onChange={(e) => setBuyDate(e.target.value)}
+  onFocus={() => setIsBuyDateFocused(true)}
+  onBlur={() => setIsBuyDateFocused(false)}
+  placeholder="日期"
+  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+  style={{ minWidth: 0 }}
+/>
                   </div>
                   <button
                     onClick={handleBuy}
@@ -388,12 +392,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                   </div>
                   <div>
                     <input
-                      type="date"
-                      value={sellDate}
-                      onChange={(e) => setSellDate(e.target.value)}
-                      className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-                      style={{ minWidth: 0 }}
-                    />
+  type={isSellDateFocused || sellDate ? 'date' : 'text'}
+  value={sellDate}
+  onChange={(e) => setSellDate(e.target.value)}
+  onFocus={() => setIsSellDateFocused(true)}
+  onBlur={() => setIsSellDateFocused(false)}
+  placeholder="日期"
+  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+  style={{ minWidth: 0 }}
+/>
                   </div>
                   <button
                     onClick={handleSell}
