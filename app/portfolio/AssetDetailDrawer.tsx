@@ -276,8 +276,8 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     <StockChart
       symbol={asset.symbol}
       changePercent={asset.changePercent}
-      range={selectedRange}
       purchaseDate={asset.purchaseDate}
+      costPrice={asset.costPrice}
     />
   ) : (
     <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">

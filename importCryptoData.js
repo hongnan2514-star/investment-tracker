@@ -7,9 +7,14 @@ const AdmZip = require('adm-zip');
 
 const sql = neon(process.env.POSTGRES_URL);
 
-const DATA_DIR = __dirname;
-const SYMBOLS = ['BTCUSDT', 'ETHUSDT'];
+// ===== 配置区域 =====
+// 数据存放目录：项目根目录下的 downloaded_data 文件夹
+const DATA_DIR = path.join(__dirname, 'downloaded_data');
+// 需要导入的交易对（BNB和OKB已加入，可继续添加）
+const SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'OKBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOTUSDT', 'DOGEUSDT', 'AVAXUSDT'];
+// 需要导入的K线周期
 const RESOLUTIONS = ['15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d'];
+// ====================
 
 function msToSeconds(ms) {
   return Math.floor(ms / 1000);
@@ -69,7 +74,7 @@ async function processFile(filePath) {
   const resolution = match[2];
   const yearMonth = match[3];
 
-  if (!SYMBOLS.includes(symbol)) return;
+  //if (!SYMBOLS.includes(symbol)) return;
   if (!RESOLUTIONS.includes(resolution)) return;
 
   console.log(`处理文件: ${fileName} (${symbol} ${resolution} ${yearMonth})`);
@@ -152,16 +157,22 @@ async function processFile(filePath) {
 }
 
 async function importAll() {
-  const files = await fs.readdir(DATA_DIR);
-  const zipFiles = files.filter(f => f.endsWith('.zip')).sort();
-  console.log(`找到 ${zipFiles.length} 个 ZIP 文件`);
+  try {
+    // 确保目录存在，如果不存在则创建
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const files = await fs.readdir(DATA_DIR);
+    const zipFiles = files.filter(f => f.endsWith('.zip')).sort();
+    console.log(`找到 ${zipFiles.length} 个 ZIP 文件`);
 
-  for (const zipFile of zipFiles) {
-    const filePath = path.join(DATA_DIR, zipFile);
-    await processFile(filePath);
+    for (const zipFile of zipFiles) {
+      const filePath = path.join(DATA_DIR, zipFile);
+      await processFile(filePath);
+    }
+
+    console.log('所有数据导入完成！');
+  } catch (error) {
+    console.error('读取目录失败:', error);
   }
-
-  console.log('所有数据导入完成！');
 }
 
 importAll().catch(console.error);
