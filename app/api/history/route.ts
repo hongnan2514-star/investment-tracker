@@ -12,6 +12,9 @@ import {
   needsStockMinuteUpdate,
   getStockMinuteHistory,
   saveStockMinute,
+  // 新增月线查询函数（需在 fundHistoryDB 中实现）
+  getStockMonthlyHistory,
+  getCryptoMonthlyHistory
 } from '@/src/services/fundHistoryDB';
 import { fetchCryptoMinuteData, fetchCryptoDailyHistory, } from '../data-sources/crypto-ccxt';
 import { fetchStockMinuteData } from '../data-sources/yahoo-finance';
@@ -41,6 +44,15 @@ function isDataStale(lastTimestamp: number | null, resolution: string): boolean 
   };
   const maxAge = maxAgeMap[resolution] || 30 * 60;
   return ageSeconds > maxAge;
+}
+
+// 新增工具函数：判断起始日期是否超过5年（按每年365天粗略计算）
+function isOverFiveYears(startDateStr: string): boolean {
+  const start = new Date(startDateStr);
+  const now = new Date();
+  const diffTime = now.getTime() - start.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  return diffDays > 5 * 365;
 }
 
 export async function GET(request: NextRequest) {
@@ -83,27 +95,31 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: '缺少 startDate 参数' }, { status: 400 });
           }
           console.log(`[历史API] 股票 since_holding: symbol=${symbol}, startDate=${startDate}`);
-          // 使用足够大的天数（10000天≈27年）确保包含 startDate
-          const stockHistory = await getStockHistory(symbol, 100000);
-          console.log(`[历史API] getStockHistory 返回 ${stockHistory.length} 条数据`);
-          if (stockHistory.length > 0) {
-            console.log(`[历史API] 第一条数据日期原始值:`, stockHistory[0].date);
+
+          // 修改点：根据买入日期是否超过5年选择日线或月线
+          let stockData: { date: string; value: number }[] = [];
+          if (isOverFiveYears(startDate)) {
+            // 超过5年，使用月线数据
+            console.log(`[历史API] 买入日期超过5年，使用月线数据`);
+            const monthlyData = await getStockMonthlyHistory(symbol, startDate);
+            stockData = monthlyData.map(item => ({ date: item.date, value: item.close }));
+          } else {
+            // 5年以内，使用日线数据（原有逻辑）
+            console.log(`[历史API] 买入日期5年以内，使用日线数据`);
+            const stockHistory = await getStockHistory(symbol, 100000); // 足够大的天数确保包含 startDate
+            const startTimestamp = new Date(startDate).getTime();
+            const filtered = stockHistory.filter(item => new Date(item.date).getTime() >= startTimestamp);
+            stockData = filtered.map(item => ({ date: item.date, value: item.close }));
           }
-          // 将 startDate 转为时间戳进行过滤
-          const startTimestamp = new Date(startDate).getTime();
-          const filtered = stockHistory.filter(item => {
-            const itemTimestamp = new Date(item.date).getTime();
-            return itemTimestamp >= startTimestamp;
-          });
-          console.log(`[历史API] 过滤后得到 ${filtered.length} 条数据`);
-          history = filtered.map(item => ({ date: item.date, value: item.close }));
+          history = stockData;
+          console.log(`[历史API] 最终返回 ${history.length} 条数据`);
         } else {
-          // 1d（月线）：直接获取最近 limit 条日线数据（getStockHistory 已按日期升序返回）
+          // 1d（日线）：直接获取最近 limit 条日线数据（getStockHistory 已按日期升序返回）
           const stockHistory = await getStockHistory(symbol, limit);
           history = stockHistory.map(item => ({ date: item.date, value: item.close }));
         }
       } else {
-        // 分钟数据分支（处理 15m、1h 等）
+        // 分钟数据分支（处理 15m、1h 等）—— 原样保留
         // 定义有效分辨率列表（前端可能直接传这些值）
         const validResolutions = ['15m', '1h', '6h'];
         let resolution: string;
@@ -260,49 +276,60 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: '缺少 startDate 参数' }, { status: 400 });
         }
 
-        const needsDailyUpdate = await needsCryptoDailyUpdate(symbol);
-        console.log(`[历史API] ${symbol} needsDailyUpdate = ${needsDailyUpdate}`);
+        // 修改点：根据买入日期是否超过5年选择日线或月线
+        if (isOverFiveYears(startDate)) {
+          // 超过5年，使用月线数据（直接从月线表查询，不触发日线更新）
+          console.log(`[历史API] 加密货币买入日期超过5年，使用月线数据`);
+          const monthlyData = await getCryptoMonthlyHistory(symbol, startDate);
+          history = monthlyData.map(item => ({ date: item.date, value: item.close }));
+        } else {
+          // 5年以内，使用日线数据（原有逻辑，包含自动更新）
+          console.log(`[历史API] 加密货币买入日期5年以内，使用日线数据`);
 
-        if (needsDailyUpdate) {
-          console.log(`[历史API] ${symbol} 日线数据陈旧，触发增量更新`);
-          const baseSymbol = symbol.split('/')[0];
-          const lastDateStr = await getLatestCryptoDate(symbol);
-          console.log(`[历史API] 数据库中最新的日期: ${lastDateStr}`);
+          const needsDailyUpdate = await needsCryptoDailyUpdate(symbol);
+          console.log(`[历史API] ${symbol} needsDailyUpdate = ${needsDailyUpdate}`);
 
-          let sinceTimestamp: number | undefined;
-          if (lastDateStr) {
-            const [year, month, day] = lastDateStr.split('-').map(Number);
-            const nextDayUTC = Date.UTC(year, month - 1, day + 1);
-            sinceTimestamp = nextDayUTC;
-            console.log(`[历史API] 计算的 sinceTimestamp = ${sinceTimestamp} (${new Date(sinceTimestamp).toISOString()})`);
-          } else {
-            console.log(`[历史API] 无历史数据，将拉取全量`);
+          if (needsDailyUpdate) {
+            console.log(`[历史API] ${symbol} 日线数据陈旧，触发增量更新`);
+            const baseSymbol = symbol.split('/')[0];
+            const lastDateStr = await getLatestCryptoDate(symbol);
+            console.log(`[历史API] 数据库中最新的日期: ${lastDateStr}`);
+
+            let sinceTimestamp: number | undefined;
+            if (lastDateStr) {
+              const [year, month, day] = lastDateStr.split('-').map(Number);
+              const nextDayUTC = Date.UTC(year, month - 1, day + 1);
+              sinceTimestamp = nextDayUTC;
+              console.log(`[历史API] 计算的 sinceTimestamp = ${sinceTimestamp} (${new Date(sinceTimestamp).toISOString()})`);
+            } else {
+              console.log(`[历史API] 无历史数据，将拉取全量`);
+            }
+
+            console.timeLog(`[性能] 加密货币 ${symbol} 日线`, '开始拉取外部数据');
+            const freshDaily = await fetchCryptoDailyHistory(baseSymbol, sinceTimestamp);
+            console.timeLog(`[性能] 加密货币 ${symbol} 日线`, `拉取完成，获取 ${freshDaily?.length} 条`);
+
+            if (freshDaily && freshDaily.length > 0) {
+              const records = freshDaily.map(item => ({
+                symbol,
+                date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
+                open: item.open,
+                high: item.high,
+                low: item.low,
+                close: item.close,
+                volume: item.volume,
+              }));
+              await saveCryptoHistory(records);
+              console.log(`[历史API] 已保存 ${records.length} 条日线数据`);
+            }
           }
 
-          console.timeLog(`[性能] 加密货币 ${symbol} 日线`, '开始拉取外部数据');
-          const freshDaily = await fetchCryptoDailyHistory(baseSymbol, sinceTimestamp);
-          console.timeLog(`[性能] 加密货币 ${symbol} 日线`, `拉取完成，获取 ${freshDaily?.length} 条`);
-
-          if (freshDaily && freshDaily.length > 0) {
-            const records = freshDaily.map(item => ({
-              symbol,
-              date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
-              open: item.open,
-              high: item.high,
-              low: item.low,
-              close: item.close,
-              volume: item.volume,
-            }));
-            await saveCryptoHistory(records);
-            console.log(`[历史API] 已保存 ${records.length} 条日线数据`);
-          }
+          const cryptoHistory = await getCryptoHistorySince(symbol, startDate);
+          history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
         }
-
-        const cryptoHistory = await getCryptoHistorySince(symbol, startDate);
-        history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
         console.timeEnd(`[性能] 加密货币 ${symbol} 日线`);
       } else {
-        // 分钟数据分支
+        // 分钟数据分支——原样保留
         let resolution: string;
         if (['15m', '1h', '6h'].includes(range)) {
           resolution = range;

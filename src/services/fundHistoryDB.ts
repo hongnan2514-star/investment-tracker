@@ -216,7 +216,7 @@ export async function getAllFundCodes(): Promise<string[]> {
 // ==================== 股票相关函数 ====================
 
 /**
- * 获取股票历史价格
+ * 获取股票历史价格（日线）
  * @param symbol 股票代码（如 "AAPL"）
  * @param days 获取最近多少天的数据，默认365天
  */
@@ -324,7 +324,6 @@ export async function needsStockMinuteUpdate(symbol: string, resolution: string,
  * @param symbol 股票代码（带后缀，如 "AAPL" 或 "600519.SS"）
  * @param days 最多获取多少天的数据（Yahoo 分钟数据最多支持60天）
  */
-
 export async function updateStockMinuteHistory(symbol: string): Promise<number> {
   const maxRetries = 3;
   const baseDelay = 5000; // 5秒基础等待
@@ -432,6 +431,24 @@ export async function updateStockMinuteHistory(symbol: string): Promise<number> 
   return 0;
 }
 
+// ==================== 新增：股票月线数据 ====================
+/**
+ * 获取股票月线历史数据
+ * @param symbol 股票代码（如 "AAPL"）
+ * @param startDate 起始日期 YYYY-MM-DD，只返回该日期及之后的数据
+ */
+export async function getStockMonthlyHistory(symbol: string, startDate: string): Promise<StockPrice[]> {
+  console.log(`[DB] 查询股票月线: symbol=${symbol}, startDate=${startDate}`);
+  const result = await sql`
+    SELECT * FROM stock_monthly_history 
+    WHERE symbol = ${symbol}
+    AND date >= ${startDate}
+    ORDER BY date ASC
+  `;
+  console.log(`[DB] 查询到 ${result.length} 条月线数据`);
+  return result as StockPrice[];
+}
+
 // ==================== 加密货币日线数据 ====================
 
 /**
@@ -483,6 +500,24 @@ export async function needsCryptoUpdate(symbol: string): Promise<boolean> {
   const threshold = new Date();
   threshold.setDate(threshold.getDate() - 1);
   return lastDate < threshold;
+}
+
+// ==================== 新增：加密货币月线数据 ====================
+/**
+ * 获取加密货币月线历史数据
+ * @param symbol 交易对，如 "BTC/USDT"
+ * @param startDate 起始日期 YYYY-MM-DD，只返回该日期及之后的数据
+ */
+export async function getCryptoMonthlyHistory(symbol: string, startDate: string): Promise<CryptoPrice[]> {
+  console.log(`[DB] 查询加密货币月线: symbol=${symbol}, startDate=${startDate}`);
+  const result = await sql`
+    SELECT * FROM crypto_monthly_history 
+    WHERE symbol = ${symbol}
+    AND date >= ${startDate}
+    ORDER BY date ASC
+  `;
+  console.log(`[DB] 查询到 ${result.length} 条月线数据`);
+  return result as CryptoPrice[];
 }
 
 // ==================== 加密货币分钟级数据 ====================
