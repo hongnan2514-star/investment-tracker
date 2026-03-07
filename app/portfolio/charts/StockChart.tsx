@@ -1,3 +1,4 @@
+// app/portfolio/charts/StockChart.tsx
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -29,11 +30,11 @@ export default function StockChart({
   const getRequestParams = (range: ChartRange): { apiRange: string; limit: number; isSinceHolding: boolean } => {
     switch (range) {
       case '15m':  // 1日 → 15分钟粒度，95个点 ≈ 24小时
-        return { apiRange: '15m', limit: 95, isSinceHolding: false };
+        return { apiRange: '15m', limit: 75, isSinceHolding: false };
       case '1d':   // 1周 → 1小时粒度，168个点 = 7天
-        return { apiRange: '1h', limit: 168, isSinceHolding: false };
-      case '1M':   // 1月 → 6小时粒度，120个点 = 30天
-        return { apiRange: '6h', limit: 120, isSinceHolding: false };
+        return { apiRange: '1h', limit: 35, isSinceHolding: false };
+      case '1M':   // 1月 → 1天粒度，30个点 = 30天
+        return { apiRange: '1h', limit: 150, isSinceHolding: false };
       case 'since_holding':  // 持有以来
         return { apiRange: 'since_holding', limit: 0, isSinceHolding: true };
       default:

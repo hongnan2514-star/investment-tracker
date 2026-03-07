@@ -221,12 +221,17 @@ export async function getAllFundCodes(): Promise<string[]> {
  * @param days 获取最近多少天的数据，默认365天
  */
 export async function getStockHistory(symbol: string, days: number = 365): Promise<StockPrice[]> {
+  console.log(`[DB] 查询股票历史: symbol=${symbol}, days=${days}`);
   const result = await sql`
     SELECT * FROM stock_price_history 
     WHERE symbol = ${symbol}
     AND date >= CURRENT_DATE - ${days} * INTERVAL '1 day'
     ORDER BY date ASC
   `;
+  console.log(`[DB] 查询到 ${result.length} 条数据`);
+  if (result.length > 0) {
+    console.log(`[DB] 第一条数据:`, result[0]);
+  }
   return result as StockPrice[];
 }
 
@@ -483,20 +488,41 @@ export async function needsCryptoUpdate(symbol: string): Promise<boolean> {
 // ==================== 加密货币分钟级数据 ====================
 
 /**
- * 保存加密货币分钟级数据
+ * 保存加密货币分钟级数据（批量插入 + 重试）
  */
 export async function saveCryptoMinute(records: CryptoMinute[]): Promise<void> {
-  for (const r of records) {
-    await sql`
-      INSERT INTO crypto_minute_history (symbol, timestamp, resolution, open, high, low, close, volume)
-      VALUES (${r.symbol}, ${r.timestamp}, ${r.resolution}, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume})
-      ON CONFLICT (symbol, timestamp, resolution) DO UPDATE SET
-        open = EXCLUDED.open,
-        high = EXCLUDED.high,
-        low = EXCLUDED.low,
-        close = EXCLUDED.close,
-        volume = EXCLUDED.volume
-    `;
+  if (records.length === 0) return;
+
+  const maxRetries = 3;
+  const batchSize = 100; // 每批100条，可根据情况调整
+
+  // 将记录分批
+  for (let i = 0; i < records.length; i += batchSize) {
+    const batch = records.slice(i, i + batchSize);
+    let attempts = 0;
+
+    while (attempts < maxRetries) {
+      try {
+        // 并发执行当前批次的所有插入
+        await Promise.all(batch.map(r => sql`
+          INSERT INTO crypto_minute_history (symbol, timestamp, resolution, open, high, low, close, volume)
+          VALUES (${r.symbol}, ${r.timestamp}, ${r.resolution}, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume})
+          ON CONFLICT (symbol, timestamp, resolution) DO UPDATE SET
+            open = EXCLUDED.open,
+            high = EXCLUDED.high,
+            low = EXCLUDED.low,
+            close = EXCLUDED.close,
+            volume = EXCLUDED.volume
+        `));
+        break; // 成功，退出重试循环
+      } catch (error) {
+        attempts++;
+        console.error(`[DB] 保存批次失败 (尝试 ${attempts}/${maxRetries}):`, error);
+        if (attempts >= maxRetries) throw error;
+        // 指数退避重试
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts)));
+      }
+    }
   }
 }
 
@@ -548,4 +574,26 @@ export async function getCryptoHistorySince(symbol: string, startDate: string): 
     ORDER BY date ASC
   `;
   return result as CryptoPrice[];
+}
+
+// 检查加密货币日线数据是否需要更新（今天是否已更新）
+export async function needsCryptoDailyUpdate(symbol: string): Promise<boolean> {
+  const result = await sql`
+    SELECT date FROM crypto_price_history 
+    WHERE symbol = ${symbol} 
+    ORDER BY date DESC LIMIT 1
+  `;
+  const lastDateStr = result[0]?.date;
+  if (!lastDateStr) return true;
+  const today = new Date().toISOString().split('T')[0];
+  return lastDateStr < today;
+}
+
+export async function getLatestCryptoDate(symbol: string): Promise<string | null> {
+  const result = await sql`
+    SELECT date FROM crypto_price_history 
+    WHERE symbol = ${symbol} 
+    ORDER BY date DESC LIMIT 1
+  `;
+  return result[0]?.date || null;
 }

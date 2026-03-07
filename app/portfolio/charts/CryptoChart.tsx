@@ -60,10 +60,10 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate, costP
         if (isCurrent && json.success && json.data?.length > 0) {
           let newData = json.data.map((item: any) => ({ date: item.date, value: item.value }));
 
-          // 分钟数据需反转（数据库返回降序）
+          /** 分钟数据需反转（数据库返回降序）
           if (!isSinceHolding) {
             newData.reverse();
-          }
+          } **/
 
           // 如果是持有以来且有成本价，插入第一个点
           if (isSinceHolding && costPrice !== undefined && purchaseDate) {

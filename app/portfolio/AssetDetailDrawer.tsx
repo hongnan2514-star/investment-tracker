@@ -1,4 +1,3 @@
-// app/portfolio/AssetDetailDrawer.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -8,7 +7,7 @@ import { getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
-import { CryptoChart, StockChart, ChartRange } from './charts'; // 导入图表组件和类型
+import { CryptoChart, StockChart } from './charts'; // 导入图表组件（无需导入 ChartRange）
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -21,7 +20,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [convertedAsset, setConvertedAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
-  const [selectedRange, setSelectedRange] = useState<ChartRange>('15m'); // 图表时间范围
 
   const [isBuyDateFocused, setIsBuyDateFocused] = useState(false);
   const [isSellDateFocused, setIsSellDateFocused] = useState(false);
@@ -203,7 +201,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             {/* 左侧 Logo 和名称 */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {logoSrc ? (
-                < img src={logoSrc} alt={asset.name} className="w-12 h-12 object-contain rounded-lg flex-shrink-0" />
+                <img src={logoSrc} alt={asset.name} className="w-12 h-12 object-contain rounded-lg flex-shrink-0" />
               ) : (
                 <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 text-xl font-bold flex-shrink-0">
                   {asset.name.charAt(0).toUpperCase()}
@@ -211,7 +209,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
               )}
               <div className="min-w-0">
                 <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 truncate">{asset.name}</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{asset.symbol}</p >
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{asset.symbol}</p>
               </div>
             </div>
 
@@ -244,53 +242,34 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             </div>
           </div>
 
-          {/* 时间范围按钮组 - 优化样式 */}
-{asset.type !== 'crypto' && (
-  <div className="flex justify-between mt-4 px-2">
-    {(['15m', '1d', '1M', 'since_holding'] as ChartRange[]).map((range) => (
-      <button
-        key={range}
-        onClick={() => setSelectedRange(range)}
-        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-          selectedRange === range
-            ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-        }`}
-      >
-        {range === '15m' ? '15分钟' : range === '1d' ? '1日' : range === '1M' ? '1月' : '持有以来'}
-      </button>
-    ))}
-  </div>
-)}
-
-          {/* 走势图容器 */}
+          {/* 走势图容器（按钮组已集成在 StockChart 内部） */}
           <div className="mt-4 h-45 w-full">
-  {asset.type === 'crypto' ? (
-    <CryptoChart
-      symbol={asset.symbol}
-      changePercent={asset.changePercent}
-      purchaseDate={asset.purchaseDate}
-      costPrice={asset.costPrice}
-    />
-  ) : asset.type === 'stock' || asset.type === 'etf' ? (
-    <StockChart
-      symbol={asset.symbol}
-      changePercent={asset.changePercent}
-      purchaseDate={asset.purchaseDate}
-      costPrice={asset.costPrice}
-    />
-  ) : (
-    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
-      暂无走势图
-    </div>
-  )}
-</div>
+            {asset.type === 'crypto' ? (
+              <CryptoChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                purchaseDate={asset.purchaseDate}
+                costPrice={asset.costPrice}
+              />
+            ) : asset.type === 'stock' || asset.type === 'etf' ? (
+              <StockChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                purchaseDate={asset.purchaseDate}
+                costPrice={asset.costPrice}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                暂无走势图
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* 交易卡片 - 加仓/卖出 */}
+        {/* 交易卡片 - 加仓/卖出（保持不变） */}
         <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">
           <div className="flex flex-row gap-2">
-            {/* 左侧加仓/卖出按钮及表单（占3/5） */}
+            {/* 左侧加仓/卖出按钮及表单 */}
             <div className="w-3/5">
               {/* 加仓/卖出按钮带滑动背景块 */}
               <div className="relative flex bg-gray-200 dark:bg-gray-700 rounded-lg mb-2">
@@ -344,15 +323,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                   </div>
                   <div>
                     <input
-  type={isBuyDateFocused || buyDate ? 'date' : 'text'}
-  value={buyDate}
-  onChange={(e) => setBuyDate(e.target.value)}
-  onFocus={() => setIsBuyDateFocused(true)}
-  onBlur={() => setIsBuyDateFocused(false)}
-  placeholder="日期"
-  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-  style={{ minWidth: 0 }}
-/>
+                      type={isBuyDateFocused || buyDate ? 'date' : 'text'}
+                      value={buyDate}
+                      onChange={(e) => setBuyDate(e.target.value)}
+                      onFocus={() => setIsBuyDateFocused(true)}
+                      onBlur={() => setIsBuyDateFocused(false)}
+                      placeholder="日期"
+                      className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+                      style={{ minWidth: 0 }}
+                    />
                   </div>
                   <button
                     onClick={handleBuy}
@@ -392,15 +371,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                   </div>
                   <div>
                     <input
-  type={isSellDateFocused || sellDate ? 'date' : 'text'}
-  value={sellDate}
-  onChange={(e) => setSellDate(e.target.value)}
-  onFocus={() => setIsSellDateFocused(true)}
-  onBlur={() => setIsSellDateFocused(false)}
-  placeholder="日期"
-  className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-  style={{ minWidth: 0 }}
-/>
+                      type={isSellDateFocused || sellDate ? 'date' : 'text'}
+                      value={sellDate}
+                      onChange={(e) => setSellDate(e.target.value)}
+                      onFocus={() => setIsSellDateFocused(true)}
+                      onBlur={() => setIsSellDateFocused(false)}
+                      placeholder="日期"
+                      className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+                      style={{ minWidth: 0 }}
+                    />
                   </div>
                   <button
                     onClick={handleSell}
@@ -413,7 +392,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
               )}
             </div>
 
-            {/* 右侧最近操作记录（占2/5） */}
+            {/* 右侧最近操作记录 */}
             <div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2">
               <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">
                 {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}

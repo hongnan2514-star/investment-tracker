@@ -233,25 +233,29 @@ export async function queryCryptoHistory(symbol: string, days: number = 365): Pr
 const MINUTE_DATA_EXCHANGES = ['kucoin', 'gateio', 'okx', 'coinbase'];
 
 /**
- * 获取加密货币分钟级 OHLCV 完整数据（包含 open/high/low/close/volume）
+ * 获取加密货币分钟级 OHLCV 完整数据（支持增量拉取）
  * @param symbol 基础币种，如 "BTC"
- * @param timeframe 时间粒度，如 '5m', '15m', '30m', '1h'
- * @param limit 获取条数，默认288
- * @returns 按时间升序的完整 OHLCV 数据数组，失败返回 null
+ * @param timeframe 时间粒度，如 '15m', '1h', '6h'
+ * @param limit 当 since 未提供时，拉取的最大条数（默认288）
+ * @param sinceTimestamp 可选，起始时间戳（毫秒），只拉取此时间之后的数据
  */
 export async function fetchCryptoMinuteData(
   symbol: string,
   timeframe: string = '5m',
-  limit: number = 288
+  limit: number = 288,
+  sinceTimestamp?: number
 ): Promise<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }[] | null> {
   const cleanSymbol = symbol.toUpperCase().trim();
   const marketSymbol = `${cleanSymbol}/USDT`;
 
+  const MINUTE_DATA_EXCHANGES = ['kucoin', 'gateio', 'okx', 'coinbase']; // 按偏好顺序
   let lastError: any = null;
 
   for (const exchangeId of MINUTE_DATA_EXCHANGES) {
     try {
       console.log(`[CCXT] 尝试交易所: ${exchangeId} 获取分钟数据 for ${marketSymbol} ${timeframe}`);
+      console.log(`[CCXT] sinceTimestamp = ${sinceTimestamp} (${sinceTimestamp ? new Date(sinceTimestamp).toISOString() : 'undefined'})`);
+
       const exchange: Exchange = new (ccxt as any)[exchangeId]({
         enableRateLimit: true,
         timeout: 20000,
@@ -264,20 +268,57 @@ export async function fetchCryptoMinuteData(
         continue;
       }
 
-      // 计算起始时间戳（当前时间减去需要的数据时长）
-      const since = exchange.parse8601(
-        new Date(Date.now() - limit * exchange.parseTimeframe(timeframe) * 1000).toISOString()
-      );
+      // 处理 sinceTimestamp：某些交易所可能不支持太早的时间，这里限制为最多6个月前
+      let since = sinceTimestamp;
+      if (since) {
+        const sixMonthsAgo = Date.now() - 180 * 24 * 60 * 60 * 1000; // 6个月
+        if (since < sixMonthsAgo) {
+          console.log(`[CCXT] sinceTimestamp 太早 (${new Date(since).toISOString()})，调整为6个月前`);
+          since = sixMonthsAgo;
+        }
+      }
+
+      if (!since) {
+        // 如果没有提供 since，则根据 limit 和当前时间计算
+        since = exchange.parse8601(
+          new Date(Date.now() - limit * exchange.parseTimeframe(timeframe) * 1000).toISOString()
+        );
+      }
+
+      console.log(`[CCXT] 最终 since = ${since} (${new Date(since).toISOString()})`);
+
       const ohlcvs = await exchange.fetchOHLCV(marketSymbol, timeframe, since, limit);
 
+      console.log(`[CCXT] 收到 ${ohlcvs.length} 条原始数据`);
+
+      // 过滤有效数据
       const validOHLCVs = ohlcvs.filter(
         (ohlcv): ohlcv is [number, number, number, number, number, number] =>
-          ohlcv && ohlcv.length >= 6 && typeof ohlcv[4] === 'number' && typeof ohlcv[5] === 'number'
+          ohlcv && ohlcv.length >= 6 && 
+          typeof ohlcv[0] === 'number' &&
+          typeof ohlcv[1] === 'number' &&
+          typeof ohlcv[2] === 'number' &&
+          typeof ohlcv[3] === 'number' &&
+          typeof ohlcv[4] === 'number' &&
+          typeof ohlcv[5] === 'number'
       );
 
-      console.log(`[CCXT] 从 ${exchangeId} 成功获取 ${validOHLCVs.length} 条完整数据`);
+      console.log(`[CCXT] 有效数据 ${validOHLCVs.length} 条`);
+
+      if (validOHLCVs.length > 0) {
+        const firstTs = validOHLCVs[0][0];
+        const lastTs = validOHLCVs[validOHLCVs.length-1][0];
+        console.log(`[CCXT] 数据范围: ${new Date(firstTs).toISOString()} 至 ${new Date(lastTs).toISOString()}`);
+      }
+
+      // 如果数据为空，尝试下一个交易所
+      if (validOHLCVs.length === 0) {
+        console.log(`[CCXT] ${exchangeId} 返回0条数据，尝试下一个交易所`);
+        continue;
+      }
+
       return validOHLCVs.map(ohlcv => ({
-        timestamp: Math.floor(ohlcv[0] / 1000), // 转为秒级时间戳
+        timestamp: Math.floor(ohlcv[0] / 1000),
         open: ohlcv[1],
         high: ohlcv[2],
         low: ohlcv[3],
@@ -285,7 +326,7 @@ export async function fetchCryptoMinuteData(
         volume: ohlcv[5],
       }));
     } catch (error: any) {
-      console.error(`[CCXT] 从 ${exchangeId} 获取分钟数据失败:`, error.message);
+      console.error(`[CCXT] 从 ${exchangeId} 获取分钟数据失败:`, error.message, error.stack);
       lastError = error;
       // 继续尝试下一个交易所
     }
@@ -307,4 +348,88 @@ export async function queryCryptoOHLCV(
   const fullData = await fetchCryptoMinuteData(symbol, timeframe, limit);
   if (!fullData) return null;
   return fullData.map(item => ({ timestamp: item.timestamp, close: item.close }));
+}
+
+/**
+ * 获取加密货币日线 OHLCV 数据，支持从指定时间戳开始
+ * @param symbol 基础币种，如 "BTC"
+ * @param sinceTimestamp 可选，起始时间戳（毫秒），不传则拉取最近365天
+ */
+export async function fetchCryptoDailyHistory(
+  symbol: string,
+  sinceTimestamp?: number
+): Promise<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }[] | null> {
+  const cleanSymbol = symbol.toUpperCase().trim();
+  const marketSymbol = `${cleanSymbol}/USDT`;
+
+  const exchangesToTry = ['binance', 'kucoin', 'gateio', 'okx', 'coinbase'];
+  for (const exchangeId of exchangesToTry) {
+    try {
+      console.log(`[CCXT] 尝试交易所: ${exchangeId} 获取日线数据 for ${marketSymbol}`);
+      console.log(`[CCXT] sinceTimestamp = ${sinceTimestamp} (${sinceTimestamp ? new Date(sinceTimestamp).toISOString() : 'undefined'})`);
+
+      const exchange: Exchange = new (ccxt as any)[exchangeId]({
+        enableRateLimit: true,
+        timeout: 20000,
+        options: { defaultType: 'spot' }
+      });
+
+      await exchange.loadMarkets();
+      if (!exchange.markets?.[marketSymbol]) {
+        console.log(`[CCXT] 交易对 ${marketSymbol} 在 ${exchangeId} 上不存在，尝试下一个`);
+        continue;
+      }
+
+      const ohlcvs = await exchange.fetchOHLCV(
+        marketSymbol,
+        '1d',
+        sinceTimestamp, // 毫秒时间戳
+        sinceTimestamp ? undefined : 365 // 有 since 时不限制条数
+      );
+
+      console.log(`[CCXT] 收到 ${ohlcvs.length} 条 OHLCV 原始数据`);
+
+      // 第一步：过滤出有效的 OHLCV（确保包含6个数字）
+      const validOHLCVs = ohlcvs.filter(
+        (ohlcv): ohlcv is [number, number, number, number, number, number] =>
+          ohlcv && 
+          ohlcv.length >= 6 && 
+          typeof ohlcv[0] === 'number' &&
+          typeof ohlcv[1] === 'number' &&
+          typeof ohlcv[2] === 'number' &&
+          typeof ohlcv[3] === 'number' &&
+          typeof ohlcv[4] === 'number' &&
+          typeof ohlcv[5] === 'number'
+      );
+
+      console.log(`[CCXT] 有效 OHLCV 条数: ${validOHLCVs.length}`);
+
+      // 第二步：根据 sinceTimestamp 手动过滤（如果有）
+      let filtered = validOHLCVs;
+      if (sinceTimestamp) {
+        filtered = validOHLCVs.filter(ohlcv => ohlcv[0] >= sinceTimestamp);
+        console.log(`[CCXT] 手动过滤后得到 ${filtered.length} 条数据`);
+      }
+
+      // 记录数据范围（仅当有数据时）
+      if (filtered.length > 0) {
+        const firstTs = filtered[0][0];
+        const lastTs = filtered[filtered.length-1][0];
+        console.log(`[CCXT] 过滤后数据范围: ${new Date(firstTs).toISOString()} 至 ${new Date(lastTs).toISOString()}`);
+      }
+
+      console.log(`[CCXT] 从 ${exchangeId} 成功获取 ${filtered.length} 条有效日线数据`);
+      return filtered.map(ohlcv => ({
+        timestamp: Math.floor(ohlcv[0] / 1000),
+        open: ohlcv[1],
+        high: ohlcv[2],
+        low: ohlcv[3],
+        close: ohlcv[4],
+        volume: ohlcv[5],
+      }));
+    } catch (error: any) {
+      console.error(`[CCXT] 从 ${exchangeId} 获取日线数据失败:`, error.message);
+    }
+  }
+  return null;
 }
