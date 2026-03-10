@@ -33,6 +33,17 @@ declare module 'lucide-react' {
   export const ListFilterPlus: FC<IconProps>;
   export const TrendingDown: FC<IconProps>;
   export const Newspaper: FC<IconProps>;
+  export const ChevronLeft: FC<IconProps>;
+  export const Lock: FC<IconProps>;
+  export const Bell: FC<IconProps>;
+  export const Moon: FC<IconProps>;
+  export const Info: FC<IconProps>;
+  export const LogOut: FC<IconProps>;
+  export const CircleDollarSign: FC<IconProps>;
+  export const ChevronUp: FC<IconProps>;
+  export const Send: FC<IconProps>;
+  export const Wallet: FC<IconProps>;
+  export const User: FC<IconProps>;
 
   // 可选：允许导入其他未列出的图标（会失去类型提示，但避免报错）
   // export * from 'lucide-react';
