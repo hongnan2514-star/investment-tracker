@@ -14,15 +14,23 @@ import {
   saveStockMinute,
   // 新增月线查询函数（需在 fundHistoryDB 中实现）
   getStockMonthlyHistory,
-  getCryptoMonthlyHistory
+  getCryptoMonthlyHistory,
+  needsStockDailyUpdate,
+  getLatestStockDate,
+  saveStockHistory,
+  getStockHistorySince,
 } from '@/src/services/fundHistoryDB';
 import { fetchCryptoMinuteData, fetchCryptoDailyHistory, } from '../data-sources/crypto-ccxt';
+import { fetchTiingoMinuteData } from '../data-sources/tiingo-stock';
+import { fetchAStockMinuteDataFromSina } from '../data-sources/sina-stock';
+import { fetchTiingoDailyHistory } from '../data-sources/tiingo-stock';
 import { fetchStockMinuteData } from '../data-sources/yahoo-finance';
 
 const timeframeSeconds: Record<string, number> = {
   '15m': 15 * 60,
   '30m': 30 * 60,
   '1h': 60 * 60,
+  '4h': 4 * 60 * 60,
   '6h': 6 * 60 * 60,
 };
 
@@ -86,49 +94,79 @@ export async function GET(request: NextRequest) {
       }
       console.timeEnd(`[性能] 基金 ${symbol} ${range}`);
     } else if (type === 'stock' || type === 'etf') {
-      // 处理日线数据（包括 since_holding 和 1d）
-      if (range === 'since_holding' || range === '1d') {
-        // 如果是 since_holding，需要 startDate 参数
+      // 处理日线数据（包括 since_holding 和 1d_hk）
+      if (range === 'since_holding' || range === '1d_hk') {
         if (range === 'since_holding') {
           const startDate = request.nextUrl.searchParams.get('startDate');
           if (!startDate) {
             return NextResponse.json({ error: '缺少 startDate 参数' }, { status: 400 });
           }
+
           console.log(`[历史API] 股票 since_holding: symbol=${symbol}, startDate=${startDate}`);
 
-          // 修改点：根据买入日期是否超过5年选择日线或月线
-          let stockData: { date: string; value: number }[] = [];
+          // 判断是否超过5年，选择月线或日线
           if (isOverFiveYears(startDate)) {
-            // 超过5年，使用月线数据
             console.log(`[历史API] 买入日期超过5年，使用月线数据`);
             const monthlyData = await getStockMonthlyHistory(symbol, startDate);
-            stockData = monthlyData.map(item => ({ date: item.date, value: item.close }));
+            history = monthlyData.map(item => ({ date: item.date, value: item.close }));
           } else {
-            // 5年以内，使用日线数据（原有逻辑）
+            // 5年以内，使用日线数据，并检查是否需要增量更新
             console.log(`[历史API] 买入日期5年以内，使用日线数据`);
-            const stockHistory = await getStockHistory(symbol, 100000); // 足够大的天数确保包含 startDate
-            const startTimestamp = new Date(startDate).getTime();
-            const filtered = stockHistory.filter(item => new Date(item.date).getTime() >= startTimestamp);
-            stockData = filtered.map(item => ({ date: item.date, value: item.close }));
+
+            const needsDailyUpdate = await needsStockDailyUpdate(symbol);
+            console.log(`[历史API] 股票 needsDailyUpdate = ${needsDailyUpdate}`);
+
+            if (needsDailyUpdate) {
+              console.log(`[历史API] 股票日线数据陈旧，触发增量更新`);
+              const lastDateStr = await getLatestStockDate(symbol);
+              console.log(`[历史API] 数据库中最新的日期: ${lastDateStr}`);
+
+              let sinceDate: string | undefined;
+              if (lastDateStr) {
+                const nextDay = new Date(lastDateStr);
+                nextDay.setDate(nextDay.getDate() + 1);
+                sinceDate = nextDay.toISOString().split('T')[0];
+                console.log(`[历史API] 计算的 sinceDate = ${sinceDate}`);
+              } else {
+                console.log(`[历史API] 无历史数据，将拉取全量`);
+              }
+
+              const freshDaily = await fetchTiingoDailyHistory(symbol, sinceDate);
+              if (freshDaily && freshDaily.length > 0) {
+                const records = freshDaily.map(item => ({
+                  symbol,
+                  date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
+                  open: item.open,
+                  high: item.high,
+                  low: item.low,
+                  close: item.close,
+                  volume: item.volume,
+                }));
+                await saveStockHistory(records);
+                console.log(`[历史API] 已保存 ${records.length} 条股票日线数据`);
+              }
+            }
+
+            // 从数据库获取从 startDate 开始的数据
+            const stockHistory = await getStockHistorySince(symbol, startDate);
+            history = stockHistory.map(item => ({ date: item.date, value: item.close }));
           }
-          history = stockData;
-          console.log(`[历史API] 最终返回 ${history.length} 条数据`);
         } else {
-          // 1d（日线）：直接获取最近 limit 条日线数据（getStockHistory 已按日期升序返回）
+          // 1d_hk：港股月线，直接获取最近 limit 条日线数据
+          console.log(`[历史API] 港股月线，获取最近 ${limit} 条日线数据`);
           const stockHistory = await getStockHistory(symbol, limit);
           history = stockHistory.map(item => ({ date: item.date, value: item.close }));
         }
       } else {
-        // 分钟数据分支（处理 15m、1h 等）—— 原样保留
-        // 定义有效分辨率列表（前端可能直接传这些值）
-        const validResolutions = ['15m', '1h', '6h'];
+        // 分钟数据分支（处理 15m、1h、6h 等）—— 原样保留，确保 1d 能正确进入
+        // 注意：1d（前端“1周”）应映射为 1h 分辨率
+        const validResolutions = ['15m', '1h', '4h', '6h'];
         let resolution: string;
 
         if (validResolutions.includes(range)) {
-          // 如果已经是有效分辨率，直接使用
           resolution = range;
         } else {
-          // 尝试通过映射表转换
+          // 尝试映射：前端可能传 1d（代表“1周”）-> 应映射为 1h
           const rangeToStockResolution: Record<string, string> = {
             '15m': '15m',
             '1d': '1h',
@@ -136,7 +174,6 @@ export async function GET(request: NextRequest) {
           };
           resolution = rangeToStockResolution[range];
           if (!resolution) {
-            // 最后尝试通用映射表
             resolution = rangeToResolution[range];
           }
         }
@@ -145,6 +182,7 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: `不支持的 range 参数: ${rawRange}` }, { status: 400 });
         }
 
+        // 分钟数据拉取和保存逻辑保持不变（原有代码）
         const perfLabel = `[性能] 股票 ${symbol} ${resolution}`;
         console.time(perfLabel);
 
@@ -164,7 +202,6 @@ export async function GET(request: NextRequest) {
         }
         console.log(`[历史API] 股票处理后的 lastTimestamp = ${lastTimestamp}`);
 
-        // 获取当前数据总量
         const totalData = await getStockMinuteHistory(symbol, resolution, limit);
         const dataCount = totalData.length;
         console.timeLog(perfLabel, `获取总数据量完成，共 ${dataCount} 条`);
@@ -198,7 +235,21 @@ export async function GET(request: NextRequest) {
           }
 
           console.timeLog(perfLabel, '开始拉取外部分钟数据');
-          const freshData = await fetchStockMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
+          let freshData: any[] | null = null;
+          const isAStock = symbol.includes('.SS') || symbol.includes('.SZ');
+          if (isAStock) {
+            console.log(`[历史API] 使用新浪获取A股分钟数据`);
+            freshData = await fetchAStockMinuteDataFromSina(symbol, resolution, limit * 2, sinceTimestamp);
+          } else {
+            // 判断是否为港股（以 .HK 结尾或纯数字4-5位）
+            const isHKStock = symbol.includes('.HK') || /^\d{4,5}$/.test(symbol);
+            if (isHKStock) {
+              console.log(`[历史API] 使用雅虎获取港股分钟数据`);
+              freshData = await fetchStockMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
+            } else {
+              freshData = await fetchTiingoMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
+            }
+          }
           console.timeLog(perfLabel, `外部数据拉取完成，获取 ${freshData?.length} 条`);
 
           if (freshData && freshData.length > 0) {
@@ -222,7 +273,6 @@ export async function GET(request: NextRequest) {
         console.log(`[历史API] 股票从数据库获取到 ${minuteData.length} 条 ${resolution} 原始数据`);
         console.timeLog(perfLabel, `从数据库获取 ${limit} 条数据完成`);
 
-        // 处理时间戳（股票分钟数据中 timestamp 应为秒级，直接使用）
         const processedData = minuteData
           .map(item => {
             if (!item) return null;

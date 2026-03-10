@@ -220,19 +220,31 @@ useEffect(() => {
 
     const converted = await Promise.all(
       assets.map(async (asset) => {
-        // 源货币：使用 asset.currency，如果没有则默认 'USD'
         const fromCurrency = asset.currency || 'USD';
-        // 转换价格、市值和成本价（如果存在）
-        const [newPrice, newMarketValue, newCostPrice] = await Promise.all([
-          convert(asset.price, fromCurrency as any, currency),
-          convert(asset.marketValue, fromCurrency as any, currency),
-          asset.costPrice ? convert(asset.costPrice, fromCurrency as any, currency) : Promise.resolve(undefined)
-        ]);
+        let newPrice = asset.price;
+        let newMarketValue = asset.marketValue;
+        let newCostPrice = asset.costPrice;
+
+        try {
+          const [convertedPrice, convertedMarketValue, convertedCostPrice] = await Promise.all([
+            convert(asset.price, fromCurrency as any, currency),
+            convert(asset.marketValue, fromCurrency as any, currency),
+            asset.costPrice ? convert(asset.costPrice, fromCurrency as any, currency) : Promise.resolve(undefined)
+          ]);
+
+          // 仅当转换结果有效时才使用新值
+          if (convertedPrice != null && !isNaN(convertedPrice)) newPrice = convertedPrice;
+          if (convertedMarketValue != null && !isNaN(convertedMarketValue)) newMarketValue = convertedMarketValue;
+          if (convertedCostPrice != null && !isNaN(convertedCostPrice)) newCostPrice = convertedCostPrice;
+        } catch (e) {
+          console.error(`转换 ${asset.symbol} 失败:`, e);
+        }
+
         return {
           ...asset,
           price: newPrice,
           marketValue: newMarketValue,
-          costPrice: newCostPrice, // 成本价也被转换
+          costPrice: newCostPrice,
         };
       })
     );
@@ -370,73 +382,86 @@ const sortedAssets = useMemo(() => {
   };
 
   const triggerSearch = async () => {
-    if (!searchQuery.trim() || searchQuery.length < 2) {
-      setSearchError('请输入至少2位代码');
-      return;
+  if (!searchQuery.trim() || searchQuery.length < 2) {
+    setSearchError('请输入至少2位代码');
+    return;
+  }
+
+  setIsLoading(true);
+  setFoundAsset(null);
+  setSearchError(null);
+
+  try {
+    const trimmedQuery = searchQuery.trim();
+    let finalSymbol = trimmedQuery;
+
+    if (selectedAssetType === 'stock' && /^\d{6}$/.test(trimmedQuery)) {
+      finalSymbol = normalizeAStockSymbol(trimmedQuery);
     }
 
-    setIsLoading(true);
-    setFoundAsset(null);
-    setSearchError(null);
+    const response = await fetch(`/api/search?symbol=${encodeURIComponent(finalSymbol)}&type=${selectedAssetType || ''}`);
+    const data = await response.json();
 
-    try {
-      const trimmedQuery = searchQuery.trim();
-      let finalSymbol = trimmedQuery;
-
-      if (selectedAssetType === 'stock' && /^\d{6}$/.test(trimmedQuery)) {
-        finalSymbol = normalizeAStockSymbol(trimmedQuery);
-      }
-
-      const response = await fetch(`/api/search?symbol=${encodeURIComponent(finalSymbol)}&type=${selectedAssetType || ''}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `搜索失败(${response.status})`);
-      }
-
-      if (!data || !data.symbol) {
-        throw new Error('返回的数据格式不正确');
-      }
-
-      const chineseName = AShareNameMap[data.symbol] || data.name;
-      let logoUrl = '';
-
-      if (data.type === 'stock' || data.type === 'etf') {
-        const cleanSymbol = data.symbol.replace(/\.(SS|SZ|US|OF)$/, '');
-        if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
-          logoUrl = `https://cdn.brandfetch.io/ticker/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
-        }
-      } else if (data.type === 'crypto') {
-        const cleanSymbol = data.symbol.split('/')[0].trim();
-        if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
-          logoUrl = `https://cdn.brandfetch.io/crypto/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
-        }
-      }
-
-      setFoundAsset({
-        symbol: data.symbol,
-        name: chineseName,
-        price: data.price,
-        changePercent: data.changePercent || 0,
-        market: data.market || 'Unknown',
-        currency: data.currency || 'USD',
-        type: data.type || selectedAssetType || 'stock',
-        source: data.source || 'Unknown',
-        logoUrl: logoUrl,
-      });
-
-    } catch (error: any) {
-      console.error('Search error:', error);
-      if (error.message.includes('404')) {
-        setSearchError('未找到该代码对应的资产');
-      } else {
-        setSearchError(error.message || '搜索失败，请稍后重试');
-      }
-    } finally {
-      setIsLoading(false);
-      setIsSearching(false);
+    if (!response.ok) {
+      throw new Error(data.error || `搜索失败(${response.status})`);
     }
-  };
+
+    if (!data || !data.symbol) {
+      throw new Error('返回的数据格式不正确');
+    }
+
+    const chineseName = AShareNameMap[data.symbol] || data.name;
+    let logoUrl = '';
+
+    if (data.type === 'stock' || data.type === 'etf') {
+  const cleanSymbol = data.symbol.replace(/\.(SS|SZ|US|OF)$/, '');
+  
+  // 判断是否为 A 股
+  const isAStock = /^\d{6}$/.test(cleanSymbol) && 
+                   (data.symbol.includes('.SS') || data.symbol.includes('.SZ'));
+  
+  if (isAStock) {
+    // 主 Logo 使用东方财富
+    logoUrl = `https://static.futunn.com/project/stock_company_logo/${cleanSymbol}.png`;
+  } else if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
+        // 美股等其他市场
+        logoUrl = `https://cdn.brandfetch.io/ticker/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
+      }
+    } else if (data.type === 'crypto') {
+      // 加密货币 Logo 逻辑保持不变
+      const cleanSymbol = data.symbol.split('/')[0].trim();
+      if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
+        logoUrl = `https://cdn.brandfetch.io/crypto/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
+      }
+    }
+
+    setFoundAsset({
+      symbol: data.symbol,
+      name: chineseName,
+      price: data.price,
+      changePercent: data.changePercent || 0,
+      market: data.market || 'Unknown',
+      currency: data.currency || 'USD',
+      type: data.type || selectedAssetType || 'stock',
+      source: data.source || 'Unknown',
+      logoUrl: logoUrl,
+    });
+  
+if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Kong'))) {
+  data.currency = data.currency || 'HKD';
+}
+  } catch (error: any) {
+    console.error('Search error:', error);
+    if (error.message.includes('404')) {
+      setSearchError('未找到该代码对应的资产');
+    } else {
+      setSearchError(error.message || '搜索失败，请稍后重试');
+    }
+  } finally {
+    setIsLoading(false);
+    setIsSearching(false);
+  }
+};
 
   useEffect(() => {
     if (searchQuery.length >= 2 && !isSearching) {
@@ -977,7 +1002,7 @@ const renderSearch = () => {
           ref={inputRef}
         />
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 ml-1">
-          {selectedAssetType === 'stock' && '支持美股 (AAPL)、A股 (600519)'}
+          {selectedAssetType === 'stock' && '支持美股 (AAPL)、A股 (600519)、港股(9988)'}
           {selectedAssetType === 'etf' && '支持ETF (VOO, SPY)'}
           {selectedAssetType === 'fund' && '基金代码 (如 017174)'}
           {selectedAssetType === 'crypto' && '加密货币 (BTC, ETH, SOL)'}
@@ -1253,36 +1278,59 @@ const renderSearch = () => {
           <div className="flex justify-between items-start gap-1.5">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className="flex-shrink-0">
-                {logoSrc ? (
-                  <img
-                    src={logoSrc}
-                    alt={asset.name}
-                    className="w-6 h-6 object-contain rounded-lg"
-                    onError={(e) => e.currentTarget.style.display = 'none'}
-                  />
-                ) : (
-                  <>
-                    {asset.type === 'car' && <Car size={16} className="text-gray-700 dark:text-gray-200" />}
-                    {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
-                    {asset.type === 'metal' && (
-                      asset.symbol && asset.symbol.includes('Ag') ? (
-                        < img 
-                          src={`/icons/silver-bar-${theme}.png`} 
-                          alt="Silver" 
-                          className="w-6 h-6 object-contain rounded-lg" 
-                        />
-                      ) : (
-                        < img 
-                          src={`/icons/gold-bar-${theme}.png`} 
-                          alt="Gold" 
-                          className="w-6 h-6 object-contain rounded-lg" 
-                        />
-                      )
-                    )}
-                    {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
-                  </>
-                )}
-              </div>
+  {(() => {
+    // 判断是否为 A 股（带 .SS 或 .SZ 后缀的 6 位数字）
+    const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
+    const code = isAStock ? asset.symbol.split('.')[0] : null;
+    const cachedLogo = getCachedLogo(asset.symbol);
+
+    // 优先尝试本地 Logo（如果存在）
+    if (isAStock && code) {
+      const localPath = `/images/company_logos/${code}.png`;
+      return (
+        <img
+          src={localPath}
+          alt={asset.name}
+          className="w-6 h-6 object-contain rounded-lg"
+          onError={(e) => {
+            // 本地图片加载失败，隐藏该元素，外层会显示默认图标
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      );
+    }
+
+    // 其次使用缓存或 asset.logoUrl（美股、加密货币等）
+    if (cachedLogo || asset.logoUrl) {
+      return (
+        <img
+          src={cachedLogo || asset.logoUrl}
+          alt={asset.name}
+          className="w-6 h-6 object-contain rounded-lg"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      );
+    }
+
+    // 无 Logo 时显示默认图标（原有逻辑）
+    return (
+      <>
+        {asset.type === 'car' && <Car size={16} className="text-gray-700 dark:text-gray-200" />}
+        {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
+        {asset.type === 'metal' && (
+          asset.symbol && asset.symbol.includes('Ag') ? (
+            < img src={`/icons/silver-bar-${theme}.png`} alt="Silver" className="w-6 h-6 object-contain rounded-lg" />
+          ) : (
+            < img src={`/icons/gold-bar-${theme}.png`} alt="Gold" className="w-6 h-6 object-contain rounded-lg" />
+          )
+        )}
+        {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
+      </>
+    );
+  })()}
+</div>
               <div className="text-left min-w-0 flex-1">
                 <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
                   {asset.name}

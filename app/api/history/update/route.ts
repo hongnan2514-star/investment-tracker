@@ -1,75 +1,121 @@
 // app/api/history/update/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { needsStockUpdate, saveStockHistory, needsCryptoDailyUpdate, getLatestCryptoDate, saveCryptoHistory } from '@/src/services/fundHistoryDB';
-import { fetchYahooHistory } from '@/app/api/data-sources/yahoo-finance';
+import {
+  needsStockDailyUpdate,
+  getLatestStockDate,
+  saveStockHistory,
+  needsCryptoDailyUpdate,
+  getLatestCryptoDate,
+  saveCryptoHistory,
+} from '@/src/services/fundHistoryDB';
+import { fetchTiingoDailyHistory } from '../../data-sources/tiingo-stock';
 import { fetchCryptoDailyHistory } from '../../data-sources/crypto-ccxt';
 
-async function updateStockHistory(symbol: string): Promise<{ updated: boolean; count?: number }> {
-  try {
-    if (!(await needsStockUpdate(symbol))) return { updated: false };
+// 更新队列，只用于串行化，不关心返回值类型
+let updateQueue = Promise.resolve() as Promise<void>;
 
-    const stockPrices = await fetchYahooHistory(symbol, 365);
-    if (!stockPrices || stockPrices.length === 0) {
-      console.warn(`获取股票历史失败 ${symbol}: 无数据`);
+async function enqueueUpdate<T>(fn: () => Promise<T>): Promise<T> {
+  // 等待当前队列完成，然后执行新任务，返回其结果
+  const resultPromise = updateQueue.then(fn);
+  // 更新队列为忽略结果的新 Promise（仅用于串行化）
+  updateQueue = resultPromise.then(() => {}).catch(() => {});
+  return resultPromise;
+}
+
+async function updateStockHistory(symbol: string): Promise<{ updated: boolean; count?: number }> {
+  return enqueueUpdate(async () => {
+    try {
+      // 1. 检查是否需要更新（今天是否已更新）
+      const needsUpdate = await needsStockDailyUpdate(symbol);
+      if (!needsUpdate) {
+        console.log(`[历史更新] 股票 ${symbol} 数据已最新，跳过更新`);
+        return { updated: false };
+      }
+
+      // 2. 获取最新日期，计算增量起始日期
+      const lastDateStr = await getLatestStockDate(symbol);
+      let sinceDate: string | undefined;
+      if (lastDateStr) {
+        const nextDay = new Date(lastDateStr);
+        nextDay.setDate(nextDay.getDate() + 1);
+        sinceDate = nextDay.toISOString().split('T')[0];
+        console.log(`[历史更新] 股票 ${symbol} 最新日期=${lastDateStr}, 增量起始=${sinceDate}`);
+      } else {
+        console.log(`[历史更新] 股票 ${symbol} 无历史数据，将拉取全量`);
+      }
+
+      // 3. 从 Tiingo 拉取增量数据
+      const freshData = await fetchTiingoDailyHistory(symbol, sinceDate);
+      if (!freshData || freshData.length === 0) {
+        console.warn(`[历史更新] 获取股票 ${symbol} 日线数据失败`);
+        return { updated: false };
+      }
+
+      // 4. 转换为 StockPrice 格式并保存
+      const records = freshData.map(item => ({
+        symbol,
+        date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+      }));
+      await saveStockHistory(records);
+      console.log(`[历史更新] 股票 ${symbol} 历史数据已保存 (${records.length}条)`);
+      return { updated: true, count: records.length };
+    } catch (error) {
+      console.error(`[历史更新] 更新股票 ${symbol} 失败:`, error);
       return { updated: false };
     }
-
-    await saveStockHistory(stockPrices);
-    console.log(`[历史更新] 股票 ${symbol} 历史数据已保存 (${stockPrices.length}条)`);
-    return { updated: true, count: stockPrices.length };
-  } catch (error) {
-    console.error(`更新股票历史失败 ${symbol}:`, error);
-    return { updated: false };
-  }
+  });
 }
 
 async function updateCryptoHistory(baseSymbol: string): Promise<{ updated: boolean; count?: number }> {
-  try {
-    const symbol = `${baseSymbol}/USDT`;
-    // 检查是否需要更新（根据最新日期是否早于今天）
-    const needsUpdate = await needsCryptoDailyUpdate(symbol);
-    if (!needsUpdate) {
-      console.log(`[历史更新] ${baseSymbol} 数据已最新，跳过更新`);
+  return enqueueUpdate(async () => {
+    try {
+      const symbol = `${baseSymbol}/USDT`;
+      const needsUpdate = await needsCryptoDailyUpdate(symbol);
+      if (!needsUpdate) {
+        console.log(`[历史更新] ${baseSymbol} 数据已最新，跳过更新`);
+        return { updated: false };
+      }
+
+      const lastDateStr = await getLatestCryptoDate(symbol);
+      let sinceTimestamp: number | undefined;
+      if (lastDateStr) {
+        const [year, month, day] = lastDateStr.split('-').map(Number);
+        const nextDayUTC = Date.UTC(year, month - 1, day + 1);
+        sinceTimestamp = nextDayUTC;
+        console.log(`[历史更新] ${baseSymbol} 最新日期=${lastDateStr}, 增量起始=${new Date(sinceTimestamp).toISOString()}`);
+      } else {
+        console.log(`[历史更新] ${baseSymbol} 无历史数据，将拉取全量`);
+      }
+
+      const dailyData = await fetchCryptoDailyHistory(baseSymbol, sinceTimestamp);
+      if (!dailyData || dailyData.length === 0) {
+        console.warn(`[历史更新] 获取 ${baseSymbol} 历史数据失败`);
+        return { updated: false };
+      }
+
+      const records = dailyData.map(item => ({
+        symbol,
+        date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+      }));
+
+      await saveCryptoHistory(records);
+      console.log(`[历史更新] 加密货币 ${baseSymbol} 历史数据已保存 (${records.length}条)`);
+      return { updated: true, count: records.length };
+    } catch (error) {
+      console.error(`[历史更新] 更新 ${baseSymbol} 失败:`, error);
       return { updated: false };
     }
-
-    // 获取最新日期，用于计算增量起始时间
-    const lastDateStr = await getLatestCryptoDate(symbol);
-    let sinceTimestamp: number | undefined;
-    if (lastDateStr) {
-      const [year, month, day] = lastDateStr.split('-').map(Number);
-      const nextDayUTC = Date.UTC(year, month - 1, day + 1);
-      sinceTimestamp = nextDayUTC;
-      console.log(`[历史更新] ${baseSymbol} 最新日期=${lastDateStr}, 增量起始=${new Date(sinceTimestamp).toISOString()}`);
-    } else {
-      console.log(`[历史更新] ${baseSymbol} 无历史数据，将拉取全量`);
-    }
-
-    // 调用 fetchCryptoDailyHistory 拉取数据（全量或增量）
-    const dailyData = await fetchCryptoDailyHistory(baseSymbol, sinceTimestamp);
-    if (!dailyData || dailyData.length === 0) {
-      console.warn(`[历史更新] 获取 ${baseSymbol} 历史数据失败`);
-      return { updated: false };
-    }
-
-    // 转换为 CryptoPrice 格式并保存
-    const records = dailyData.map(item => ({
-      symbol,
-      date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
-      open: item.open,
-      high: item.high,
-      low: item.low,
-      close: item.close,
-      volume: item.volume,
-    }));
-
-    await saveCryptoHistory(records);
-    console.log(`[历史更新] 加密货币 ${baseSymbol} 历史数据已保存 (${records.length}条)`);
-    return { updated: true, count: records.length };
-  } catch (error) {
-    console.error(`[历史更新] 更新 ${baseSymbol} 失败:`, error);
-    return { updated: false };
-  }
+  });
 }
 
 export async function POST(request: NextRequest) {

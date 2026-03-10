@@ -101,11 +101,13 @@ export async function fetchStockMinuteData(
   limit: number = 200,
   sinceTimestamp?: number
 ): Promise<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }[] | null> {
+  console.log(`[Yahoo] 开始 fetchStockMinuteData: symbol=${symbol}, interval=${interval}, limit=${limit}, sinceTimestamp=${sinceTimestamp}`);
   try {
     const to = Math.floor(Date.now() / 1000);
     let from: number;
     if (sinceTimestamp) {
       from = Math.floor(sinceTimestamp / 1000); // 毫秒转秒
+      console.log(`[Yahoo] 使用 sinceTimestamp, from=${from} (${new Date(from*1000).toISOString()})`);
     } else {
       // 根据 limit 和 interval 估算起始时间
       const intervalSeconds: Record<string, number> = {
@@ -114,28 +116,49 @@ export async function fetchStockMinuteData(
       };
       const secs = intervalSeconds[interval] || 900;
       from = to - limit * secs;
+      console.log(`[Yahoo] 无 sinceTimestamp，根据 limit 计算 from=${from} (${new Date(from*1000).toISOString()})`);
     }
 
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&period1=${from}&period2=${to}`;
-    console.log(`[Yahoo] 请求分钟数据: ${url}`);
+    console.log(`[Yahoo] 请求 URL: ${url}`);
 
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
       },
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    console.log(`[Yahoo] 响应状态: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error(`[Yahoo] HTTP 错误 ${response.status}, 响应内容: ${responseText}`);
+      throw new Error(`HTTP ${response.status}`);
+    }
 
     const data = await response.json();
+    console.log(`[Yahoo] 数据接收成功，检查 data.chart.result 是否存在`);
+
     if (!data.chart?.result?.[0]) {
-      console.warn(`[Yahoo] 无数据: ${symbol}`, data);
+      console.warn(`[Yahoo] 数据中无 result 字段，完整 data:`, JSON.stringify(data).substring(0, 500));
       return null;
     }
 
     const result = data.chart.result[0];
+console.log("[Yahoo] result keys:", Object.keys(result));
+console.log("[Yahoo] result sample:", {
+  meta: result.meta,
+  hasTimestamp: 'timestamp' in result,
+  hasT: 't' in result,
+  hasTime: 'time' in result
+});
     const timestamps: number[] = result.timestamp;
     const quotes = result.indicators?.quote?.[0];
-    if (!timestamps || !quotes) return null;
+    console.log(`[Yahoo] 解析到 timestamps 数量: ${timestamps?.length}, quotes 存在: ${!!quotes}`);
+
+    if (!timestamps || !quotes) {
+      console.warn(`[Yahoo] timestamps 或 quotes 缺失`);
+      return null;
+    }
 
     const ohlcv: { timestamp: number; open: number; high: number; low: number; close: number; volume: number }[] = [];
     for (let i = 0; i < timestamps.length; i++) {
@@ -144,7 +167,10 @@ export async function fetchStockMinuteData(
       const low = quotes.low?.[i];
       const close = quotes.close?.[i];
       const volume = quotes.volume?.[i];
-      if (open == null || high == null || low == null || close == null || volume == null) continue;
+      if (open == null || high == null || low == null || close == null || volume == null) {
+        console.log(`[Yahoo] 第 ${i} 条数据不完整，跳过`);
+        continue;
+      }
       ohlcv.push({
         timestamp: timestamps[i],
         open,
@@ -155,9 +181,10 @@ export async function fetchStockMinuteData(
       });
     }
 
+    console.log(`[Yahoo] 成功构建 ${ohlcv.length} 条 OHLCV 数据`);
     return ohlcv.length > 0 ? ohlcv : null;
   } catch (error) {
-    console.error(`[Yahoo] 获取分钟数据失败 ${symbol}:`, error);
+    console.error(`[Yahoo] 捕获异常:`, error);
     return null;
   }
 }

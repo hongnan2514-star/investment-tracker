@@ -272,15 +272,49 @@ export async function needsStockUpdate(symbol: string): Promise<boolean> {
 }
 
 /**
+ * 检查股票日线数据是否需要更新（今天是否已更新）
+ */
+export async function needsStockDailyUpdate(symbol: string): Promise<boolean> {
+  const result = await sql`
+    SELECT date FROM stock_price_history 
+    WHERE symbol = ${symbol} 
+    ORDER BY date DESC LIMIT 1
+  `;
+  const lastDateStr = result[0]?.date;
+  if (!lastDateStr) return true;
+  const today = new Date().toISOString().split('T')[0];
+  return lastDateStr < today;
+}
+
+/**
+ * 获取股票最新日线日期
+ */
+export async function getLatestStockDate(symbol: string): Promise<string | null> {
+  const result = await sql`
+    SELECT date FROM stock_price_history 
+    WHERE symbol = ${symbol} 
+    ORDER BY date DESC LIMIT 1
+  `;
+  return result[0]?.date || null;
+}
+
+/**
  * 保存股票分钟级数据（批量，冲突忽略）
  */
 export async function saveStockMinute(records: StockMinute[]): Promise<void> {
+  console.log(`[DB] 尝试保存 ${records.length} 条分钟数据，第一条时间戳: ${records[0]?.timestamp}`);
   for (const r of records) {
-    await sql`
+    const result = await sql`
       INSERT INTO stock_minute_history (symbol, timestamp, resolution, open, high, low, close, volume)
       VALUES (${r.symbol}, ${r.timestamp}, ${r.resolution}, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume})
-      ON CONFLICT (symbol, timestamp, resolution) DO NOTHING
+      ON CONFLICT (symbol, timestamp, resolution) DO UPDATE SET
+        open = EXCLUDED.open,
+        high = EXCLUDED.high,
+        low = EXCLUDED.low,
+        close = EXCLUDED.close,
+        volume = EXCLUDED.volume
     `;
+    console.log(`[DB] 插入/更新结果:`, result);
   }
 }
 
@@ -631,4 +665,19 @@ export async function getLatestCryptoDate(symbol: string): Promise<string | null
     ORDER BY date DESC LIMIT 1
   `;
   return result[0]?.date || null;
+}
+
+/**
+ * 获取从指定日期到现在的股票日线历史（按日期升序）
+ * @param symbol 股票代码
+ * @param startDate 起始日期，格式 YYYY-MM-DD
+ */
+export async function getStockHistorySince(symbol: string, startDate: string): Promise<StockPrice[]> {
+  const result = await sql`
+    SELECT * FROM stock_price_history 
+    WHERE symbol = ${symbol}
+    AND date >= ${startDate}
+    ORDER BY date ASC
+  `;
+  return result as StockPrice[];
 }

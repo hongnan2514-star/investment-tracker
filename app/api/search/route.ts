@@ -32,6 +32,7 @@ function normalizeAStockSymbol(symbol: string): string {
 
 /**
  * 搜索股票或ETF（优先使用 Finnhub，降级到 Yahoo）
+ * 支持港股：对纯数字代码自动尝试添加 .HK 后缀
  */
 async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null> {
   // 检查缓存
@@ -41,21 +42,38 @@ async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null
     return cached.data;
   }
 
-  // 1. 先尝试 Finnhub（主要源）
-  const finnhubResult = await queryFinnhub(symbol);
-  if (finnhubResult.success && finnhubResult.data) {
-    stockCache.set(symbol, { data: finnhubResult, timestamp: Date.now() });
-    return finnhubResult;
+  // 构建需要尝试的符号列表
+  const symbolsToTry = [symbol];
+
+  // 如果是纯数字且长度合理，尝试港股后缀 .HK
+  if (/^\d+$/.test(symbol)) {
+    if (symbol.length >= 4 && symbol.length <= 5) {
+      symbolsToTry.push(`${symbol}.HK`);
+    }
+  } else if (/^\d/.test(symbol) && !symbol.includes('.')) {
+    // 以数字开头但没有后缀，也尝试添加 .HK
+    symbolsToTry.push(`${symbol}.HK`);
   }
 
-  // 2. Finnhub 失败后，尝试 Yahoo Finance
-  const yahooResult = await queryYahooFinance(symbol);
-  if (yahooResult.success && yahooResult.data) {
-    stockCache.set(symbol, { data: yahooResult, timestamp: Date.now() });
-    return yahooResult;
+  // 依次尝试所有可能的符号
+  for (const trySymbol of symbolsToTry) {
+    console.log(`[搜索路由] 尝试搜索: ${trySymbol}`);
+
+    // 1. 先尝试 Finnhub（主要源）
+    const finnhubResult = await queryFinnhub(trySymbol);
+    if (finnhubResult.success && finnhubResult.data) {
+      stockCache.set(symbol, { data: finnhubResult, timestamp: Date.now() });
+      return finnhubResult;
+    }
+
+    // 2. Finnhub 失败后，尝试 Yahoo Finance
+    const yahooResult = await queryYahooFinance(trySymbol);
+    if (yahooResult.success && yahooResult.data) {
+      stockCache.set(symbol, { data: yahooResult, timestamp: Date.now() });
+      return yahooResult;
+    }
   }
 
-  // 移除 Alpha Vantage 后备
   return null;
 }
 

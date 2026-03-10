@@ -1488,6 +1488,10 @@ export const AShareNameMap: Record<string, string> = {
 "603998.SS": "方盛制药",
 "603999.SS": "读者传媒",
 
+"002031.SZ": "巨轮智能",
+
+"300750.SZ": "宁德时代",
+
   // ETF
   "560280.SS": "工程机械ETF",
 

@@ -75,7 +75,7 @@ export default function AssetPieChart() {
     color: string;
   }[]>([]);
 
-  const [innerRadius] = useState(0);
+
   const [outerRadius, setOuterRadius] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -228,7 +228,7 @@ export default function AssetPieChart() {
                 data={pieData}
                 cx="50%"
                 cy="50%"
-                innerRadius={innerRadius}
+                innerRadius={outerRadius * (isMobile ? 0.55 : 6)}
                 outerRadius={outerRadius}
                 paddingAngle={2}
                 dataKey="value"
@@ -238,7 +238,7 @@ export default function AssetPieChart() {
 
                   const RADIAN = Math.PI / 180;
                   const midAngle = (startAngle + endAngle) / 2;
-                  const radius = outerRadius + (isMobile ? 17 : 45);
+                  const radius = outerRadius + (isMobile ? 13 : 45);
                   const x = cx + radius * Math.cos(midAngle * RADIAN);
                   const y = cy + radius * Math.sin(midAngle * RADIAN);
                   
@@ -250,7 +250,7 @@ export default function AssetPieChart() {
                   }
                   
                   const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
-                  const fontSize = isMobile ? 10 : 12;
+                  const fontSize = isMobile ? 12 : 14;
                   const displayPercent = payload.percent; 
                   
                   return (
