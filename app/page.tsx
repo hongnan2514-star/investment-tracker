@@ -1,7 +1,7 @@
 import Image from "next/image";
 import SummaryCard from '@/components/dashboard/SummaryCard';
 import AssetPieChart from "@/components/dashboard/AssetPieChart";
-
+ 
 export default function Home() {
   return (
     <main className="min-h-screen bg-white dark:bg-black p-4">
