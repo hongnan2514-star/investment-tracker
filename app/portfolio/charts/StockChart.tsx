@@ -28,6 +28,8 @@ export default function StockChart({
   const getRequestParams = (range: ChartRange): { apiRange: string; limit: number; isSinceHolding: boolean } => {
   // 判断是否为港股（以 .HK 结尾或纯数字4-5位且非6位）
   const isHKStock = symbol.includes('.HK') || (/^\d{4,5}$/.test(symbol) && !/^\d{6}$/.test(symbol));
+  // 判断是否为 A 股（带 .SS 或 .SZ 后缀）
+  const isAStock = symbol.includes('.SS') || symbol.includes('.SZ');
   switch (range) {
     case '1d':
       return { apiRange: '1h', limit: 168, isSinceHolding: false };
@@ -35,8 +37,11 @@ export default function StockChart({
       if (isHKStock) {
         // 港股：使用日线，30条 ≈ 1个月交易日
         return { apiRange: '1d_hk', limit: 30, isSinceHolding: false };
+      } else if (isAStock) {
+        // A股：使用日线，30条 ≈ 1个月交易日
+        return { apiRange: '1d_a', limit: 30, isSinceHolding: false };
       } else {
-        // 其他股票：4小时线，180条
+        // 其他股票（美股等）：4小时线，180条
         return { apiRange: '4h', limit: 180, isSinceHolding: false };
       }
     case 'since_holding':

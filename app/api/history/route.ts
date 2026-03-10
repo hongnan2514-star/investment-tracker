@@ -95,8 +95,8 @@ export async function GET(request: NextRequest) {
       console.timeEnd(`[性能] 基金 ${symbol} ${range}`);
     } else if (type === 'stock' || type === 'etf') {
       // 处理日线数据（包括 since_holding 和 1d_hk）
-      if (range === 'since_holding' || range === '1d_hk') {
-        if (range === 'since_holding') {
+      if (range === 'since_holding' || range === '1d_hk' || range === '1d_a') {
+  if (range === 'since_holding') {
           const startDate = request.nextUrl.searchParams.get('startDate');
           if (!startDate) {
             return NextResponse.json({ error: '缺少 startDate 参数' }, { status: 400 });
@@ -153,9 +153,9 @@ export async function GET(request: NextRequest) {
           }
         } else {
           // 1d_hk：港股月线，直接获取最近 limit 条日线数据
-          console.log(`[历史API] 港股月线，获取最近 ${limit} 条日线数据`);
-          const stockHistory = await getStockHistory(symbol, limit);
-          history = stockHistory.map(item => ({ date: item.date, value: item.close }));
+          console.log(`[历史API] 月线日线请求，获取最近 ${limit} 条日线数据`);
+    const stockHistory = await getStockHistory(symbol, limit);
+    history = stockHistory.map(item => ({ date: item.date, value: item.close }));
         }
       } else {
         // 分钟数据分支（处理 15m、1h、6h 等）—— 原样保留，确保 1d 能正确进入
