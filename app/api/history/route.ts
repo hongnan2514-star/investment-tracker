@@ -8,7 +8,7 @@ import {
   getCryptoHistorySince,
   needsCryptoDailyUpdate,
   getLatestCryptoDate,
-  saveCryptoMinute,
+  saveCryptoMinute, 
   needsStockMinuteUpdate,
   getStockMinuteHistory,
   saveStockMinute,
