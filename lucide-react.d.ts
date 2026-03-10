@@ -44,6 +44,7 @@ declare module 'lucide-react' {
   export const Send: FC<IconProps>;
   export const Wallet: FC<IconProps>;
   export const User: FC<IconProps>;
+  export const Save: FC<IconProps>;
 
   // 可选：允许导入其他未列出的图标（会失去类型提示，但避免报错）
   // export * from 'lucide-react';
