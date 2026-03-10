@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
           const startDate = request.nextUrl.searchParams.get('startDate');
           if (!startDate) {
             return NextResponse.json({ error: '缺少 startDate 参数' }, { status: 400 });
-          }
+          } 
 
           console.log(`[历史API] 股票 since_holding: symbol=${symbol}, startDate=${startDate}`);
 
