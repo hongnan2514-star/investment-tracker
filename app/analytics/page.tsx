@@ -1,7 +1,7 @@
 "use client";
 // app/analytics/page.tsx
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, AlertCircle, Newspaper } from 'lucide-react';
+import { TrendingUp, AlertCircle, Newspaper } from 'lucide-react';
 import { getAssets } from '@/src/utils/assetStorage';
 import { Asset } from '@/src/constants/types';
 import AIChatBox from '@/components/AIChatBox';

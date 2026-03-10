@@ -31,6 +31,8 @@ declare module 'lucide-react' {
   export const MoreVertical: FC<IconProps>;
   export const ChevronDown: FC<IconProps>;
   export const ListFilterPlus: FC<IconProps>;
+  export const TrendingDown: FC<IconProps>;
+  export const Newspaper: FC<IconProps>;
 
   // 可选：允许导入其他未列出的图标（会失去类型提示，但避免报错）
   // export * from 'lucide-react';
