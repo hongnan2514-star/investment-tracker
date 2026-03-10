@@ -238,18 +238,15 @@ export async function GET(request: NextRequest) {
           let freshData: any[] | null = null;
           const isAStock = symbol.includes('.SS') || symbol.includes('.SZ');
           if (isAStock) {
-            console.log(`[历史API] 使用新浪获取A股分钟数据`);
-            freshData = await fetchAStockMinuteDataFromSina(symbol, resolution, limit * 2, sinceTimestamp);
-          } else {
-            // 判断是否为港股（以 .HK 结尾或纯数字4-5位）
-            const isHKStock = symbol.includes('.HK') || /^\d{4,5}$/.test(symbol);
-            if (isHKStock) {
-              console.log(`[历史API] 使用雅虎获取港股分钟数据`);
-              freshData = await fetchStockMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
-            } else {
-              freshData = await fetchTiingoMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
-            }
-          }
+  // 新浪财经可能不支持4h/6h，对于这些分辨率使用雅虎作为后备
+  if (resolution === '4h' || resolution === '6h') {
+    console.log(`[历史API] A股 ${resolution} 数据使用雅虎获取`);
+    freshData = await fetchStockMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
+  } else {
+    console.log(`[历史API] 使用新浪获取A股分钟数据`);
+    freshData = await fetchAStockMinuteDataFromSina(symbol, resolution, limit * 2, sinceTimestamp);
+  }
+}
           console.timeLog(perfLabel, `外部数据拉取完成，获取 ${freshData?.length} 条`);
 
           if (freshData && freshData.length > 0) {
