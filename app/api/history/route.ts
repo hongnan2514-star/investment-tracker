@@ -372,7 +372,8 @@ export async function GET(request: NextRequest) {
           }
 
           const cryptoHistory = await getCryptoHistorySince(symbol, startDate);
-          history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
+console.log(`[历史API] getCryptoHistorySince 返回 ${cryptoHistory.length} 条数据`);
+history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
         }
         console.timeEnd(`[性能] 加密货币 ${symbol} 日线`);
       } else {

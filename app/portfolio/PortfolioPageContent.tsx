@@ -684,88 +684,72 @@ if (newAsset.type === 'stock' || newAsset.type === 'etf') {
     </div>
     <div className="flex flex-col gap-4">
       {selectedMainCategory === 'liquid' && (
-        <>
-          <button
-            onClick={() => handleAssetTypeClick('stock')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <TrendingUp size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">股票</p>
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">美股、A股、港股</p>
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
+  <>
+    <button
+      onClick={() => handleAssetTypeClick('stock')}
+      className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-center gap-4">
+        <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+          <TrendingUp size={24} />
+        </div>
+        <div className="text-left">
+          <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">股票</p>
+          <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">美股、A股、港股、ETF</p>
+        </div>
+      </div>
+      <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+    </button>
 
-          <button
-            onClick={() => handleAssetTypeClick('etf')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <BarChart2 size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">ETF</p>
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">交易所交易基金</p>
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
+    <button
+      onClick={() => handleAssetTypeClick('fund')}
+      className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-center gap-4">
+        <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+          <PieChart size={24} />
+        </div>
+        <div className="text-left">
+          <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">基金</p>
+          <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">场外基金、指数基金</p>
+        </div>
+      </div>
+      <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+    </button>
 
-          <button
-            onClick={() => handleAssetTypeClick('fund')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <PieChart size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">基金</p>
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">场外基金、指数基金</p>
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
+    <button
+      onClick={() => handleAssetTypeClick('crypto')}
+      className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-center gap-4">
+        <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+          <Bitcoin size={24} />
+        </div>
+        <div className="text-left">
+          <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">加密货币</p>
+          <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">BTC、ETH、主流币</p>
+        </div>
+      </div>
+      <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+    </button>
 
-          <button
-            onClick={() => handleAssetTypeClick('crypto')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <Bitcoin size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">加密货币</p>
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">BTC、ETH、主流币</p>
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
-
-          <button
-            onClick={() => handleAssetTypeClick('metal')}
-            className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                <Blocks size={24} />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">贵金属</p>
-                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">黄金、白银 (Au999, XAU)</p>
-              </div>
-            </div>
-            <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-          </button>
-        </>
-      )}
+    <button
+      onClick={() => handleAssetTypeClick('metal')}
+      className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-center gap-4">
+        <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+          <Blocks size={24} />
+        </div>
+        <div className="text-left">
+          <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">贵金属</p>
+          <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">黄金、白银 (Au999, XAU)</p>
+        </div>
+      </div>
+      <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+    </button>
+  </>
+)}
       {selectedMainCategory === 'fixed' && (
         <>
           <button

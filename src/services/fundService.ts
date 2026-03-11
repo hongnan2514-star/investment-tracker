@@ -1,6 +1,6 @@
 // src/services/fundService.ts
 import { fetchFundHistoryFromSina, saveFundHistory, getFundHistory, needsUpdate, getFundInfo, saveFundInfo } from './fundHistoryDB';
-import { queryAKShareFund } from '@/app/api/data-sources/akshare';
+import { queryEastMoneyFund } from '@/app/api/data-sources/eastmoney-fund';
 import { DataSourceResult, UnifiedAsset } from '@/app/api/data-sources/types';
 
 export interface FundNav {
@@ -22,44 +22,49 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
   console.log(`[基金服务] 开始搜索基金: ${cleanCode}`);
 
   try {
-    // 注意：needsUpdate 现在是异步，需要 await
     const needUpdate = await needsUpdate(cleanCode);
     console.log(`[基金服务] needUpdate = ${needUpdate}`);
 
     let history: FundNav[] = [];
-    let usedAKShare = false; // 新增标志：是否已使用 AKShare
+    let usedSource = '';
 
     if (needUpdate) {
-      console.log(`[基金服务] 需要更新，尝试新浪财经...`);
-      history = await fetchFundHistoryFromSina(cleanCode, 1);
-      
-      // 如果新浪财经无数据，回退到 AKShare
-      if (history.length === 0) {
-        console.log(`[基金服务] 新浪财经无数据，尝试 AKShare 后备...`);
-        const akResult = await queryAKShareFund(code);
-        if (akResult.success && akResult.data) {
-          console.log(`[基金服务] AKShare 获取成功，构造单点数据`);
-          usedAKShare = true; // 标记已使用 AKShare
-          const today = new Date().toISOString().split('T')[0];
-          const fakeNav: FundNav = {
-            code: cleanCode,
-            date: today,
-            nav: akResult.data.price ?? 0,
-            accumNav: akResult.data.price ?? 0,
-            change: akResult.data.changePercent ?? 0
-          };
-          history = [fakeNav];
-          // 保存到数据库（异步）
-          await saveFundHistory(history);
-          navCache.set(cleanCode, fakeNav);
-          // 保存基金信息（标记为 akshare 源）
-          if (akResult.data.name) {
-            await saveFundInfo(cleanCode, akResult.data.name, 'akshare');
-          } else {
-            await saveFundInfo(cleanCode, cleanCode, 'akshare');
-          }
+      console.log(`[基金服务] 需要更新，尝试天天基金...`);
+
+      // 调用天天基金获取实时数据
+      const fundData = await queryEastMoneyFund(cleanCode);
+
+      if (fundData) {
+        console.log(`[基金服务] 天天基金获取成功`);
+        usedSource = 'eastmoney';
+
+        const today = fundData.navDate || new Date().toISOString().split('T')[0];
+        const fakeNav: FundNav = {
+          code: cleanCode,
+          date: today,
+          nav: fundData.price,
+          accumNav: fundData.price,
+          change: fundData.changePercent,
+        };
+        history = [fakeNav];
+
+        // 保存到数据库
+        await saveFundHistory(history);
+        navCache.set(cleanCode, fakeNav);
+
+        // 保存基金信息
+        if (fundData.name) {
+          await saveFundInfo(cleanCode, fundData.name, 'eastmoney');
         } else {
-          console.error(`[基金服务] AKShare 也失败，无法获取数据`);
+          await saveFundInfo(cleanCode, cleanCode, 'eastmoney');
+        }
+      } else {
+        // 如果天天基金失败，可以回退到新浪（可选）
+        console.log(`[基金服务] 天天基金获取失败，尝试新浪财经...`);
+        history = await fetchFundHistoryFromSina(cleanCode, 1);
+
+        if (history.length === 0) {
+          console.error(`[基金服务] 所有数据源均失败，无法获取数据`);
           return {
             success: false,
             data: null,
@@ -67,23 +72,18 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
             source: 'FundService'
           };
         }
-      }
 
-      // 如果新浪财经有数据，并且没有使用 AKShare，才执行保存
-      if (history.length > 0 && history[0].code === cleanCode && !usedAKShare) {
-        console.log(`[基金服务] 保存 ${history.length} 条历史数据到数据库...`);
+        usedSource = 'sina';
         await saveFundHistory(history);
         const latest = history[history.length - 1];
         navCache.set(cleanCode, latest);
-        // 保存基金信息（名称暂时未知，先用 code 代替，source 为 sina）
         await saveFundInfo(cleanCode, cleanCode, 'sina');
-        console.log(`[基金服务] 最新净值: ${latest.nav} (${latest.date})`);
       }
     } else {
       console.log(`[基金服务] 使用缓存数据`);
     }
 
-    // 获取基金名称（异步）
+    // 获取基金名称
     let fundName = cleanCode;
     try {
       const info = await getFundInfo(cleanCode);
@@ -123,7 +123,7 @@ export async function searchFund(code: string): Promise<DataSourceResult> {
       currency: 'CNY',
       market: '中国场外基金市场',
       type: 'fund',
-      source: 'FundService',
+      source: usedSource || 'cache',
       lastUpdated: `${latestNav.date}T15:00:00.000Z`,
       metadata: {
         history: dbHistory.map(h => ({ date: h.date, value: h.nav }))
@@ -158,31 +158,29 @@ export async function updateFundData(code: string): Promise<void> {
       return;
     }
 
-    // 先尝试新浪财经
-    let history = await fetchFundHistoryFromSina(cleanCode, 1);
-    let source = 'sina';
+    // 优先尝试天天基金
+    const fundData = await queryEastMoneyFund(cleanCode);
+    let history: FundNav[] = [];
+    let source = 'eastmoney';
 
-    if (history.length === 0) {
-      console.log(`[自动更新] 新浪无数据，尝试 AKShare`);
-      const akResult = await queryAKShareFund(code);
-      if (akResult.success && akResult.data) {
-        const today = new Date().toISOString().split('T')[0];
-        const fakeNav: FundNav = {
-          code: cleanCode,
-          date: today,
-          nav: akResult.data.price ?? 0,
-          accumNav: akResult.data.price ?? 0,
-          change: akResult.data.changePercent ?? 0
-        };
-        history = [fakeNav];
-        source = 'akshare';
-        if (akResult.data.name) {
-          await saveFundInfo(cleanCode, akResult.data.name, source);
-        }
+    if (fundData) {
+      const fakeNav: FundNav = {
+        code: cleanCode,
+        date: fundData.navDate,
+        nav: fundData.price,
+        accumNav: fundData.price,
+        change: fundData.changePercent,
+      };
+      history = [fakeNav];
+      if (fundData.name) {
+        await saveFundInfo(cleanCode, fundData.name, source);
       } else {
-        console.warn(`[自动更新] 基金 ${cleanCode} 无法从任何源获取数据`);
-        return;
+        await saveFundInfo(cleanCode, cleanCode, source);
       }
+    } else {
+      console.log(`[自动更新] 天天基金失败，尝试新浪财经`);
+      history = await fetchFundHistoryFromSina(cleanCode, 1);
+      source = 'sina';
     }
 
     if (history.length > 0) {
@@ -190,6 +188,8 @@ export async function updateFundData(code: string): Promise<void> {
       const info = await getFundInfo(cleanCode);
       await saveFundInfo(cleanCode, info?.name || cleanCode, source);
       console.log(`[自动更新] 基金 ${cleanCode} 已保存 ${history.length} 条数据`);
+    } else {
+      console.warn(`[自动更新] 基金 ${cleanCode} 无法从任何源获取数据`);
     }
   } catch (error) {
     console.error(`[自动更新] 基金 ${cleanCode} 处理异常:`, error);

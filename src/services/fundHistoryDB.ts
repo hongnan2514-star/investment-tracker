@@ -162,20 +162,18 @@ export async function needsUpdate(code: string): Promise<boolean> {
     SELECT last_update, source FROM fund_info WHERE code = ${code}
   `;
   const info = result[0] as { last_update: string; source: string } | undefined;
-
-  if (!info) return true; // 没有记录，需要更新
+  if (!info) return true;
 
   const today = new Date().toISOString().split('T')[0];
   const last = info.last_update;
+  console.log(`[needsUpdate] code=${code}, last=${last}, today=${today}, needUpdate=${last !== today}`);
 
   if (info.source === 'akshare') {
-    // AKShare 数据一周更新一次
     const lastDate = new Date(last);
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
     return lastDate < oneWeekAgo;
   } else {
-    // 默认每天更新
     return last !== today;
   }
 }
@@ -636,26 +634,38 @@ export async function needsCryptoMinuteUpdate(symbol: string, resolution: string
  * @param startDate 起始日期，格式 YYYY-MM-DD
  */
 export async function getCryptoHistorySince(symbol: string, startDate: string): Promise<CryptoPrice[]> {
+  console.log(`[DB] 查询加密货币日线: symbol=${symbol}, startDate=${startDate}`);
   const result = await sql`
     SELECT * FROM crypto_price_history 
     WHERE symbol = ${symbol}
     AND date >= ${startDate}
     ORDER BY date ASC
   `;
+  
+  console.log(`[DB] 查询到 ${result.length} 条数据`);
+  if (result.length > 0) {
+    console.log(`[DB] 第一条数据日期: ${result[0].date}, 最后一条: ${result[result.length-1].date}`);
+  }
+
+  
   return result as CryptoPrice[];
 }
 
-// 检查加密货币日线数据是否需要更新（今天是否已更新）
+/**
+ * 检查加密货币日线数据是否需要更新（今天是否已更新）
+ * 直接查询数据库中是否存在日期 >= 今天的记录。
+ * 如果存在，则不需要更新（返回 false）；否则需要更新（返回 true）。
+ */
 export async function needsCryptoDailyUpdate(symbol: string): Promise<boolean> {
   const result = await sql`
-    SELECT date FROM crypto_price_history 
-    WHERE symbol = ${symbol} 
-    ORDER BY date DESC LIMIT 1
+    SELECT EXISTS (
+      SELECT 1 FROM crypto_price_history 
+      WHERE symbol = ${symbol} AND date >= CURRENT_DATE
+    ) as has_today_data
   `;
-  const lastDateStr = result[0]?.date;
-  if (!lastDateStr) return true;
-  const today = new Date().toISOString().split('T')[0];
-  return lastDateStr < today;
+  const hasTodayData = result[0]?.has_today_data === true;
+  console.log(`[needsCryptoDailyUpdate] ${symbol} hasTodayData=${hasTodayData}, needsUpdate=${!hasTodayData}`);
+  return !hasTodayData;
 }
 
 export async function getLatestCryptoDate(symbol: string): Promise<string | null> {
@@ -664,7 +674,10 @@ export async function getLatestCryptoDate(symbol: string): Promise<string | null
     WHERE symbol = ${symbol} 
     ORDER BY date DESC LIMIT 1
   `;
-  return result[0]?.date || null;
+  const date = result[0]?.date;
+  if (!date) return null;
+  // 将日期统一转为 YYYY-MM-DD 字符串
+  return new Date(date).toISOString().split('T')[0];
 }
 
 /**
@@ -680,4 +693,18 @@ export async function getStockHistorySince(symbol: string, startDate: string): P
     ORDER BY date ASC
   `;
   return result as StockPrice[];
+}
+
+/**
+ * 获取基金最新一条净值数据
+ * @param code 基金代码
+ * @returns 最新净值记录，如果没有则返回 null
+ */
+export async function getLatestFundNav(code: string): Promise<FundNav | null> {
+  const result = await sql`
+    SELECT * FROM fund_nav_history 
+    WHERE code = ${code}
+    ORDER BY date DESC LIMIT 1
+  `;
+  return result[0] as FundNav | undefined || null;
 }

@@ -75,13 +75,19 @@ async function updateCryptoHistory(baseSymbol: string): Promise<{ updated: boole
   return enqueueUpdate(async () => {
     try {
       const symbol = `${baseSymbol}/USDT`;
+      console.log(`[updateCryptoHistory] 开始处理 ${symbol}`);
+
       const needsUpdate = await needsCryptoDailyUpdate(symbol);
+      console.log(`[updateCryptoHistory] needsUpdate=${needsUpdate}`);
+
       if (!needsUpdate) {
         console.log(`[历史更新] ${baseSymbol} 数据已最新，跳过更新`);
         return { updated: false };
       }
 
       const lastDateStr = await getLatestCryptoDate(symbol);
+      console.log(`[updateCryptoHistory] getLatestCryptoDate 返回: ${lastDateStr}`);
+
       let sinceTimestamp: number | undefined;
       if (lastDateStr) {
         const [year, month, day] = lastDateStr.split('-').map(Number);
@@ -92,7 +98,10 @@ async function updateCryptoHistory(baseSymbol: string): Promise<{ updated: boole
         console.log(`[历史更新] ${baseSymbol} 无历史数据，将拉取全量`);
       }
 
+      console.log(`[updateCryptoHistory] 开始调用 fetchCryptoDailyHistory, sinceTimestamp=${sinceTimestamp}`);
       const dailyData = await fetchCryptoDailyHistory(baseSymbol, sinceTimestamp);
+      console.log(`[updateCryptoHistory] fetchCryptoDailyHistory 返回条数: ${dailyData?.length}`);
+
       if (!dailyData || dailyData.length === 0) {
         console.warn(`[历史更新] 获取 ${baseSymbol} 历史数据失败`);
         return { updated: false };

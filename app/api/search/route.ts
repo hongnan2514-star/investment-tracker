@@ -160,19 +160,28 @@ export async function GET(request: NextRequest) {
         );
       }
     } else {
-      // 兼容旧版本：未传递type时，按原有逻辑（先基金后股票），然后尝试加密货币（不包含房产）
-      console.log(`[搜索路由] 未指定类型，使用兼容模式搜索: ${trimmedSymbol}`);
-      // 先试基金（6位数字）
-      if (/^\d{6}$/.test(trimmedSymbol)) {
-        const fundResult = await searchFund(trimmedSymbol);
-        if (fundResult.success) {
-          return NextResponse.json({
-            success: true,
-            ...fundResult.data,
-            source: fundResult.source
-          });
-        }
-      }
+  // 兼容模式：未指定 type
+  console.log(`[搜索路由] 未指定类型，使用兼容模式搜索: ${trimmedSymbol}`);
+
+  // 强烈拦截：如果代码以 .OF 结尾，直接作为基金搜索并立即返回
+  if (trimmedSymbol.endsWith('.OF')) {
+    console.log(`[搜索路由] 代码以 .OF 结尾，强制作为基金搜索`);
+    const fundResult = await searchFund(trimmedSymbol.replace(/\.OF$/, ''));
+    if (fundResult.success) {
+      return NextResponse.json({
+        success: true,
+        ...fundResult.data,
+        source: fundResult.source
+      });
+    } else {
+      // 如果基金搜索失败，直接返回错误，不再继续尝试其他类型
+      return NextResponse.json(
+        { error: `未找到基金代码 "${trimmedSymbol}" 对应的数据` },
+        { status: 404 }
+      );
+    }
+  }
+
       // 再试股票
       let symbolToSearch = trimmedSymbol;
       if (/^\d{6}$/.test(trimmedSymbol)) {
