@@ -1,3 +1,4 @@
+// app/api/data-sources/tiingo-stock.ts
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 
@@ -103,14 +104,14 @@ export async function fetchTiingoMinuteData(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[Tiingo] HTTP 错误 ${response.status}: ${errorText}`);
-      throw new Error(`HTTP ${response.status}`);
+      return null; // 改为返回 null 而不是抛出异常，避免中断流程
     }
 
     const data = await response.json();
     console.log(`[Tiingo] 收到 ${data.length} 条原始数据`);
 
     if (!Array.isArray(data) || data.length === 0) {
-      console.warn(`[Tiingo] 数据为空或非数组`);
+      console.warn(`[Tiingo] 数据为空或非数组，data:`, JSON.stringify(data).substring(0, 200));
       return null;
     }
 
@@ -123,7 +124,7 @@ export async function fetchTiingoMinuteData(
       volume: item.volume,
     }));
 
-    console.log(`[Tiingo] 成功构建 ${ohlcv.length} 条 OHLCV 数据`);
+    console.log(`[Tiingo] 成功构建 ${ohlcv.length} 条 OHLCV 数据，第一条日期: ${new Date(ohlcv[0].timestamp * 1000).toISOString()}`);
     // Tiingo 返回的数据通常是升序（旧到新）
     return ohlcv;
   } catch (error) {
@@ -172,7 +173,7 @@ export async function fetchTiingoDailyHistory(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[Tiingo] HTTP 错误 ${response.status}: ${errorText}`);
-      throw new Error(`HTTP ${response.status}`);
+      return null; // 改为返回 null
     }
 
     const data = await response.json();
@@ -192,7 +193,7 @@ export async function fetchTiingoDailyHistory(
       volume: item.volume,
     }));
 
-    console.log(`[Tiingo] 成功构建 ${ohlcv.length} 条日线数据`);
+    console.log(`[Tiingo] 成功构建 ${ohlcv.length} 条日线数据，第一条日期: ${new Date(ohlcv[0].timestamp * 1000).toISOString()}`);
     return ohlcv; // Tiingo 默认升序
   } catch (error) {
     console.error(`[Tiingo] 捕获异常:`, error);

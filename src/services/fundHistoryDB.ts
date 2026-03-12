@@ -273,15 +273,14 @@ export async function needsStockUpdate(symbol: string): Promise<boolean> {
  * 检查股票日线数据是否需要更新（今天是否已更新）
  */
 export async function needsStockDailyUpdate(symbol: string): Promise<boolean> {
-  const result = await sql`
-    SELECT date FROM stock_price_history 
-    WHERE symbol = ${symbol} 
-    ORDER BY date DESC LIMIT 1
-  `;
-  const lastDateStr = result[0]?.date;
+  const lastDateStr = await getLatestStockDate(symbol);
   if (!lastDateStr) return true;
+
   const today = new Date().toISOString().split('T')[0];
-  return lastDateStr < today;
+  const needsUpdate = lastDateStr < today;
+
+  console.log(`[needsStockDailyUpdate] ${symbol} lastDate=${lastDateStr}, today=${today}, needsUpdate=${needsUpdate}`);
+  return needsUpdate;
 }
 
 /**
@@ -293,7 +292,10 @@ export async function getLatestStockDate(symbol: string): Promise<string | null>
     WHERE symbol = ${symbol} 
     ORDER BY date DESC LIMIT 1
   `;
-  return result[0]?.date || null;
+  const date = result[0]?.date;
+  if (!date) return null;
+  // 统一转换为 YYYY-MM-DD 字符串
+  return new Date(date).toISOString().split('T')[0];
 }
 
 /**
@@ -707,4 +709,19 @@ export async function getLatestFundNav(code: string): Promise<FundNav | null> {
     ORDER BY date DESC LIMIT 1
   `;
   return result[0] as FundNav | undefined || null;
+}
+
+/**
+ * 获取从指定日期到现在的基金日线历史（按日期升序）
+ * @param code 基金代码
+ * @param startDate 起始日期，格式 YYYY-MM-DD
+ */
+export async function getFundHistorySince(code: string, startDate: string): Promise<FundNav[]> {
+  const result = await sql`
+    SELECT * FROM fund_nav_history 
+    WHERE code = ${code}
+    AND date >= ${startDate}
+    ORDER BY date ASC
+  `;
+  return result as FundNav[];
 }

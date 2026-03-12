@@ -8,7 +8,7 @@ import { getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
-import { CryptoChart, StockChart } from './charts';
+import { CryptoChart, StockChart, FundChart, } from './charts';
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -275,26 +275,34 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
           </div>
 
           <div className="mt-4 h-45 w-full">
-            {asset.type === 'crypto' ? (
-              <CryptoChart
-                symbol={asset.symbol}
-                changePercent={asset.changePercent}
-                purchaseDate={asset.purchaseDate}
-                costPrice={asset.costPrice}
-              />
-            ) : asset.type === 'stock' || asset.type === 'etf' ? (
-              <StockChart
-                symbol={asset.symbol}
-                changePercent={asset.changePercent}
-                purchaseDate={asset.purchaseDate}
-                costPrice={asset.costPrice}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
-                暂无走势图
-              </div>
-            )}
-          </div>
+  {asset.type === 'crypto' ? (
+    <CryptoChart
+      symbol={asset.symbol}
+      changePercent={asset.changePercent}
+      purchaseDate={asset.purchaseDate}
+      costPrice={asset.costPrice}
+    />
+  ) : asset.type === 'stock' || asset.type === 'etf' ? (
+    <StockChart
+      symbol={asset.symbol}
+      changePercent={asset.changePercent}
+      purchaseDate={asset.purchaseDate}
+      costPrice={asset.costPrice}
+    />
+  ) : asset.type === 'fund' ? (
+    <FundChart
+      symbol={asset.symbol}
+      changePercent={asset.changePercent}
+      purchaseDate={asset.purchaseDate}
+      costPrice={asset.costPrice}
+      currentPrice={displayAsset.price}
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+      暂无走势图
+    </div>
+  )}
+</div>
         </div>
 
         <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">

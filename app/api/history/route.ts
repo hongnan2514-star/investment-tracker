@@ -19,12 +19,16 @@ import {
   getLatestStockDate,
   saveStockHistory,
   getStockHistorySince,
+  getFundHistorySince,
+  saveFundHistory,
 } from '@/src/services/fundHistoryDB';
 import { fetchCryptoMinuteData, fetchCryptoDailyHistory, } from '../data-sources/crypto-ccxt';
 import { fetchTiingoMinuteData } from '../data-sources/tiingo-stock';
 import { fetchAStockMinuteDataFromSina } from '../data-sources/sina-stock';
 import { fetchTiingoDailyHistory } from '../data-sources/tiingo-stock';
 import { fetchStockMinuteData } from '../data-sources/yahoo-finance';
+import { FundNav } from '@/src/services/fundHistoryDB'
+import { fetchFundHistoryFromEastMoney } from '../data-sources/eastmoney-fund';
 
 const timeframeSeconds: Record<string, number> = {
   '15m': 15 * 60,
@@ -85,15 +89,40 @@ export async function GET(request: NextRequest) {
     let history: { date: string; value: number }[] = [];
 
     if (type === 'fund') {
-      console.time(`[性能] 基金 ${symbol} ${range}`);
-      if (range === '1d') {
-        const fundHistory = await getFundHistory(symbol, limit);
-        history = fundHistory.map(item => ({ date: item.date, value: item.nav }));
+  // 清理基金代码，移除 .OF 后缀
+  const cleanCode = symbol.replace(/\.OF$/, '');
+  console.time(`[性能] 基金 ${cleanCode} ${range}`);
+
+  if (range === 'since_holding') {
+    const startDate = request.nextUrl.searchParams.get('startDate');
+    if (!startDate) {
+      return NextResponse.json({ error: '缺少 startDate 参数' }, { status: 400 });
+    }
+    const fundHistory = await getFundHistorySince(cleanCode, startDate);
+    history = fundHistory.map(item => ({ date: item.date, value: item.nav }));
+  } else {
+    // 对于 1M, 6M, 1Y 等，先尝试从数据库获取指定条数的数据
+    let dbHistory = await getFundHistory(cleanCode, limit);
+    
+    // 如果数据库中的数据少于请求的条数，说明历史数据不足，尝试从天天基金拉取全量历史
+    if (dbHistory.length < limit) {
+      console.log(`[历史API] 基金 ${cleanCode} 历史数据不足 (${dbHistory.length}/${limit})，尝试从天天基金拉取全量历史`);
+      const fullHistory = await fetchFundHistoryFromEastMoney(cleanCode);
+      if (fullHistory && fullHistory.length > 0) {
+        // 保存全量历史到数据库（saveFundHistory 已处理 ON CONFLICT）
+        await saveFundHistory(fullHistory);
+        console.log(`[历史API] 基金 ${cleanCode} 全量历史已保存，共 ${fullHistory.length} 条`);
+        // 重新从数据库获取所需条数的数据
+        dbHistory = await getFundHistory(cleanCode, limit);
       } else {
-        history = [];
+        console.warn(`[历史API] 从天天基金拉取基金 ${cleanCode} 全量历史失败`);
       }
-      console.timeEnd(`[性能] 基金 ${symbol} ${range}`);
-    } else if (type === 'stock' || type === 'etf') {
+    }
+    
+    history = dbHistory.map(item => ({ date: item.date, value: item.nav }));
+  }
+  console.timeEnd(`[性能] 基金 ${cleanCode} ${range}`);
+} else if (type === 'stock' || type === 'etf') {
       // 处理日线数据（包括 since_holding 和 1d_hk）
       if (range === 'since_holding' || range === '1d_hk' || range === '1d_a') {
   if (range === 'since_holding') {
@@ -246,6 +275,20 @@ export async function GET(request: NextRequest) {
     console.log(`[历史API] 使用新浪获取A股分钟数据`);
     freshData = await fetchAStockMinuteDataFromSina(symbol, resolution, limit * 2, sinceTimestamp);
   }
+} else { // 判断是否为港股（以 .HK 结尾或纯数字4-5位）
+  const isHKStock = symbol.includes('.HK') || /^\d{4,5}$/.test(symbol);
+  if (isHKStock){
+     console.log(`[历史API] 使用雅虎获取港股分钟数据`);
+    freshData = await fetchStockMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
+  } else {
+      // 美股：先尝试 Tiingo，失败后尝试雅虎
+    console.log(`[历史API] 使用 Tiingo 获取美股分钟数据`);
+    freshData = await fetchTiingoMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
+    if (!freshData || freshData.length === 0) {
+      console.warn(`[历史API] Tiingo 拉取失败，尝试雅虎作为后备`);
+      freshData = await fetchStockMinuteData(symbol, resolution, limit * 2, sinceTimestamp);
+  }
+}
 }
           console.timeLog(perfLabel, `外部数据拉取完成，获取 ${freshData?.length} 条`);
 
