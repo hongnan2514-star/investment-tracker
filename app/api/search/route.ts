@@ -1,5 +1,5 @@
 // app/api/search/route.ts
-import { NextRequest, NextResponse } from "next/server";
+ import { NextRequest, NextResponse } from "next/server";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
 import { queryFinnhub } from "@/app/api/data-sources/finnhub";
 import { searchFund } from "@/src/services/fundService";
@@ -160,29 +160,43 @@ export async function GET(request: NextRequest) {
         );
       }
     } else {
-  // 兼容模式：未指定 type
-  console.log(`[搜索路由] 未指定类型，使用兼容模式搜索: ${trimmedSymbol}`);
+      // 兼容模式：未指定 type
+      console.log(`[搜索路由] 未指定类型，使用兼容模式搜索: ${trimmedSymbol}`);
 
-  // 强烈拦截：如果代码以 .OF 结尾，直接作为基金搜索并立即返回
-  if (trimmedSymbol.endsWith('.OF')) {
-    console.log(`[搜索路由] 代码以 .OF 结尾，强制作为基金搜索`);
-    const fundResult = await searchFund(trimmedSymbol.replace(/\.OF$/, ''));
-    if (fundResult.success) {
-      return NextResponse.json({
-        success: true,
-        ...fundResult.data,
-        source: fundResult.source
-      });
-    } else {
-      // 如果基金搜索失败，直接返回错误，不再继续尝试其他类型
-      return NextResponse.json(
-        { error: `未找到基金代码 "${trimmedSymbol}" 对应的数据` },
-        { status: 404 }
-      );
-    }
-  }
+      // 强拦截：.OF 结尾的代码作为基金搜索
+      if (trimmedSymbol.endsWith('.OF')) {
+        console.log(`[搜索路由] 代码以 .OF 结尾，强制作为基金搜索`);
+        const fundResult = await searchFund(trimmedSymbol.replace(/\.OF$/, ''));
+        if (fundResult.success) {
+          return NextResponse.json({
+            success: true,
+            ...fundResult.data,
+            source: fundResult.source
+          });
+        } else {
+          return NextResponse.json(
+            { error: `未找到基金代码 "${trimmedSymbol}" 对应的数据` },
+            { status: 404 }
+          );
+        }
+      }
 
-      // 再试股票
+      // --- 新增：尝试贵金属（以字母开头可能是贵金属代码） ---
+      if (/^[A-Za-z]/.test(trimmedSymbol)) {
+        console.log(`[搜索路由] 尝试作为贵金属搜索: ${trimmedSymbol}`);
+        const metalResult = await queryJuheGold(trimmedSymbol);
+        if (metalResult.success) {
+          return NextResponse.json({
+            success: true,
+            ...metalResult.data,
+            source: metalResult.source
+          });
+        }
+        // 贵金属失败，继续尝试其他类型
+        console.log(`[搜索路由] 贵金属搜索失败，继续尝试股票等`);
+      }
+
+      // 尝试股票
       let symbolToSearch = trimmedSymbol;
       if (/^\d{6}$/.test(trimmedSymbol)) {
         symbolToSearch = normalizeAStockSymbol(trimmedSymbol);
@@ -195,7 +209,8 @@ export async function GET(request: NextRequest) {
           source: stockResult.source
         });
       }
-      // 最后尝试加密货币（如果前面都失败）
+
+      // 最后尝试加密货币
       const cryptoResult = await queryCryptoCCXT(trimmedSymbol);
       if (cryptoResult.success) {
         return NextResponse.json({

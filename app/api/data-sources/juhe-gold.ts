@@ -3,20 +3,44 @@ import { DataSourceResult, UnifiedAsset } from "./types";
 
 const JUHE_GOLD_KEY = process.env.JUHE_GOLD_KEY;
 
-// 品种映射表
+// 品种映射表（将用户输入的代码映射到 API 返回的 variety 字段）
 const metalMap: Record<string, string> = {
   // 黄金
   'Au999': 'Au99.99',
   '黄金': 'Au99.99',
   'Au99.99': 'Au99.99',
-  
+  'Au99.95': 'Au99.95',
+  'Au100g': 'Au100g',
+  'AuT+D': 'Au(T+D)',
+  'Au(T+D)': 'Au(T+D)',
+  'AuT+N1': 'Au(T+N1)',
+  'Au(T+N1)': 'Au(T+N1)',
+  'AuT+N2': 'Au(T+N2)',
+  'Au(T+N2)': 'Au(T+N2)',
+
   // 白银
-  'Ag999': 'Ag99.99',      // 将 Ag999 映射到 Ag99.99
-  'Ag99.9': 'Ag99.99',      // 将 Ag99.9 也映射到 Ag99.99
+  'Ag999': 'Ag99.99',
+  'Ag99.9': 'Ag99.99',
   '白银': 'Ag99.99',
-  'Ag99.99': 'Ag99.99',     // 直接支持 Ag99.99
-  
-  // 如需其他品种可继续添加
+  'Ag99.99': 'Ag99.99',
+  'AgT+D': 'Ag(T+D)',
+  'Ag(T+D)': 'Ag(T+D)',
+
+  // 铂金
+  'Pt99.95': 'Pt99.95',
+};
+
+// 中文名称映射（用于友好显示）
+const nameMap: Record<string, string> = {
+  'Au99.99': '黄金99.99',
+  'Au99.95': '黄金99.95',
+  'Au100g': '黄金100g',
+  'Au(T+D)': '黄金 T+D',
+  'Au(T+N1)': '黄金 T+N1',
+  'Au(T+N2)': '黄金 T+N2',
+  'Ag99.99': '白银99.99',
+  'Ag(T+D)': '白银 T+D',
+  'Pt99.95': '铂金99.95',
 };
 
 // 简单内存缓存：键为品种代码，值为 { data, expiresAt }
@@ -25,7 +49,7 @@ const CACHE_TTL_MS = 30 * 60 * 1000; // 30分钟缓存（每小时最多2次）
 
 /**
  * 查询聚合数据黄金接口（带30分钟缓存）
- * @param code 用户输入的代码，如 'Au999', '黄金', 'Au99.99'
+ * @param code 用户输入的代码，如 'Au999', '黄金', 'AuT+D'
  */
 export async function queryJuheGold(code: string): Promise<DataSourceResult> {
   if (!JUHE_GOLD_KEY) {
@@ -82,9 +106,12 @@ export async function queryJuheGold(code: string): Promise<DataSourceResult> {
     const yespri = parsePrice(foundItem.yespri);
     const changePercent = yespri ? ((price - yespri) / yespri * 100) : 0;
 
+    // 生成友好名称
+    const displayName = nameMap[variety] || `贵金属 (${code})`;
+
     const asset: UnifiedAsset = {
       symbol: code,
-      name: code === 'Au999' ? '黄金 (Au999)' : code === 'Ag999' ? '白银 (Ag999)' : `贵金属 (${code})`,
+      name: displayName,
       price: price,
       changePercent: changePercent,
       currency: 'CNY',

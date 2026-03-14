@@ -562,7 +562,16 @@ history = cryptoHistory.map(item => ({ date: item.date, value: item.close }));
     }
 
     console.log(`[历史API] 返回数据条数: ${history.length}，第一条日期: ${history[0]?.date}，最后一条日期: ${history[history.length-1]?.date}`);
-    return NextResponse.json({ success: true, data: history });
+    
+    // 创建响应对象
+    const response = NextResponse.json({ success: true, data: history });
+    
+    // 为基金类型添加缓存头部（其他类型不缓存）
+    if (type === 'fund') {
+      response.headers.set('Cache-Control', 'private, max-age=60'); // 缓存 1 分钟
+    }
+    
+    return response;
   } catch (error: any) {
     console.error('[历史API] 错误:', error);
     return NextResponse.json({ success: false, data: [], error: error.message });

@@ -109,19 +109,38 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
   } catch (error) {
     console.error(`[基金] ${asset.symbol} 更新失败:`, error);
   }
-} else {
-      // 其他类型（金属、汽车、房产等）使用搜索接口
-      try {
-        const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
-        const data = await response.json();
-        if (data.price) {
-          priceMap.set(asset.symbol, { price: data.price, changePercent: data.changePercent || 0 });
-        }
-      } catch (error) {
-        console.error(`[其他] ${asset.symbol} 更新失败:`, error);
+} else if (asset.type === 'metal') {
+  try {
+    const response = await fetch(`/api/metal/latest?code=${encodeURIComponent(asset.symbol)}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.price != null) {
+        priceMap.set(asset.symbol, { 
+          price: Number(data.price),          // 强制转换为数字
+          changePercent: Number(data.changePercent) || 0 
+        });
+      } else {
+        console.log(`[贵金属] ${asset.symbol} 暂无最新价格，使用现有价格`);
       }
+    } else {
+      console.error(`[贵金属] ${asset.symbol} 最新价格API失败: ${response.status}`);
     }
-  }));
+  } catch (error) {
+    console.error(`[贵金属] ${asset.symbol} 更新失败:`, error);
+  }
+} else {
+    // 其他类型（汽车、房产等）使用搜索接口
+    try {
+      const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
+      const data = await response.json();
+      if (data.price) {
+        priceMap.set(asset.symbol, { price: data.price, changePercent: data.changePercent || 0 });
+      }
+    } catch (error) {
+      console.error(`[其他] ${asset.symbol} 更新失败:`, error);
+    }
+  }
+}));
 
   const updatedAssets = currentAssets.map(asset => {
     const update = priceMap.get(asset.symbol);

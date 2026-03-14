@@ -8,7 +8,7 @@ import { getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
-import { CryptoChart, StockChart, FundChart, } from './charts';
+import { CryptoChart, StockChart, FundChart, MetalChart, } from './charts';
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -291,6 +291,14 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     />
   ) : asset.type === 'fund' ? (
     <FundChart
+      symbol={asset.symbol}
+      changePercent={asset.changePercent}
+      purchaseDate={asset.purchaseDate}
+      costPrice={asset.costPrice}
+      currentPrice={displayAsset.price}
+    />
+   ) : asset.type === 'metal' ? (
+    <MetalChart
       symbol={asset.symbol}
       changePercent={asset.changePercent}
       purchaseDate={asset.purchaseDate}

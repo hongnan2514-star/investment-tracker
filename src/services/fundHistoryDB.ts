@@ -53,6 +53,19 @@ export interface StockMinute {
   volume: number;
 }
 
+// ==================== 贵金属日线数据 ====================
+export interface MetalPrice {
+  symbol: string;      // 品种代码，如 'Au99.99'
+  date: string;        // YYYY-MM-DD
+  price: number;       // 收盘价/最新价
+  changePercent: number; // 涨跌幅
+  open?: number;       // 开盘价（可选）
+  high?: number;       // 最高价（可选）
+  low?: number;        // 最低价（可选）
+  prevClose?: number;  // 前一日收盘价（可选）
+  volume?: number;     // 成交量（可选）
+}
+
 
 // ==================== 数据库连接 ====================
 // 从环境变量获取 Neon PostgreSQL 连接字符串（Vercel 自动注入，本地需在 .env.local 中配置）
@@ -124,18 +137,26 @@ export async function fetchFundHistoryFromSina(code: string, years: number = 1):
 }
 
 /**
- * 保存基金历史净值到数据库（异步）
+ * 保存基金历史净值到数据库（并发插入）
  */
 export async function saveFundHistory(records: FundNav[]): Promise<void> {
-  for (const r of records) {
-    await sql`
+  if (records.length === 0) return;
+  const batchSize = 500; // 每批500条
+  const concurrency = 10; // 并发数（可根据数据库性能调整）
+
+  for (let i = 0; i < records.length; i += batchSize) {
+    const batch = records.slice(i, i + batchSize);
+    // 并发执行当前批次的所有插入
+    const promises = batch.map(r => sql`
       INSERT INTO fund_nav_history (code, date, nav, accum_nav, change)
       VALUES (${r.code}, ${r.date}, ${r.nav}, ${r.accumNav}, ${r.change})
       ON CONFLICT (code, date) DO UPDATE SET
         nav = EXCLUDED.nav,
         accum_nav = EXCLUDED.accum_nav,
         change = EXCLUDED.change
-    `;
+    `);
+    await Promise.all(promises);
+    console.log(`[DB] 已保存批次 ${i / batchSize + 1}/${Math.ceil(records.length / batchSize)}`);
   }
 }
 
@@ -724,4 +745,115 @@ export async function getFundHistorySince(code: string, startDate: string): Prom
     ORDER BY date ASC
   `;
   return result as FundNav[];
+}
+
+/**
+ * 保存贵金属日线价格（每天一条）
+ */
+export async function saveMetalPrice(record: MetalPrice): Promise<void> {
+  await sql`
+    INSERT INTO metal_price_history (symbol, date, price, change_percent, open, high, low, prev_close, volume)
+    VALUES (
+      ${record.symbol}, ${record.date}, ${record.price}, ${record.changePercent},
+      ${record.open || null}, ${record.high || null}, ${record.low || null},
+      ${record.prevClose || null}, ${record.volume || null}
+    )
+    ON CONFLICT (symbol, date) DO UPDATE SET
+      price = EXCLUDED.price,
+      change_percent = EXCLUDED.change_percent,
+      open = EXCLUDED.open,
+      high = EXCLUDED.high,
+      low = EXCLUDED.low,
+      prev_close = EXCLUDED.prev_close,
+      volume = EXCLUDED.volume
+  `;
+}
+
+/**
+ * 获取贵金属最新日线价格
+ * @param symbol 品种代码，如 'Au99.99'
+ * @returns 最新价格记录，如果没有则返回 null
+ */
+export async function getLatestMetalPrice(symbol: string): Promise<MetalPrice | null> {
+  const result = await sql`
+    SELECT * FROM metal_price_history 
+    WHERE symbol = ${symbol}
+    ORDER BY date DESC LIMIT 1
+  `;
+  const row = result[0];
+  if (!row) return null;
+  return {
+    symbol: row.symbol,
+    date: row.date,
+    price: row.price,
+    changePercent: row.change_percent,
+    open: row.open,
+    high: row.high,
+    low: row.low,
+    prevClose: row.prev_close,
+    volume: row.volume,
+  };
+}
+
+/**
+ * 检查贵金属日线数据是否需要更新（今天是否已更新）
+ * @param symbol 品种代码
+ * @returns true 需要更新，false 已最新
+ */
+export async function needsMetalDailyUpdate(symbol: string): Promise<boolean> {
+  const latest = await getLatestMetalPrice(symbol);
+  if (!latest) return true;
+  const today = new Date().toISOString().split('T')[0];
+  return latest.date < today;
+}
+
+/**
+ * 获取贵金属历史价格数据（按日期升序）
+ * @param symbol 品种代码，如 'Au99.99'
+ * @param days 获取最近多少天的数据，默认365天
+ * @returns 历史价格数组，按日期升序
+ */
+export async function getMetalHistory(symbol: string, days: number = 365): Promise<MetalPrice[]> {
+  const result = await sql`
+    SELECT * FROM metal_price_history 
+    WHERE symbol = ${symbol}
+    AND date >= CURRENT_DATE - ${days} * INTERVAL '1 day'
+    ORDER BY date ASC
+  `;
+  return result.map((row: any) => ({
+    symbol: row.symbol,
+    date: row.date,
+    price: row.price,
+    changePercent: row.change_percent,
+    open: row.open,
+    high: row.high,
+    low: row.low,
+    prevClose: row.prev_close,
+    volume: row.volume,
+  }));
+}
+
+/**
+ * 获取贵金属从指定日期开始的历史价格数据（按日期升序）
+ * @param symbol 品种代码
+ * @param startDate 起始日期，格式 YYYY-MM-DD
+ */
+export async function getMetalHistorySince(symbol: string, startDate: string): Promise<MetalPrice[]> {
+  const result = await sql`
+    SELECT * FROM metal_price_history 
+    WHERE symbol = ${symbol}
+    AND date >= ${startDate}
+    ORDER BY date ASC
+  `;
+  return result.map((row: any) => ({
+    symbol: row.symbol,
+    date: row.date,
+    price: row.price,
+    changePercent: row.change_percent,
+    open: row.open,
+    high: row.high,
+    low: row.low,
+    prevClose: row.prev_close,
+    volume: row.volume,
+  }));
 }
