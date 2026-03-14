@@ -91,7 +91,7 @@ export default function PortfolioPage() {
     .replace(/[·・•\-_\s]+/g, '-')
     .replace(/[^\w\u4e00-\u9fa5\-]+/g, '')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/^-|-$/g, ''); 
 };
 
 // 使用前过滤，重新生成 id 和 logoUrl
