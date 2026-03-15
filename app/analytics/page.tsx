@@ -76,7 +76,7 @@ export default function AnalyticsPage() {
       <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
         <div className="flex justify-between items-start">
           <div>
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">总资产估值</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">净资产估值</span>
             <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mt-1">
               ${formatMoney(totalValue)}
             </h2>

@@ -128,6 +128,8 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
   } catch (error) {
     console.error(`[贵金属] ${asset.symbol} 更新失败:`, error);
   }
+} else if (asset.type === 'car' || asset.type === 'real_estate' || asset.type === 'custom') {
+  return;
 } else {
     // 其他类型（汽车、房产等）使用搜索接口
     try {

@@ -312,7 +312,7 @@ const rawBrands: { name: string }[] = [
   { name: '莲花跑车' },
   { name: '凌宝汽车' },
   { name: '灵悉' },
-  { name: '理想汽车' },
+  { name: '理想' },
   { name: '菱势汽车' },
   { name: '龙程汽车' },
   { name: '珑致' },

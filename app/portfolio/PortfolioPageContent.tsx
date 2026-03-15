@@ -3,9 +3,10 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {  // 图标
-  Plus, Zap, Home, BarChart3, X, ChevronRight, Search,
+  Plus, Zap, Home, BarChart3, Hotel, X, ChevronRight, Search,
   Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2,
-  PieChart, Bitcoin, Activity, Car, Blocks, MoreVertical, ChevronDown, ListFilterPlus
+  PieChart, Bitcoin, Activity, Car, Blocks, MoreVertical, ChevronDown, ListFilterPlus,
+  Banknote
 } from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { Asset } from '@/src/constants/types';
@@ -18,8 +19,8 @@ import Link from 'next/link';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';  // 计价单位
 import AssetDetailDrawer from './AssetDetailDrawer';
 import BrandSelector from './BrandSelector';
-import { carBrands as rawCarBrands } from '@/src/constants/carBrands';
-import { carBrands } from '@/src/constants/carBrands';
+import IconSelector from './IconSelector';
+
 
 interface CarBrand {
   id: string;
@@ -84,6 +85,10 @@ export default function PortfolioPage() {
   const [realEstateNotes, setRealEstateNotes] = useState('');
   const [showBrandSelector, setShowBrandSelector] = useState(false);
   const [imageFileNames, setImageFileNames] = useState<string[]>([]);
+  const [cashName, setCashName] = useState('');
+  const [selectedIcon, setSelectedIcon] = useState<string>('');
+  const [showIconPage, setShowIconPage] = useState(false);
+  
   // 使用前过滤
   const slugify = (name: string): string => {
   return name
@@ -105,17 +110,22 @@ useEffect(() => {
 // 修改 carBrands 定义
 const carBrands: CarBrand[] = [
   { id: 'audi', name: '奥迪', firstLetter: 'A', logoUrl: '/images/car_logos/奥迪.png' },
-  { id: 'bmw', name: '宝马', firstLetter: 'B', logoUrl: '/images/car_logos/宝马.png' },
-  { id: 'mercedes-benz', name: '梅赛德斯-奔驰', firstLetter: 'M', logoUrl: '/images/car_logos/梅赛德斯-奔驰.png' },
+  { id: 'BMW', name: 'BMW', firstLetter: 'B', logoUrl: '/images/car_logos/BMW.png' },
   { id: 'abt', name: 'ABT', firstLetter: 'A', logoUrl: '/images/car_logos/abt.png' },
   { id: 'ac-schnitzer', name: 'AC Schnitzer', firstLetter: 'A', logoUrl: '/images/car_logos/ac-schnitzer.png' },
   { id: '阿尔法-罗密欧', name: '阿尔法-罗密欧', firstLetter:'A', logoUrl: '/images/car_logos/阿尔法-罗密欧.png' },
-  { id: '保时捷', name: '保时捷', firstLetter:'B', logoUrl:'/images/car_logos/保时捷.png' },
+  { id: 'Porsche', name: 'Porsche', firstLetter:'P', logoUrl:'/images/car_logos/Porsche.png' },
   { id: '宾利', name: '宾利', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
-  { id: '兰博基尼', name: '兰博基尼', firstLetter:' L', logoUrl:'/images/car_logos/兰博基尼.png' },
+  { id: ' Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
   { id: '劳斯莱斯', name: '劳斯莱斯', firstLetter:' L', logoUrl:'/images/car_logos/劳斯莱斯.png' },
+  { id: 'mercedes-benz', name: 'Mercedes-Benz', firstLetter: 'M', logoUrl: '/images/car_logos/Mercedes-Benz.png' },
+  { id: 'Maybach', name: 'Maybach', firstLetter: 'M', logoUrl: '/images/car_logos/Maybach.png' },
+  { id: 'Mclaren', name: ' Mclaren', firstLetter: 'M', logoUrl: '/images/car_logos/Mclaren.png' },
   { id: '克莱斯勒', name: '克莱斯勒', firstLetter:'K', logoUrl:'/images/car_logos/克莱斯勒.png' },
-  { id: '小米', name: '小米', firstLetter:' X', logoUrl:'/images/car_logos/小米.png' },
+  { id: '小米', name: '小米', firstLetter:'X', logoUrl:'/images/car_logos/小米.png' },
+  { id: '理想', name: '理想', firstLetter:'L', logoUrl:'/images/car_logos/理想.png'},
+  { id: '路虎', name: '路虎', firstLetter:'L', logoUrl:'/images/car_logos/路虎.png'},
+  
 ];
 
   const metalOptions = [
@@ -420,6 +430,11 @@ const sortedAssets = useMemo(() => {
   setRealEstateIncludeInChart(true);
   setRealEstateNotes('');
 }
+
+if (type === 'custom') {
+  setCashName('');
+  // holdings, purchaseDate 等已在函数开头重置
+}
   };
 
   const handleBack = () => {
@@ -701,6 +716,46 @@ if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Ko
   setShowMenu(false);
 };
 
+const handleAddCashAsset = () => {
+  const name = cashName.trim() || '现金';
+  const amount = parseFloat(holdings) || 0;
+  if (amount <= 0) {
+    alert('请输入有效的金额');
+    return;
+  }
+
+  const newAsset: Asset = {
+    symbol: `CASH-${Date.now()}`,
+    name: name,
+    price: amount,
+    holdings: 1,
+    marketValue: amount,
+    currency: 'CNY',
+    lastUpdated: new Date().toISOString(),
+    type: 'custom',
+    changePercent: 0,
+    purchaseDate: purchaseDate || undefined,
+    costPrice: amount,
+    logoUrl: selectedIcon ? `/icons/payment/${selectedIcon}` : undefined, // 如果选择了图标则保存路径
+  };
+
+  addAsset(newAsset);
+  setAssets(getAssets());
+
+  alert(`已添加现金资产: ${name}`);
+
+  // 重置状态
+  setCashName('');
+  setSelectedIcon('');
+  setHoldings("");
+  setPurchaseDate("");
+  setCostPrice("");
+  setView('categories');
+  setSelectedMainCategory(null);
+  setSelectedAssetType(null);
+  setShowMenu(false);
+};
+
   const handleAddAsset = () => {
     if (!foundAsset || !holdings) return;
 
@@ -896,152 +951,166 @@ if (newAsset.type === 'stock' || newAsset.type === 'etf') {
       )}
       {selectedMainCategory === 'custom' && (
         <button
-          onClick={() => handleAssetTypeClick('custom')}
-          className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-              <Activity size={24} />
-            </div>
-            <div className="text-left">
-              <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">自定义资产</p>
-              <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">收藏品、储蓄卡、奢侈品</p>
-            </div>
-          </div>
-          <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-        </button>
+  onClick={() => handleAssetTypeClick('custom')}
+  className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+>
+  <div className="flex items-center gap-4">
+    <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+      <Banknote size={24} /> {/* 改为现金图标 */}
+    </div>
+    <div className="text-left">
+      <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金</p >
+      <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款</p >
+    </div>
+  </div>
+  <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+</button>
       )}
     </div>
   </div>
 );
 
-const renderCarForm = () => (
-  <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
-    <div className="flex flex-col gap-2 mb-6">
-      <div className="flex items-center gap-2">
-        <span className="bg-yellow-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
-          汽车
-        </span>
+// 可选的图标列表：文件名和显示名称
+const paymentIcons = [
+  { name: '支付宝', file: 'alipay.png' },
+  { name: '微信支付', file: 'wechat.png' },
+  { name: 'Apple Pay', file: 'applepay.png' },
+  { name: 'PayPal', file: 'paypal.png' },
+  { name: 'e-CNY', file: 'e-cny.png' },
+  // 可根据实际存在的文件增减
+];
+
+const renderCarForm = () => {
+  // 获取当前选中的品牌对象
+  const selectedBrand = selectedBrandId ? brandsList.find(b => b.id === selectedBrandId) : null;
+
+  return (
+    <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
+      <div className="flex flex-col gap-2 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="bg-yellow-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
+            汽车
+          </span>
+        </div>
+
+        {loadingCarData && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={24} />
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {/* 品牌选择按钮（已优化：左侧显示Logo，右侧箭头） */}
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">品牌</label>
+            <button
+              onClick={() => setShowBrandSelector(true)}
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-left text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2 truncate">
+                {selectedBrand?.logoUrl && (
+                  <img
+                    src={selectedBrand.logoUrl}
+                    alt={selectedBrandName}
+                    className="w-6 h-6 object-contain flex-shrink-0"
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                  />
+                )}
+                <span className="truncate">{selectedBrandName || '选择品牌'}</span>
+              </div>
+              <ChevronDown size={20} className="text-gray-500 flex-shrink-0" />
+            </button>
+          </div>
+
+          {/* 手动输入车系 */}
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">车系</label>
+            <input
+              id="car-series"
+              type="text"
+              placeholder="例如 A4L, 3系, Model Y"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            />
+          </div>
+
+          {/* 手动输入车型 */}
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">车型</label>
+            <input
+              id="car-model"
+              type="text"
+              placeholder="例如 2023款 45 TFSI, 330i, 标准续航版"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            />
+          </div>
+
+          {/* 车型下方的Logo预览框已移除，现在Logo仅显示在品牌选择按钮内 */}
+        </div>
       </div>
 
-      {loadingCarData && (
-        <div className="flex justify-center py-4">
-          <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={24} />
+      {/* 持有数量、买入日期、买入价等输入框保持不变 */}
+      <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有数量</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              placeholder="1"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+              value={holdings}
+              onChange={(e) => setHoldings(e.target.value)}
+              step="1"
+              min="0"
+            />
+          </div>
         </div>
-      )}
 
-      <div className="space-y-4">
-        {/* 品牌选择 */}
         <div>
-  <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">品牌</label>
-  <button
-    onClick={() => setShowBrandSelector(true)}
-    className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-left text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 flex items-center justify-between"
-  >
-    <span className="truncate">{selectedBrandName || '选择品牌'}</span>
-    <ChevronDown size={20} className="text-gray-500" />
-  </button>
-</div>
-
-        {/* 手动输入车系 */}
-        <div>
-          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">车系</label>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入日期</label>
           <input
-            id="car-series"
-            type="text"
-            placeholder="例如 A4L, 3系, Model Y"
-            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            type="date"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
+            value={purchaseDate}
+            onChange={(e) => setPurchaseDate(e.target.value)}
           />
         </div>
 
-        {/* 手动输入车型 */}
         <div>
-          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">车型</label>
-          <input
-            id="car-model"
-            type="text"
-            placeholder="例如 2023款 45 TFSI, 330i, 标准续航版"
-            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-          />
-        </div>
-
-        {/* Logo预览（直接从 brandsList 获取） */}
-        {selectedBrandId && (
-  <div className="flex items-center gap-3 mt-2 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl">
-    {(() => {
-      const brand = brandsList.find(b => b.id === selectedBrandId);
-      return brand?.logoUrl ? (
-        < img src={brand.logoUrl} alt={selectedBrandName} className="w-10 h-10 object-contain" />
-      ) : (
-        <Car size={24} className="text-gray-500" />
-      );
-    })()}
-    <span className="font-bold text-gray-900 dark:text-gray-100">{selectedBrandName}</span>
-  </div>
-)}
-      </div>
-    </div>
-
-    <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-      <div>
-        <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">持有数量</label>
-        <div className="flex items-center gap-3">
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价（万元）</label>
           <input
             type="number"
-            placeholder="1"
+            placeholder="20.00"
             className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-            value={holdings}
-            onChange={(e) => setHoldings(e.target.value)}
-            step="1"
-            min="0"
+            value={costPrice}
+            onChange={(e) => setCostPrice(e.target.value)}
+            step="0.01"
           />
+          <p className="text-xs text-gray-400 mt-1">单位：万元（CNY）</p >
         </div>
+
+        <button
+          onClick={handleAddCarAsset}
+          disabled={!selectedBrandId || !holdings}
+          className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+        >
+          确认添加汽车
+        </button>
       </div>
 
-      <div>
-        <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入日期</label>
-        <input
-          type="date"
-          className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
-          value={purchaseDate}
-          onChange={(e) => setPurchaseDate(e.target.value)}
+      {showBrandSelector && (
+        <BrandSelector
+          brands={brandsList}
+          onSelect={(brand) => {
+            setSelectedBrandId(brand.id);
+            setSelectedBrandName(brand.name);
+            setShowBrandSelector(false);
+          }}
+          onClose={() => setShowBrandSelector(false)}
         />
-      </div>
-
-      <div>
-        <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价（万元）</label>
-        <input
-          type="number"
-          placeholder="20.00"
-          className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-          value={costPrice}
-          onChange={(e) => setCostPrice(e.target.value)}
-          step="0.01"
-        />
-        <p className="text-xs text-gray-400 mt-1">单位：万元（CNY）</p>
-      </div>
-
-      <button
-        onClick={handleAddCarAsset}
-        disabled={!selectedBrandId || !holdings}
-        className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
-      >
-        确认添加汽车
-      </button>
+      )}
     </div>
-    {showBrandSelector && (
-  <BrandSelector
-    brands={brandsList}
-    onSelect={(brand) => {
-      setSelectedBrandId(brand.id);
-      setSelectedBrandName(brand.name);
-      setShowBrandSelector(false);
-    }}
-    onClose={() => setShowBrandSelector(false)}
-  />
-)}
-  </div>
-);
+  );
+};
 
 const renderRealEstateForm = () => (
   <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
@@ -1134,6 +1203,102 @@ const renderRealEstateForm = () => (
     <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
       <button
         onClick={handleAddRealEstateAsset}
+        disabled={!holdings || parseFloat(holdings) <= 0}
+        className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+      >
+        确认添加
+      </button>
+    </div>
+  </div>
+);
+
+const renderCashForm = () => (
+  <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
+    <div className="flex flex-col gap-2 mb-6">
+      <div className="flex items-center gap-2">
+        <span className="bg-green-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
+          现金
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {/* 自定名称（可选） */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
+            名称（可选）
+          </label>
+          <input
+            type="text"
+            placeholder="默认为现金"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={cashName}
+            onChange={(e) => setCashName(e.target.value)}
+          />
+        </div>
+
+        {/* 图标选择（按钮形式） */}
+<div>
+  <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
+    选择图标（可选）
+  </label>
+  <button
+    onClick={() => setShowIconPage(true)}
+    className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-left text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 flex items-center justify-between"
+  >
+    <div className="flex items-center gap-2">
+      {selectedIcon ? (
+        <img
+          src={`/icons/payment/${selectedIcon}`}
+          alt=""
+          className="w-6 h-6 object-contain rounded-lg"
+          onError={(e) => (e.currentTarget.style.display = 'none')}
+        />
+      ) : (
+        <Banknote size={20} className="text-gray-500" />
+      )}
+      <span className="truncate">
+        {selectedIcon ? paymentIcons.find(i => i.file === selectedIcon)?.name || '已选择' : '点击选择图标'}
+      </span>
+    </div>
+    <ChevronDown size={20} className="text-gray-500 flex-shrink-0" />
+  </button>
+</div>
+
+        {/* 金额 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
+            金额
+          </label>
+          <input
+            type="number"
+            placeholder="0.00"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={holdings}
+            onChange={(e) => setHoldings(e.target.value)}
+            step="0.01"
+            min="0"
+          />
+          <p className="text-xs text-gray-400 mt-1">单位：CNY</p >
+        </div>
+
+        {/* 存入日期 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
+            存入日期
+          </label>
+          <input
+            type="date"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
+            value={purchaseDate}
+            onChange={(e) => setPurchaseDate(e.target.value)}
+          />
+        </div>
+      </div>
+    </div>
+
+    <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+      <button
+        onClick={handleAddCashAsset}
         disabled={!holdings || parseFloat(holdings) <= 0}
         className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
       >
@@ -1356,6 +1521,25 @@ if (selectedAssetType === 'real_estate') {
   );
 }
 
+if (selectedAssetType === 'custom') {
+  return (
+    <div
+      ref={scrollContainerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
+    >
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
+          <ArrowLeft size={20} />
+        </button>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">添加现金</h3>
+      </div>
+      <div className="min-h-[200px]">{renderCashForm()}</div>
+    </div>
+  );
+}
+
   // 其他类型（股票、基金、加密货币、房产）的搜索界面保持不变
   return (
     <div
@@ -1504,382 +1688,384 @@ if (selectedAssetType === 'real_estate') {
 };
 
   return (
-  <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
-    <header className="flex justify-between items-center mb-6 px-2">
-      <div>
-        <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">资产管理</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的各类投资项目</p>
-      </div>
-      <button
-        onClick={() => setShowSortMenu(!showSortMenu)}
-        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-      >
-        <ListFilterPlus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-      </button>
-    </header>
-
-    {converting && <div className="text-xs text-blue-500 text-center py-1">汇率更新中...</div>}
-
-    {/* 排序菜单 */}
-    {showSortMenu && (
   <>
-    <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)} />
-    <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 w-[160px] sm:min-w-[200px] max-w-[90vw]">
-      {/* 排序方式标题行 */}
-      <div
-        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-        onClick={() => setSortExpanded(!sortExpanded)}
-      >
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">排序方式</span>
-        <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${sortExpanded ? '' : '-rotate-90'}`} />
-      </div>
-      
-      {/* 排序选项 */}
-      {sortExpanded && (
-        <>
-          <button
-  onClick={() => {
-    if (sortBy === 'marketValue') {
-      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      setSortBy('marketValue');
-      setSortOrder('desc');
-    }
-    // 不再关闭菜单
-  }}
-  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center justify-between"
->
-  <span>持有额</span>
-  <span className="text-xs">
-    {sortBy === 'marketValue' && (sortOrder === 'desc' ? '🔽' : '🔼')}
-  </span>
-</button>
+    <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
+      <header className="flex justify-between items-center mb-6 px-2">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">资产管理</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的各类投资项目</p>
+        </div>
+        <button
+          onClick={() => setShowSortMenu(!showSortMenu)}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+        >
+          <ListFilterPlus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+        </button>
+      </header>
 
-<button
-  onClick={() => {
-    if (sortBy === 'changePercent') {
-      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-    } else {
-      setSortBy('changePercent');
-      setSortOrder('desc');
-    }
-    // 不再关闭菜单
-  }}
-  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center justify-between"
->
-  <span>盈亏率</span>
-  <span className="text-xs">
-    {sortBy === 'changePercent' && (sortOrder === 'desc' ? '🔽' : '🔼')}
-  </span>
-</button>
-          <button
-            onClick={() => {
-              if (sortBy === 'changePercent') {
-                setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-              } else {
-                setSortBy('changePercent');
-                setSortOrder('desc');
-              }
-              setShowSortMenu(false);
-            }}
-            className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center justify-between"
-          >
-            
-          </button>
-        </>
-      )}
-      
-      <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-      
-      {/* 筛选资产标题行 */}
-      <div
-        className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-        onClick={() => setFilterExpanded(!filterExpanded)}
-      >
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">筛选资产</span>
-        <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${filterExpanded ? '' : '-rotate-90'}`} />
-      </div>
-      
-      {/* 资产类型列表 */}
-      {filterExpanded && (
-        <div className="mt-2 space-y-1">
-          {allAssetTypes.length > 0 ? (
-            allAssetTypes.map(type => {
-              const config = ASSET_TYPE_CONFIG[type] || { name: type };
-              return (
+      {converting && <div className="text-xs text-blue-500 text-center py-1">汇率更新中...</div>}
+
+      {/* 排序菜单 */}
+      {showSortMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)} />
+          <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 w-[160px] sm:min-w-[200px] max-w-[90vw]">
+            {/* 排序方式标题行 */}
+            <div
+              className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+              onClick={() => setSortExpanded(!sortExpanded)}
+            >
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">排序方式</span>
+              <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${sortExpanded ? '' : '-rotate-90'}`} />
+            </div>
+            {sortExpanded && (
+              <>
                 <button
-                  key={type}
                   onClick={() => {
-                    const newHidden = new Set(hiddenAssetTypes);
-                    if (newHidden.has(type)) {
-                      newHidden.delete(type);
+                    if (sortBy === 'marketValue') {
+                      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
                     } else {
-                      newHidden.add(type);
+                      setSortBy('marketValue');
+                      setSortOrder('desc');
                     }
-                    setHiddenAssetTypes(newHidden);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                    hiddenAssetTypes.has(type)
-                      ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                      : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
-                  }`}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center justify-between"
                 >
-                  {config.name}
+                  <span>持有额</span>
+                  <span className="text-xs">
+                    {sortBy === 'marketValue' && (sortOrder === 'desc' ? '🔽' : '🔼')}
+                  </span>
                 </button>
-              );
-            })
-          ) : ( 
-            <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">暂无资产</div>
-          )}
-        </div>
-      )}
-    </div>
-  </>
-)}
-
-    {/* 资产卡片列表 - 使用 sortedAssets */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {filteredAndSortedAssets.length > 0 ? (
-  filteredAndSortedAssets.map(asset => {
-    const profitLossColor = getProfitLossColor(asset);
-    const profitLossSmallColor = getProfitLossSmallColor(asset);
-    let displayPercent = Number(asset.changePercent) || 0;
-let displayPercentSign = displayPercent > 0 ? '+' : '';
-if (asset.costPrice && asset.costPrice > 0) {
-  const calculatedPercent = ((Number(asset.price) - Number(asset.costPrice)) / Number(asset.costPrice)) * 100;
-  displayPercent = calculatedPercent;
-  displayPercentSign = calculatedPercent > 0 ? '+' : '';
-}
-
-    const cachedLogo = getCachedLogo(asset.symbol);
-    const logoSrc = cachedLogo || asset.logoUrl;
-
-    return (
-      <div
-        key={asset.symbol}
-        onClick={() => openAssetDetail(asset.symbol)}
-  className="cursor-pointer" // 确保鼠标显示为手型，如果你喜欢也可以不加，但卡片本身已有一些样式
-      >
-        <div className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all cursor-pointer">
-          <div className="flex justify-between items-start gap-1.5">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <div className="flex-shrink-0">
-  {(() => {
-    // 判断是否为 A 股（带 .SS 或 .SZ 后缀的 6 位数字）
-    const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
-    const code = isAStock ? asset.symbol.split('.')[0] : null;
-    const cachedLogo = getCachedLogo(asset.symbol);
-
-    // 优先尝试本地 Logo（如果存在）
-    if (isAStock && code) {
-      const localPath = `/images/company_logos/${code}.png`;
-      return (
-        <img
-          src={localPath}
-          alt={asset.name}
-          className="w-6 h-6 object-contain rounded-lg"
-          onError={(e) => {
-            // 本地图片加载失败，隐藏该元素，外层会显示默认图标
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-      );
-    }
-
-    // 其次使用缓存或 asset.logoUrl（美股、加密货币等）
-    if (cachedLogo || asset.logoUrl) {
-      return (
-        <img
-          src={cachedLogo || asset.logoUrl}
-          alt={asset.name}
-          className="w-6 h-6 object-contain rounded-lg"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-      );
-    }
-
-    // 无 Logo 时显示默认图标（原有逻辑）
-    return (
-      <>
-        {asset.type === 'car' && <Car size={16} className="text-gray-700 dark:text-gray-200" />}
-        {asset.type === 'stock' && <Zap size={16} className="text-gray-700 dark:text-gray-200" />}
-        {asset.type === 'metal' && (
-          asset.symbol && asset.symbol.includes('Ag') ? (
-            < img src={`/icons/silver-bar-${theme}.png`} alt="Silver" className="w-6 h-6 object-contain rounded-lg" />
-          ) : (
-            < img src={`/icons/gold-bar-${theme}.png`} alt="Gold" className="w-6 h-6 object-contain rounded-lg" />
-          )
-        )}
-        {!['car', 'stock', 'metal'].includes(asset.type) && <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />}
-      </>
-    );
-  })()}
-</div>
-              <div className="text-left min-w-0 flex-1">
-                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
-                  {asset.name}
-                </h4>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={asset.symbol}>
-                  {asset.symbol}
-                </p >
-              </div>
+                <button
+                  onClick={() => {
+                    if (sortBy === 'changePercent') {
+                      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+                    } else {
+                      setSortBy('changePercent');
+                      setSortOrder('desc');
+                    }
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center justify-between"
+                >
+                  <span>盈亏率</span>
+                  <span className="text-xs">
+                    {sortBy === 'changePercent' && (sortOrder === 'desc' ? '🔽' : '🔼')}
+                  </span>
+                </button>
+              </>
+            )}
+            <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+            {/* 筛选资产标题行 */}
+            <div
+              className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+              onClick={() => setFilterExpanded(!filterExpanded)}
+            >
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">筛选资产</span>
+              <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${filterExpanded ? '' : '-rotate-90'}`} />
             </div>
-
-            <div className="text-right flex-shrink-0 max-w-[90px]">
-              <p className={`text-base font-black truncate ${profitLossColor}`} title={`${asset.marketValue.toFixed(2)}`}>
-                  {formatLargeNumber(asset.marketValue)}
-              </p >
-              {displayPercent !== 0 && (
-                <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
-                  {displayPercentSign}{displayPercent.toFixed(2)}%
-                </p >
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-0.5">
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${asset.holdings.toFixed(2)}份`}>
-              {asset.holdings.toFixed(2)}份
-            </p >
-          </div>
-
-          <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
-                {asset.costPrice ? '市价/成本' : '市价'}
-              </p >
-              {asset.costPrice ? (
-  <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${Number(asset.price).toFixed(2)} / ${Number(asset.costPrice).toFixed(2)}`}>
-    {Number(asset.price).toFixed(2)} / {Number(asset.costPrice).toFixed(2)}
-  </p >
-) : (
-  <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${Number(asset.price).toFixed(2)}`}>
-    {Number(asset.price).toFixed(2)}
-  </p >
-)}
-            </div>
-            <button
-              onClick={(e) => {
-  e.stopPropagation(); // 阻止事件冒泡到父级
-  handleDeleteAsset(asset.symbol);
-}}
-              className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
-
-             
-
-            >
-              删除
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  })
-) : (
-  // 空状态保持不变
-  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
-    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
-    <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
-      点击右下方加号开始追踪您的投资
-    </p >
-  </div>
-)}
-    </div>
-
-    {/* 菜单浮层 */}
-    {showMenu && (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setShowMenu(false)} />
-    )}
-
-    <div className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-8 pb-12 transition-transform duration-500 ease-in-out transform ${showMenu ? 'translate-y-0' : 'translate-y-full'}`}>
-      <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-8" />
-
-      {view === 'categories' && (
-        <>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">添加资产类别</h3>
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={() => handleMainCategoryClick('liquid')}
-              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                  <Zap size={24} />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">流动资产</p>
-                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">股票、基金、ETF、加密货币、贵金属</p>
-                </div>
+            {filterExpanded && (
+              <div className="mt-2 space-y-1">
+                {allAssetTypes.length > 0 ? (
+                  allAssetTypes.map(type => {
+                    const config = ASSET_TYPE_CONFIG[type] || { name: type };
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          const newHidden = new Set(hiddenAssetTypes);
+                          if (newHidden.has(type)) {
+                            newHidden.delete(type);
+                          } else {
+                            newHidden.add(type);
+                          }
+                          setHiddenAssetTypes(newHidden);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                          hiddenAssetTypes.has(type)
+                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                            : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
+                        }`}
+                      >
+                        {config.name}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">暂无资产</div>
+                )}
               </div>
-              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-            </button>
-
-            <button
-              onClick={() => handleMainCategoryClick('fixed')}
-              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-yellow-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                  <Home size={24} />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">固定资产</p>
-                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">房产、汽车、其他固定资产</p>
-                </div>
-              </div>
-              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-            </button>
-
-            <button
-              onClick={() => handleMainCategoryClick('custom')}
-              className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
-                  <BarChart3 size={24} />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">自定义资产</p>
-                  <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">收藏品、储蓄卡、奢侈品</p>
-                </div>
-              </div>
-              <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
-            </button>
+            )}
           </div>
         </>
       )}
 
-      {view === 'subCategories' && renderSubCategories()}
-      {view === 'search' && renderSearch()}
-    </div>
+      {/* 资产卡片列表 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {filteredAndSortedAssets.length > 0 ? (
+          filteredAndSortedAssets.map(asset => {
+            const profitLossColor = getProfitLossColor(asset);
+            const profitLossSmallColor = getProfitLossSmallColor(asset);
+            let displayPercent = Number(asset.changePercent) || 0;
+            let displayPercentSign = displayPercent > 0 ? '+' : '';
+            if (asset.costPrice && asset.costPrice > 0) {
+              const calculatedPercent = ((Number(asset.price) - Number(asset.costPrice)) / Number(asset.costPrice)) * 100;
+              displayPercent = calculatedPercent;
+              displayPercentSign = calculatedPercent > 0 ? '+' : '';
+            }
 
-    <button
-      onClick={() => {
-        setShowMenu(true);
-        setView('categories');
-        setSelectedMainCategory(null);
-        setSelectedAssetType(null);
-        setSearchQuery('');
-        setFoundAsset(null);
-        setSearchError(null);
-        setHoldings("");
-        setPurchaseDate("");
-        setCostPrice("");
-        setBrandsList([]);
-        setSelectedBrandId('');
-        setSelectedBrandName('');
-      }}
-      className="fixed bottom-24 right-6 w-16 h-16 bg-blue-600 rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-[45] active:scale-90 transition-transform"
-    >
-      <Plus size={36} strokeWidth={3} />
-    </button>
+            const cachedLogo = getCachedLogo(asset.symbol);
+            const logoSrc = cachedLogo || asset.logoUrl;
+
+            return (
+              <div
+                key={asset.symbol}
+                onClick={() => openAssetDetail(asset.symbol)}
+                className="cursor-pointer"
+              >
+                <div className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all cursor-pointer">
+                  <div className="flex justify-between items-start gap-1.5">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="flex-shrink-0">
+                        {(() => {
+                          const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
+                          const code = isAStock ? asset.symbol.split('.')[0] : null;
+                          const cachedLogo = getCachedLogo(asset.symbol);
+
+                          if (isAStock && code) {
+                            const localPath = `/images/company_logos/${code}.png`;
+                            return (
+                              <img
+                                src={localPath}
+                                alt={asset.name}
+                                className="w-6 h-6 object-contain rounded-lg"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                              />
+                            );
+                          }
+
+                          if (cachedLogo || asset.logoUrl) {
+                            return (
+                              <img
+                                src={cachedLogo || asset.logoUrl}
+                                alt={asset.name}
+                                className="w-6 h-6 object-contain rounded-lg"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                              />
+                            );
+                          }
+
+                          if (asset.type === 'car') return <Car size={16} className="text-gray-700 dark:text-gray-200" />;
+                          if (asset.type === 'stock') return <Zap size={16} className="text-gray-700 dark:text-gray-200" />;
+                          if (asset.type === 'metal') {
+                            return asset.symbol && asset.symbol.includes('Ag') ? (
+                              <img src={`/icons/silver-bar-${theme}.png`} alt="Silver" className="w-6 h-6 object-contain rounded-lg" />
+                            ) : (
+                              <img src={`/icons/gold-bar-${theme}.png`} alt="Gold" className="w-6 h-6 object-contain rounded-lg" />
+                            );
+                          }
+                          if (asset.type === 'real_estate') return <Hotel size={16} className="text-gray-700 dark:text-gray-200" />;
+                          if (asset.type === 'custom') {
+                            return (
+                              <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                                <Banknote size={16} className="text-gray-700 dark:text-gray-200" />
+                              </div>
+                            );
+                          }
+                          return <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />;
+                        })()}
+                      </div>
+                      <div className="text-left min-w-0 flex-1">
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
+                          {asset.name}
+                        </h4>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={asset.symbol}>
+                          {asset.type === 'real_estate' || asset.type === 'car' ? (
+                            (() => {
+                              const lastDashIndex = asset.symbol.lastIndexOf('-');
+                              if (lastDashIndex !== -1) {
+                                const timestampStr = asset.symbol.substring(lastDashIndex + 1);
+                                const timestamp = parseInt(timestampStr, 10);
+                                if (!isNaN(timestamp)) {
+                                  const date = new Date(timestamp);
+                                  if (!isNaN(date.getTime())) {
+                                    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+                                  }
+                                }
+                              }
+                              return asset.symbol;
+                            })()
+                          ) : (
+                            asset.symbol
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0 max-w-[90px]">
+                      <p className={`text-base font-black truncate ${profitLossColor}`} title={`${asset.marketValue.toFixed(2)}`}>
+                        {formatLargeNumber(asset.marketValue)}
+                      </p>
+                      {displayPercent !== 0 && (
+                        <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
+                          {displayPercentSign}{displayPercent.toFixed(2)}%
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-0.5">
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${asset.holdings.toFixed(2)}份`}>
+                      {asset.holdings.toFixed(2)}份
+                    </p>
+                  </div>
+                  <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
+                    <div className="flex items-center gap-1 min-w-0 flex-1">
+                      <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
+                        {asset.costPrice ? '市价/成本' : '市价'}
+                      </p>
+                      {asset.costPrice ? (
+                        <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${Number(asset.price).toFixed(2)} / ${Number(asset.costPrice).toFixed(2)}`}>
+                          {Number(asset.price).toFixed(2)} / {Number(asset.costPrice).toFixed(2)}
+                        </p>
+                      ) : (
+                        <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${Number(asset.price).toFixed(2)}`}>
+                          {Number(asset.price).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteAsset(asset.symbol);
+                      }}
+                      className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
+              点击右下方加号开始追踪您的投资
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 菜单浮层 */}
+      {showMenu && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setShowMenu(false)} />
+      )}
+
+      <div className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-8 pb-12 transition-transform duration-500 ease-in-out transform ${showMenu ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-8" />
+
+        {view === 'categories' && (
+          <>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">添加资产类别</h3>
+            <div className="flex flex-col gap-4">
+              <button
+                onClick={() => handleMainCategoryClick('liquid')}
+                className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                    <Zap size={24} />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">流动资产</p>
+                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">股票、基金、ETF、加密货币、贵金属</p>
+                  </div>
+                </div>
+                <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+              </button>
+              <button
+                onClick={() => handleMainCategoryClick('fixed')}
+                className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="bg-yellow-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                    <Home size={24} />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">固定资产</p>
+                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">房产、汽车、其他固定资产</p>
+                  </div>
+                </div>
+                <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+              </button>
+              <button
+                onClick={() => handleMainCategoryClick('custom')}
+                className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+                    <Banknote size={24} />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金</p>
+                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款</p>
+                  </div>
+                </div>
+                <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </>
+        )}
+
+        {view === 'subCategories' && renderSubCategories()}
+        {view === 'search' && renderSearch()}
+      </div>
+
+      <button
+        onClick={() => {
+          setShowMenu(true);
+          setView('categories');
+          setSelectedMainCategory(null);
+          setSelectedAssetType(null);
+          setSearchQuery('');
+          setFoundAsset(null);
+          setSearchError(null);
+          setHoldings("");
+          setPurchaseDate("");
+          setCostPrice("");
+          setBrandsList([]);
+          setSelectedBrandId('');
+          setSelectedBrandName('');
+        }}
+        className="fixed bottom-24 right-6 w-16 h-16 bg-blue-600 rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-[45] active:scale-90 transition-transform"
+      >
+        <Plus size={36} strokeWidth={3} />
+      </button>
+    </main>
+
+    {/* 独立浮层：品牌选择、图标选择、资产详情 */}
+    {showBrandSelector && (
+      <BrandSelector
+        brands={brandsList}
+        onSelect={(brand) => {
+          setSelectedBrandId(brand.id);
+          setSelectedBrandName(brand.name);
+          setShowBrandSelector(false);
+        }}
+        onClose={() => setShowBrandSelector(false)}
+      />
+    )}
+    {showIconPage && (
+      <IconSelector
+        icons={paymentIcons}
+        onSelect={(iconFile) => setSelectedIcon(iconFile)}
+        onClose={() => setShowIconPage(false)}
+      />
+    )}
     <AssetDetailDrawer
-  symbol={selectedAssetSymbol}
-  isOpen={isDetailOpen}
-  onClose={closeAssetDetail}
-/>
-  </main>
+      symbol={selectedAssetSymbol}
+      isOpen={isDetailOpen}
+      onClose={closeAssetDetail}
+    />
+  </>
 );
 }

@@ -16,7 +16,7 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   },
   fund: {
     name: '基金',
-    color: '#10b981'
+    color: '#b91010'
   },
   etf: {
     name: 'ETF',
@@ -39,8 +39,8 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
     color: '#f97316'
   },
   custom: {
-    name: '自定义',
-    color: '#6b7280'
+    name: '现金',
+    color: '#1db81f'
   }
 };
 

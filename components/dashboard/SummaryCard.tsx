@@ -114,7 +114,7 @@ export default function SummaryCard() {
       <div className="flex justify-between items-start">
         <div className="flex flex-col">
           <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mb-1">
-            <span className="text-xs font-semibold">总资产估值</span>
+            <span className="text-xs font-semibold">净资产估值</span>
             {loading && <span className="text-xs text-blue-500 animate-pulse">汇率更新中...</span>}
           </div>
           <div className="flex items-baseline gap-1">
