@@ -976,7 +976,7 @@ const paymentIcons = [
   { name: '微信支付', file: 'wechat.png' },
   { name: 'Apple Pay', file: 'applepay.png' },
   { name: 'PayPal', file: 'paypal.png' },
-  { name: 'e-CNY', file: 'e-cny.png' },
+  { name: 'e-CNY', file: 'e-CNY.png' },
   // 可根据实际存在的文件增减
 ];
 
