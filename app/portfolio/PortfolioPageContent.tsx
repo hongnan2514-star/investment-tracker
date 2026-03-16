@@ -114,7 +114,7 @@ const carBrands: CarBrand[] = [
   { id: 'audi', name: 'Audi', firstLetter: 'A', logoUrl: '/images/car_logos/audi.png' },
   { id: 'Aston Martin', name: 'Aston Martin', firstLetter: 'A', logoUrl: '/images/car_logos/Aston Martin.png' },
   { id: 'AITO', name: 'AITO', firstLetter: 'A', logoUrl: '/images/car_logos/AITO.png' },
-  { id: 'AC-cars', name: 'AC-cars', firstLetter: 'A', logoUrl: '/images/car_logos/AC-cars.png' },
+  { id: 'AC cars', name: 'AC cars', firstLetter: 'A', logoUrl: '/images/car_logos/AC- ars.png' },
   { id: 'ABARTC', name: 'ABARTH', firstLetter: 'A', logoUrl: '/images/car_logos/ABARTH.png' },
   { id: 'abt', name: 'ABT', firstLetter: 'A', logoUrl: '/images/car_logos/abt.png' },
   { id: 'ac-schnitzer', name: 'AC Schnitzer', firstLetter: 'A', logoUrl: '/images/car_logos/ac-schnitzer.png' },
