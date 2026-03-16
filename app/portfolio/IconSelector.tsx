@@ -26,7 +26,7 @@ export default function IconSelector({ groups, onSelect, onClose }: IconSelector
       <div className="flex items-center p-4">
         <button
           onClick={onClose}
-          className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-800 transition-colors"
         >
           <ArrowLeft size={20} className="text-gray-700 dark:text-gray-300" />
         </button>
@@ -40,9 +40,9 @@ export default function IconSelector({ groups, onSelect, onClose }: IconSelector
             onSelect('');
             onClose();
           }}
-          className="w-full flex items-center justify-between p-4 mb-6 bg-gray-200 dark:bg-gray-800 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+          className="w-full flex items-center justify-between p-4 mb-6 bg-gray-200 dark:bg-gray-700 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-800 transition-colors"
         >
-          <span className="text-base font-medium text-gray-900 dark:text-gray-100">默认</span>
+          <span className="text-base font-medium text-gray-700 dark:text-gray-300">默认</span>
           <Banknote size={24} className="text-gray-600 dark:text-gray-300" />
         </button>
 
@@ -50,12 +50,12 @@ export default function IconSelector({ groups, onSelect, onClose }: IconSelector
         {groups.map((group) => (
           <React.Fragment key={group.title}>
             {/* 分组标题 */}
-            <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+            <div className="text-sm font-semibold text-gray-700 dark:text-gray-400 mb-2 ml-1">
               {group.title}
             </div>
 
             {/* 图标大背景框 */}
-            <div className="bg-gray-200 dark:bg-gray-800 rounded-xl p-4 mb-6">
+            <div className="bg-gray-200 dark:bg-gray-700 rounded-xl p-4 mb-6">
               <div className="grid grid-cols-4 gap-4">
                 {group.icons.map(icon => (
                   <button
@@ -64,7 +64,7 @@ export default function IconSelector({ groups, onSelect, onClose }: IconSelector
                       onSelect(icon.file);
                       onClose();
                     }}
-                    className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                    className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-800 transition-colors"
                   >
                     <img
                       src={`/icons/payment/${icon.file}`}

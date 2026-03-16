@@ -30,11 +30,11 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
     return validBrands.filter(b => b.name.toLowerCase().includes(search.toLowerCase()));
   }, [validBrands, search]);
 
-  // 按首字母分组
+  // 按首字母分组（去除空格）
   const grouped = useMemo(() => {
     const groups: Record<string, Brand[]> = {};
     filteredBrands.forEach(b => {
-      const letter = b.firstLetter;
+      const letter = b.firstLetter.trim();
       if (!groups[letter]) groups[letter] = [];
       groups[letter].push(b);
     });
@@ -46,23 +46,17 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
     return { groups, sortedKeys };
   }, [filteredBrands]);
 
-  // 滚动到指定字母分组
-  const scrollToLetter = (letter: string) => {
-    const element = document.getElementById(`brand-${letter}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-white dark:bg-black z-50 flex flex-col overflow-hidden">
-      {/* 头部 */}
-      <div className="flex items-center gap-4 p-4">
-        <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
-          <ArrowLeft size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择品牌</h1>
-      </div>
+      {/* 头部：返回按钮带灰色圆框（默认可见） */}
+<div className="flex items-center p-4">
+  <button
+    onClick={onClose}
+    className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full"
+  >
+    <ArrowLeft size={20} className="text-gray-700 dark:text-gray-300" />
+  </button>
+</div>
 
       {/* 搜索框 */}
       <div className="p-4">
@@ -73,59 +67,54 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
             placeholder="搜索品牌"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-xl text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-3xl text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
             autoFocus
           />
         </div>
       </div>
 
-      {/* 主内容区：品牌列表 + 右侧字母导航（整合在列表内） */}
-      <div className="flex-1 overflow-hidden">
-        {/* 品牌列表容器：相对定位，预留右侧空间给字母导航，滚动条在最右边 */}
-        <div className="relative h-full overflow-y-auto pr-10">
-          {/* 品牌列表内容 */}
-          <div className="p-4">
-            {grouped.sortedKeys.length === 0 ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 mt-8">未找到匹配的品牌</p >
-            ) : (
-              grouped.sortedKeys.map(letter => (
-                <div key={letter} id={`brand-${letter}`} className="mb-4">
-                  <div className="grid grid-cols-1 gap-2">
+      {/* 品牌列表 - 可滚动但滚动条隐藏 */}
+      <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="p-4">
+          {grouped.sortedKeys.length === 0 ? (
+            <p className="text-center text-gray-500 dark:text-gray-400 mt-8">未找到匹配的品牌</p >
+          ) : (
+            grouped.sortedKeys.map(letter => (
+              <div key={letter} id={`brand-${letter}`} className="mb-6">
+                {/* 分组标题 */}
+                <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                  {letter}
+                </div>
+                {/* 大背景框 */}
+                <div className="bg-gray-200 dark:bg-gray-950 rounded-3xl p-4">
+                  <div className="grid grid-cols-4 gap-4">
                     {grouped.groups[letter].map(brand => (
                       <button
                         key={brand.id}
                         onClick={() => onSelect(brand)}
-                        className="flex items-center gap-3 p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-left"
+                        className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors"
                       >
                         {brand.logoUrl ? (
-                          < img src={brand.logoUrl} alt={brand.name} className="w-6 h-6 object-contain" />
+                          <img
+                            src={brand.logoUrl}
+                            alt={brand.name}
+                            className="w-10 h-10 object-contain rounded-xl"
+                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                          />
                         ) : (
-                          <Car size={18} className="text-gray-700 dark:text-gray-200" />
+                          <div className="w-10 h-10 flex items-center justify-center">
+                            <Car size={24} className="text-gray-700 dark:text-gray-300" />
+                          </div>
                         )}
-                        <span className="text-base text-gray-900 dark:text-gray-100">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300 text-center line-clamp-2">
                           {brand.name}
                         </span>
                       </button>
                     ))}
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-
-          {/* 右侧垂直字母导航 - 绝对定位在预留空间内，不随滚动条移动 */}
-          {grouped.sortedKeys.length > 0 && (
-            <div className="absolute top-0 right-0 w-10 h-full flex flex-col items-center justify-start py-4 gap-1">
-              {grouped.sortedKeys.map(letter => (
-                <button
-                  key={letter}
-                  onClick={() => scrollToLetter(letter)}
-                  className="w-8 h-8 flex items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  {letter}
-                </button>
-              ))}
-            </div>
+              </div>
+            ))
           )}
         </div>
       </div>

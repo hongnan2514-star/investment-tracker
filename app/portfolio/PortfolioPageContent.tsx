@@ -88,6 +88,7 @@ export default function PortfolioPage() {
   const [cashName, setCashName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState<string>('');
   const [showIconPage, setShowIconPage] = useState(false);
+  const [realEstateQuantity, setRealEstateQuantity] = useState<string>('1');
   
   // 使用前过滤
   const slugify = (name: string): string => {
@@ -109,11 +110,33 @@ useEffect(() => {
 
 // 修改 carBrands 定义
 const carBrands: CarBrand[] = [
-  { id: 'audi', name: '奥迪', firstLetter: 'A', logoUrl: '/images/car_logos/奥迪.png' },
-  { id: 'BMW', name: 'BMW', firstLetter: 'B', logoUrl: '/images/car_logos/BMW.png' },
+  // A
+  { id: 'audi', name: 'Audi', firstLetter: 'A', logoUrl: '/images/car_logos/audi.png' },
+  { id: 'Aston Martin', name: 'Aston Martin', firstLetter: 'A', logoUrl: '/images/car_logos/Aston Martin.png' },
+  { id: 'AITO', name: 'AITO', firstLetter: 'A', logoUrl: '/images/car_logos/AITO.png' },
+  { id: 'AC-cars', name: 'AC-cars', firstLetter: 'A', logoUrl: '/images/car_logos/AC-cars.png' },
+  { id: 'ABARTC', name: 'ABARTH', firstLetter: 'A', logoUrl: '/images/car_logos/ABARTH.png' },
   { id: 'abt', name: 'ABT', firstLetter: 'A', logoUrl: '/images/car_logos/abt.png' },
   { id: 'ac-schnitzer', name: 'AC Schnitzer', firstLetter: 'A', logoUrl: '/images/car_logos/ac-schnitzer.png' },
-  { id: '阿尔法-罗密欧', name: '阿尔法-罗密欧', firstLetter:'A', logoUrl: '/images/car_logos/阿尔法-罗密欧.png' },
+  { id: 'Alfa Romeo', name: 'Alfa Romeo', firstLetter:'A', logoUrl: '/images/car_logos/Alfa Romeo.png' },
+  { id: 'AION', name: 'AION', firstLetter: 'A', logoUrl: '/images/car_logos/AION.png' },
+  { id: 'AEHRA', name: 'AEHRA', firstLetter: 'A', logoUrl: '/images/car_logos/AEHRA.png' },
+  { id: 'AEV robotics', name: 'AEV robotics', firstLetter: 'A', logoUrl: '/images/car_logos/AEV robotics.png' },
+  { id: 'AFEELA', name: 'AFEELA', firstLetter: 'A', logoUrl: '/images/car_logos/AFEELA.png' },
+  { id: 'Agile Automotive', name: 'Agile Automotive', firstLetter: 'A', logoUrl: '/images/car_logos/Agile Automotive.png' },
+  { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/AIM.png' },
+  { id: 'Alpha Motor', name: 'Alpha Motor', firstLetter: 'A', logoUrl: '/images/car_logos/Alpha Motor.png' },
+  { id: 'ALPINA', name: 'ALPINA', firstLetter: 'A', logoUrl: '/images/car_logos/ALPINA.png' },
+  { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/Alpine.png' },
+  { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/AM晓澳.png' },
+  { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/APEX.png' },
+  { id: 'apollo', name: 'apollo', firstLetter: 'A', logoUrl: '/images/car_logos/apollo.png' },
+  { id: 'ARASH', name: 'ARASH', firstLetter: 'A', logoUrl: '/images/car_logos/ARASH.png' },
+  
+  
+
+  // B
+  { id: 'BMW', name: 'BMW', firstLetter: 'B', logoUrl: '/images/car_logos/BMW.png' },
   { id: 'Porsche', name: 'Porsche', firstLetter:'P', logoUrl:'/images/car_logos/Porsche.png' },
   { id: '宾利', name: '宾利', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
   { id: ' Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
@@ -121,10 +144,15 @@ const carBrands: CarBrand[] = [
   { id: 'mercedes-benz', name: 'Mercedes-Benz', firstLetter: 'M', logoUrl: '/images/car_logos/Mercedes-Benz.png' },
   { id: 'Maybach', name: 'Maybach', firstLetter: 'M', logoUrl: '/images/car_logos/Maybach.png' },
   { id: 'Mclaren', name: ' Mclaren', firstLetter: 'M', logoUrl: '/images/car_logos/Mclaren.png' },
+  { id: 'MASERATI', name: ' MASERATI', firstLetter: 'M', logoUrl: '/images/car_logos/MASERATI.png' },
   { id: '克莱斯勒', name: '克莱斯勒', firstLetter:'K', logoUrl:'/images/car_logos/克莱斯勒.png' },
-  { id: '小米', name: '小米', firstLetter:'X', logoUrl:'/images/car_logos/小米.png' },
   { id: '理想', name: '理想', firstLetter:'L', logoUrl:'/images/car_logos/理想.png'},
   { id: '路虎', name: '路虎', firstLetter:'L', logoUrl:'/images/car_logos/路虎.png'},
+
+  // X
+  { id: '小米', name: '小米', firstLetter:'X', logoUrl:'/images/car_logos/小米.png' },
+  { id: '小鹏', name: '小鹏', firstLetter:'X', logoUrl:'/images/car_logos/小鹏.png' },
+  
   
 ];
 
@@ -398,9 +426,27 @@ const sortedAssets = useMemo(() => {
   }, [holdings, foundAsset?.price]);
 
   const handleMainCategoryClick = (category: MainCategory) => {
+  if (category === 'custom') {
+    // 直接进入现金添加页面
+    setSelectedAssetType('custom');
+    setView('search');
+    setSearchQuery('');
+    setFoundAsset(null);
+    setSearchError(null);
+    setHoldings("");
+    setPurchaseDate("");
+    setCostPrice("");
+    setCashName('');
+    setSelectedIcon('');
+    // 重置其他相关状态
+    setBrandsList([]);
+    setSelectedBrandId('');
+    setSelectedBrandName('');
+  } else {
     setSelectedMainCategory(category);
     setView('subCategories');
-  };
+  }
+};
 
   const handleAssetTypeClick = (type: AssetType) => {
     setSelectedAssetType(type);
@@ -429,6 +475,7 @@ const sortedAssets = useMemo(() => {
   setRealEstateName('');
   setRealEstateIncludeInChart(true);
   setRealEstateNotes('');
+  setRealEstateQuantity('1');
 }
 
 if (type === 'custom') {
@@ -438,17 +485,31 @@ if (type === 'custom') {
   };
 
   const handleBack = () => {
-    if (view === 'subCategories') {
+  if (view === 'subCategories') {
+    setView('categories');
+    setSelectedMainCategory(null);
+  } else if (view === 'search') {
+    if (selectedAssetType === 'custom') {
+      // 现金直接返回主菜单
       setView('categories');
       setSelectedMainCategory(null);
-    } else if (view === 'search') {
+      setSelectedAssetType(null);
+      // 重置现金表单
+      setCashName('');
+      setSelectedIcon('');
+    } else {
       setView('subCategories');
       setSelectedAssetType(null);
-      setFoundAsset(null);
-      setSearchQuery('');
-      setSearchError(null);
     }
-  };
+    // 重置所有搜索相关状态
+    setFoundAsset(null);
+    setSearchQuery('');
+    setSearchError(null);
+    setHoldings("");
+    setPurchaseDate("");
+    setCostPrice("");
+  }
+};
 
   // 加载汽车品牌列表
   const loadBrands = async () => {
@@ -681,22 +742,26 @@ if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Ko
 
   const handleAddRealEstateAsset = () => {
   const name = realEstateName.trim() || '不动产';
-  const price = parseFloat(holdings) || 0; // 使用 holdings 作为账户余额（单价）
-  const total = price; // 假设持有数量为1
-  const finalMarketValue = total;
+  const quantity = parseFloat(realEstateQuantity) || 1;
+  const pricePerUnit = parseFloat(holdings) || 0;
+  const total = quantity * pricePerUnit;
+  if (quantity <= 0 || pricePerUnit <= 0) {
+    alert('请输入有效的数量和单价');
+    return;
+  }
 
   const newAsset: Asset = {
     symbol: `REAL_ESTATE-${Date.now()}`,
     name: name,
-    price: price,
-    holdings: 1,
-    marketValue: finalMarketValue,
+    price: pricePerUnit,
+    holdings: quantity,
+    marketValue: total,
     currency: 'CNY',
     lastUpdated: new Date().toISOString(),
     type: 'real_estate',
     changePercent: 0,
     purchaseDate: purchaseDate || undefined,
-    costPrice: price, // 成本价就是买入时的价格
+    costPrice: pricePerUnit,
   };
 
   addAsset(newAsset);
@@ -704,12 +769,13 @@ if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Ko
 
   alert(`已添加房产资产: ${name}`);
 
-  // 重置状态并关闭菜单
+  // 重置状态
   setRealEstateName('');
   setRealEstateIncludeInChart(true);
   setRealEstateNotes('');
   setHoldings("");
   setPurchaseDate("");
+  setRealEstateQuantity('1');
   setView('categories');
   setSelectedMainCategory(null);
   setSelectedAssetType(null);
@@ -1087,7 +1153,7 @@ const renderCarForm = () => {
         </div>
 
         <div>
-          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价（万元）</label>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">买入价值</label>
           <input
             type="number"
             placeholder="20.00"
@@ -1096,7 +1162,6 @@ const renderCarForm = () => {
             onChange={(e) => setCostPrice(e.target.value)}
             step="0.01"
           />
-          <p className="text-xs text-gray-400 mt-1">单位：万元（CNY）</p >
         </div>
 
         <button
@@ -1133,22 +1198,6 @@ const renderRealEstateForm = () => (
       </div>
 
       <div className="space-y-4">
-        {/* 账户余额（单价） */}
-        <div>
-          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
-            资产总价
-          </label>
-          <input
-            type="number"
-            placeholder="0.00"
-            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
-            value={holdings}
-            onChange={(e) => setHoldings(e.target.value)}
-            step="0.01"
-            min="0"
-          />
-        </div>
-
         {/* 自定名称 */}
         <div>
           <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
@@ -1173,6 +1222,38 @@ const renderRealEstateForm = () => (
             className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
             value={purchaseDate}
             onChange={(e) => setPurchaseDate(e.target.value)}
+          />
+        </div>
+
+        {/* 持有数量 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
+            持有数量
+          </label>
+          <input
+            type="number"
+            placeholder="1"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={realEstateQuantity}
+            onChange={(e) => setRealEstateQuantity(e.target.value)}
+            step="1"
+            min="1"
+          />
+        </div>
+
+        {/* 单价 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">
+            持有价值
+          </label>
+          <input
+            type="number"
+            placeholder="0.00"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={holdings}
+            onChange={(e) => setHoldings(e.target.value)}
+            step="0.01"
+            min="0"
           />
         </div>
 
@@ -1214,7 +1295,7 @@ const renderRealEstateForm = () => (
     <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
       <button
         onClick={handleAddRealEstateAsset}
-        disabled={!holdings || parseFloat(holdings) <= 0}
+        disabled={!holdings || parseFloat(holdings) <= 0 || !realEstateQuantity || parseFloat(realEstateQuantity) <= 0}
         className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
       >
         确认添加
@@ -1347,7 +1428,7 @@ const renderSearch = () => {
       ref={scrollContainerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
-      className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
+      className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto overflow-x-hidden px-1"
     >
       <div className="flex items-center gap-4 mb-8">
         <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
@@ -1356,55 +1437,63 @@ const renderSearch = () => {
         <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">添加贵金属</h3>
       </div>
 
+
       {/* 选择贵金属下拉框 */}
       <div className="mb-6">
-        <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">选择贵金属</label>
-        <select
-          className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 mx-1"
-          value={foundAsset?.symbol || ''}
-          onChange={async (e) => {
-            const selectedSymbol = e.target.value;
-            if (!selectedSymbol) {
-              setFoundAsset(null);
-              return;
-            }
-            setIsLoadingMetal(true);
-            setMetalError(null);
-            setFoundAsset(null);
-            try {
-              const response = await fetch(`/api/search?symbol=${encodeURIComponent(selectedSymbol)}&type=metal`);
-              const data = await response.json();
-              if (!response.ok || !data.success) {
-                throw new Error(data.error || '获取贵金属数据失败');
-              }
-              setFoundAsset({
-                symbol: data.symbol,
-                name: data.name,
-                price: data.price,
-                changePercent: data.changePercent,
-                market: data.market || '贵金属',
-                currency: data.currency || 'CNY',
-                type: 'metal',
-                source: data.source,
-                logoUrl: undefined,
-              });
-              setHoldings("");
-              setPurchaseDate("");
-              setCostPrice("");
-              setMarketValue(null);
-            } catch (err: any) {
-              setMetalError(err.message);
-            } finally {
-              setIsLoadingMetal(false);
-            }
-          }}
-        >
-          <option value="">请选择贵金属</option>
-          {metalOptions.map(metal => (
-            <option key={metal.symbol} value={metal.symbol}>{metal.name}</option>
-          ))}
-        </select>
-      </div>
+  <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">选择贵金属</label>
+  <div className="relative">
+    <select
+      className="w-full bg-gray-50 dark:bg-[#1a1a1a] px-3 py-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
+      value={foundAsset?.symbol || ''}
+      onChange={async (e) => {
+        const selectedSymbol = e.target.value;
+        if (!selectedSymbol) {
+          setFoundAsset(null);
+          return;
+        }
+        setIsLoadingMetal(true);
+        setMetalError(null);
+        setFoundAsset(null);
+        try {
+          const response = await fetch(`/api/search?symbol=${encodeURIComponent(selectedSymbol)}&type=metal`);
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || '获取贵金属数据失败');
+          }
+          setFoundAsset({
+            symbol: data.symbol,
+            name: data.name,
+            price: data.price,
+            changePercent: data.changePercent,
+            market: data.market || '贵金属',
+            currency: data.currency || 'CNY',
+            type: 'metal',
+            source: data.source,
+            logoUrl: undefined,
+          });
+          setHoldings("");
+          setPurchaseDate("");
+          setCostPrice("");
+          setMarketValue(null);
+        } catch (err: any) {
+          setMetalError(err.message);
+        } finally {
+          setIsLoadingMetal(false);
+        }
+      }}
+    >
+      <option value="">请选择贵金属</option>
+      {metalOptions.map(metal => (
+        <option key={metal.symbol} value={metal.symbol}>{metal.name}</option>
+      ))}
+    </select>
+    {/* 自定义箭头，调整 right 值控制水平位置 */}
+    <ChevronDown
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+      size={20}
+    />
+  </div>
+</div>
 
       {/* 加载中状态 */}
       {isLoadingMetal && (
@@ -1423,7 +1512,8 @@ const renderSearch = () => {
 
       {/* 如果已选择贵金属且加载完成，显示卡片 */}
       {foundAsset && !isLoadingMetal && (
-        <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
+        <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300 -mx-0.5">
+          {/* 卡片内容保持不变 */}
           <div className="flex flex-col gap-2 mb-6">
             <div className="flex items-center gap-2">
               <span className="bg-blue-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
