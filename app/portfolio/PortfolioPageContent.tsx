@@ -971,13 +971,24 @@ if (newAsset.type === 'stock' || newAsset.type === 'etf') {
 );
 
 // 可选的图标列表：文件名和显示名称
-const paymentIcons = [
+const networkIcons = [
   { name: '支付宝', file: 'alipay.png' },
-  { name: '微信支付', file: 'wechat.png' },
-  { name: 'Apple Pay', file: 'applepay.png' },
+  { name: '微信', file: 'wechat.png' },
+  { name: 'Apple', file: 'applepay.png' },
   { name: 'PayPal', file: 'paypal.png' },
   { name: 'e-CNY', file: 'e-CNY.png' },
-  // 可根据实际存在的文件增减
+];
+
+// 银行账户图标（根据你的实际文件调整）
+const bankIcons = [
+  { name: 'ICBC', file: 'icbc.png' },
+];
+const allIcons = [...networkIcons, ...bankIcons];
+
+// 图标分组
+const iconGroups = [
+  { title: '网络账户', icons: networkIcons },
+  { title: '银行帐户', icons: bankIcons },
 ];
 
 const renderCarForm = () => {
@@ -1257,8 +1268,8 @@ const renderCashForm = () => (
         <Banknote size={20} className="text-gray-500" />
       )}
       <span className="truncate">
-        {selectedIcon ? paymentIcons.find(i => i.file === selectedIcon)?.name || '已选择' : '点击选择图标'}
-      </span>
+  {selectedIcon ? allIcons.find(i => i.file === selectedIcon)?.name || '已选择' : '点击选择图标'}
+</span>
     </div>
     <ChevronDown size={20} className="text-gray-500 flex-shrink-0" />
   </button>
@@ -1802,157 +1813,184 @@ if (selectedAssetType === 'custom') {
       {/* 资产卡片列表 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filteredAndSortedAssets.length > 0 ? (
-          filteredAndSortedAssets.map(asset => {
-            const profitLossColor = getProfitLossColor(asset);
-            const profitLossSmallColor = getProfitLossSmallColor(asset);
-            let displayPercent = Number(asset.changePercent) || 0;
-            let displayPercentSign = displayPercent > 0 ? '+' : '';
-            if (asset.costPrice && asset.costPrice > 0) {
-              const calculatedPercent = ((Number(asset.price) - Number(asset.costPrice)) / Number(asset.costPrice)) * 100;
-              displayPercent = calculatedPercent;
-              displayPercentSign = calculatedPercent > 0 ? '+' : '';
-            }
+  filteredAndSortedAssets.map(asset => {
+    const profitLossColor = getProfitLossColor(asset);
+    const profitLossSmallColor = getProfitLossSmallColor(asset);
+    let displayPercent = Number(asset.changePercent) || 0;
+    let displayPercentSign = displayPercent > 0 ? '+' : '';
+    if (asset.costPrice && asset.costPrice > 0) {
+      const calculatedPercent = ((Number(asset.price) - Number(asset.costPrice)) / Number(asset.costPrice)) * 100;
+      displayPercent = calculatedPercent;
+      displayPercentSign = calculatedPercent > 0 ? '+' : '';
+    }
 
-            const cachedLogo = getCachedLogo(asset.symbol);
-            const logoSrc = cachedLogo || asset.logoUrl;
+    const cachedLogo = getCachedLogo(asset.symbol);
+    const logoSrc = cachedLogo || asset.logoUrl;
 
-            return (
-              <div
-                key={asset.symbol}
-                onClick={() => openAssetDetail(asset.symbol)}
-                className="cursor-pointer"
-              >
-                <div className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all cursor-pointer">
-                  <div className="flex justify-between items-start gap-1.5">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="flex-shrink-0">
-                        {(() => {
-                          const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
-                          const code = isAStock ? asset.symbol.split('.')[0] : null;
-                          const cachedLogo = getCachedLogo(asset.symbol);
+    // 判断是否为需要简化显示的资产类型
+    const isSimpleAsset = ['car', 'custom'].includes(asset.type);
 
-                          if (isAStock && code) {
-                            const localPath = `/images/company_logos/${code}.png`;
-                            return (
-                              <img
-                                src={localPath}
-                                alt={asset.name}
-                                className="w-6 h-6 object-contain rounded-lg"
-                                onError={(e) => (e.currentTarget.style.display = 'none')}
-                              />
-                            );
-                          }
+    return (
+      <div
+        key={asset.symbol}
+        onClick={() => openAssetDetail(asset.symbol)}
+        className="cursor-pointer"
+      >
+        <div className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all cursor-pointer">
+          <div className="flex justify-between items-start gap-1.5">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex-shrink-0">
+                {(() => {
+                  const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
+                  const code = isAStock ? asset.symbol.split('.')[0] : null;
+                  const cachedLogo = getCachedLogo(asset.symbol);
 
-                          if (cachedLogo || asset.logoUrl) {
-                            return (
-                              <img
-                                src={cachedLogo || asset.logoUrl}
-                                alt={asset.name}
-                                className="w-6 h-6 object-contain rounded-lg"
-                                onError={(e) => (e.currentTarget.style.display = 'none')}
-                              />
-                            );
-                          }
+                  if (isAStock && code) {
+                    const localPath = `/images/company_logos/${code}.png`;
+                    return (
+                      <img
+                        src={localPath}
+                        alt={asset.name}
+                        className="w-6 h-6 object-contain rounded-lg"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                      />
+                    );
+                  }
 
-                          if (asset.type === 'car') return <Car size={16} className="text-gray-700 dark:text-gray-200" />;
-                          if (asset.type === 'stock') return <Zap size={16} className="text-gray-700 dark:text-gray-200" />;
-                          if (asset.type === 'metal') {
-                            return asset.symbol && asset.symbol.includes('Ag') ? (
-                              <img src={`/icons/silver-bar-${theme}.png`} alt="Silver" className="w-6 h-6 object-contain rounded-lg" />
-                            ) : (
-                              <img src={`/icons/gold-bar-${theme}.png`} alt="Gold" className="w-6 h-6 object-contain rounded-lg" />
-                            );
-                          }
-                          if (asset.type === 'real_estate') return <Hotel size={16} className="text-gray-700 dark:text-gray-200" />;
-                          if (asset.type === 'custom') {
-                            return (
-                              <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                                <Banknote size={16} className="text-gray-700 dark:text-gray-200" />
-                              </div>
-                            );
-                          }
-                          return <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />;
-                        })()}
+                  if (cachedLogo || asset.logoUrl) {
+                    return (
+                      <img
+                        src={cachedLogo || asset.logoUrl}
+                        alt={asset.name}
+                        className="w-6 h-6 object-contain rounded-lg"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                      />
+                    );
+                  }
+
+                  if (asset.type === 'car') return <Car size={16} className="text-gray-700 dark:text-gray-200" />;
+                  if (asset.type === 'stock') return <Zap size={16} className="text-gray-700 dark:text-gray-200" />;
+                  if (asset.type === 'metal') {
+                    return asset.symbol && asset.symbol.includes('Ag') ? (
+                      < img src={`/icons/silver-bar-${theme}.png`} alt="Silver" className="w-6 h-6 object-contain rounded-lg" />
+                    ) : (
+                      < img src={`/icons/gold-bar-${theme}.png`} alt="Gold" className="w-6 h-6 object-contain rounded-lg" />
+                    );
+                  }
+                  if (asset.type === 'real_estate') return <Hotel size={16} className="text-gray-700 dark:text-gray-200" />;
+                  if (asset.type === 'custom') {
+                    return (
+                      <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                        <Banknote size={16} className="text-gray-700 dark:text-gray-200" />
                       </div>
-                      <div className="text-left min-w-0 flex-1">
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
-                          {asset.name}
-                        </h4>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={asset.symbol}>
-                          {asset.type === 'real_estate' || asset.type === 'car' ? (
-                            (() => {
-                              const lastDashIndex = asset.symbol.lastIndexOf('-');
-                              if (lastDashIndex !== -1) {
-                                const timestampStr = asset.symbol.substring(lastDashIndex + 1);
-                                const timestamp = parseInt(timestampStr, 10);
-                                if (!isNaN(timestamp)) {
-                                  const date = new Date(timestamp);
-                                  if (!isNaN(date.getTime())) {
-                                    return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-                                  }
-                                }
-                              }
-                              return asset.symbol;
-                            })()
-                          ) : (
-                            asset.symbol
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 max-w-[90px]">
-                      <p className={`text-base font-black truncate ${profitLossColor}`} title={`${asset.marketValue.toFixed(2)}`}>
-                        {formatLargeNumber(asset.marketValue)}
-                      </p>
-                      {displayPercent !== 0 && (
-                        <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
-                          {displayPercentSign}{displayPercent.toFixed(2)}%
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex justify-end mt-0.5">
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${asset.holdings.toFixed(2)}份`}>
-                      {asset.holdings.toFixed(2)}份
-                    </p>
-                  </div>
-                  <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
-                    <div className="flex items-center gap-1 min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
-                        {asset.costPrice ? '市价/成本' : '市价'}
-                      </p>
-                      {asset.costPrice ? (
-                        <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${Number(asset.price).toFixed(2)} / ${Number(asset.costPrice).toFixed(2)}`}>
-                          {Number(asset.price).toFixed(2)} / {Number(asset.costPrice).toFixed(2)}
-                        </p>
-                      ) : (
-                        <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${Number(asset.price).toFixed(2)}`}>
-                          {Number(asset.price).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteAsset(asset.symbol);
-                      }}
-                      className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
-                    >
-                      删除
-                    </button>
-                  </div>
-                </div>
+                    );
+                  }
+                  return <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />;
+                })()}
               </div>
-            );
-          })
-        ) : (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
-              点击右下方加号开始追踪您的投资
-            </p>
+              <div className="text-left min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
+                  {asset.name}
+                </h4>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={asset.symbol}>
+                  {asset.type === 'real_estate' || asset.type === 'car' ? (
+                    (() => {
+                      const lastDashIndex = asset.symbol.lastIndexOf('-');
+                      if (lastDashIndex !== -1) {
+                        const timestampStr = asset.symbol.substring(lastDashIndex + 1);
+                        const timestamp = parseInt(timestampStr, 10);
+                        if (!isNaN(timestamp)) {
+                          const date = new Date(timestamp);
+                          if (!isNaN(date.getTime())) {
+                            return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+                          }
+                        }
+                      }
+                      return asset.symbol;
+                    })()
+                  ) : (
+                    asset.symbol
+                  )}
+                </p >
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0 max-w-[90px]">
+              <p className={`text-base font-black truncate ${profitLossColor}`} title={`${asset.marketValue.toFixed(2)}`}>
+                {formatLargeNumber(asset.marketValue)}
+              </p >
+              {displayPercent !== 0 && (
+                <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
+                  {displayPercentSign}{displayPercent.toFixed(2)}%
+                </p >
+              )}
+            </div>
           </div>
-        )}
+
+          {/* 仅非简单资产显示份额 */}
+          {!isSimpleAsset && (
+            <div className="flex justify-end mt-0.5">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${asset.holdings.toFixed(2)}份`}>
+                {asset.holdings.toFixed(2)}份
+              </p >
+            </div>
+          )}
+
+          {/* 仅非简单资产显示市价/成本行 */}
+          {!isSimpleAsset && (
+            <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
+              <div className="flex items-center gap-1 min-w-0 flex-1">
+                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
+                  {asset.costPrice ? '市价/成本' : '市价'}
+                </p >
+                {asset.costPrice ? (
+                  <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${Number(asset.price).toFixed(2)} / ${Number(asset.costPrice).toFixed(2)}`}>
+                    {Number(asset.price).toFixed(2)} / {Number(asset.costPrice).toFixed(2)}
+                  </p >
+                ) : (
+                  <p className="text-xs font-bold truncate text-gray-900 dark:text-gray-100" title={`${Number(asset.price).toFixed(2)}`}>
+                    {Number(asset.price).toFixed(2)}
+                  </p >
+                )}
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteAsset(asset.symbol);
+                }}
+                className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
+              >
+                删除
+              </button>
+            </div>
+          )}
+
+          {/* 简单资产（现金、不动产、汽车）只保留删除按钮，无市价/成本行 */}
+          {isSimpleAsset && (
+            <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-end">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteAsset(asset.symbol);
+                }}
+                className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline"
+              >
+                删除
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  })
+) : (
+  // 空状态保持不变
+  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
+    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
+    <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
+      点击右下方加号开始追踪您的投资
+    </p >
+  </div>
+)}
       </div>
 
       {/* 菜单浮层 */}
@@ -2055,12 +2093,12 @@ if (selectedAssetType === 'custom') {
       />
     )}
     {showIconPage && (
-      <IconSelector
-        icons={paymentIcons}
-        onSelect={(iconFile) => setSelectedIcon(iconFile)}
-        onClose={() => setShowIconPage(false)}
-      />
-    )}
+  <IconSelector
+    groups={iconGroups}
+    onSelect={(iconFile) => setSelectedIcon(iconFile)}
+    onClose={() => setShowIconPage(false)}
+  />
+)}
     <AssetDetailDrawer
       symbol={selectedAssetSymbol}
       isOpen={isDetailOpen}
