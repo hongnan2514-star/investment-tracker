@@ -52,7 +52,7 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
 <div className="flex items-center p-4">
   <button
     onClick={onClose}
-    className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full"
+    className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full"
   >
     <ArrowLeft size={20} className="text-gray-700 dark:text-gray-300" />
   </button>
@@ -67,7 +67,7 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
             placeholder="搜索品牌"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-200 dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-3xl text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-3xl text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
             autoFocus
           />
         </div>
@@ -86,7 +86,7 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
                   {letter}
                 </div>
                 {/* 大背景框 */}
-                <div className="bg-gray-200 dark:bg-gray-950 rounded-3xl p-4">
+                <div className="bg-gray-100 dark:bg-gray-950 rounded-3xl p-4">
                   <div className="grid grid-cols-4 gap-4">
                     {grouped.groups[letter].map(brand => (
                       <button
