@@ -114,7 +114,7 @@ const carBrands: CarBrand[] = [
   { id: 'audi', name: 'Audi', firstLetter: 'A', logoUrl: '/images/car_logos/audi.png' },
   { id: 'Aston Martin', name: 'Aston Martin', firstLetter: 'A', logoUrl: '/images/car_logos/Aston Martin.png' },
   { id: 'AITO', name: 'AITO', firstLetter: 'A', logoUrl: '/images/car_logos/AITO.png' },
-  { id: 'AC cars', name: 'AC cars', firstLetter: 'A', logoUrl: '/images/car_logos/AC- ars.png' },
+  { id: 'AC', name: 'AC', firstLetter: 'A', logoUrl: '/images/car_logos/AC.png' },
   { id: 'ABARTC', name: 'ABARTH', firstLetter: 'A', logoUrl: '/images/car_logos/ABARTH.png' },
   { id: 'abt', name: 'ABT', firstLetter: 'A', logoUrl: '/images/car_logos/abt.png' },
   { id: 'ac-schnitzer', name: 'AC Schnitzer', firstLetter: 'A', logoUrl: '/images/car_logos/ac-schnitzer.png' },
@@ -1048,6 +1048,9 @@ const networkIcons = [
 // 银行账户图标（根据你的实际文件调整）
 const bankIcons = [
   { name: 'ICBC', file: 'icbc.png' },
+  { name: 'ABC', file: 'abc.png'},
+  { name: 'BOC', file: 'boc.png'},
+  { name: 'CCB', file: 'ccb.png'},
 ];
 const allIcons = [...networkIcons, ...bankIcons];
 
