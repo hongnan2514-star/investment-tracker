@@ -12,7 +12,7 @@ interface Props {
   totalValue: number;
   currencySymbol: string;
   todayProfit: number;
-  onClose: () => void; // 新增关闭函数
+  onClose: () => void;
 }
 
 export default function ExpandedChart({ totalValue, currencySymbol, todayProfit, onClose }: Props) {
@@ -147,33 +147,32 @@ export default function ExpandedChart({ totalValue, currencySymbol, todayProfit,
         )}
       </div>
 
-      {/* 周期按钮行 - 增加间距 */}
-      <div className="flex justify-center gap-6 mt-4">
-        {(['1D', '1W', '1M', '6M'] as Period[]).map(p => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            className={`px-4 py-2 text-sm font-bold transition rounded-full ${
-              period === p
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            {periodLabels[p]}
-          </button>
-        ))}
-      </div>
-
-      {/* 朝上的箭头按钮（位于1周和1月之间下方） */}
-      <div className="flex justify-center mt-4">
-  <button
-    onClick={onClose}
-    className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-    aria-label="收起"
-  >
-    <ChevronUp size={20} />
-  </button>
+      {/* 周期按钮 - 等宽均匀排列 */}
+      <div className="flex justify-between gap-2 mt-4">
+  {(['1D', '1W', '1M', '6M'] as Period[]).map(p => (
+    <button
+      key={p}
+      onClick={() => setPeriod(p)}
+      className={`px-3 py-1.5 text-sm font-bold transition rounded-full ${
+        period === p
+          ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+          : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+      }`}
+    >
+      {periodLabels[p]}
+    </button>
+  ))}
 </div>
+      {/* 朝上的箭头按钮 */}
+      <div className="flex justify-center mt-4">
+        <button
+          onClick={onClose}
+          className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+          aria-label="收起"
+        >
+          <ChevronUp size={20} />
+        </button>
+      </div>
     </div>
   );
 }

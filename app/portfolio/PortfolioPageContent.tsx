@@ -127,21 +127,18 @@ const carBrands: CarBrand[] = [
   { id: 'ac-schnitzer', name: 'AC Schnitzer', firstLetter: 'A', logoUrl: '/images/car_logos/ac-schnitzer.png' },
   { id: 'Alfa Romeo', name: 'Alfa Romeo', firstLetter:'A', logoUrl: '/images/car_logos/Alfa Romeo.png' },
   { id: 'AION', name: 'AION', firstLetter: 'A', logoUrl: '/images/car_logos/AION.png' },
-  { id: 'AEHRA', name: 'AEHRA', firstLetter: 'A', logoUrl: '/images/car_logos/AEHRA.png' },
+  { id: 'AEHRA', name: 'AEHRA', firstLetter: 'A', logoUrl: '/images/car_logos/aehra.png' },
   { id: 'AEV robotics', name: 'AEV robotics', firstLetter: 'A', logoUrl: '/images/car_logos/AEV robotics.png' },
   { id: 'AFEELA', name: 'AFEELA', firstLetter: 'A', logoUrl: '/images/car_logos/AFEELA.png' },
   { id: 'Agile Automotive', name: 'Agile Automotive', firstLetter: 'A', logoUrl: '/images/car_logos/Agile Automotive.png' },
   { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/AIM.png' },
   { id: 'Alpha Motor', name: 'Alpha Motor', firstLetter: 'A', logoUrl: '/images/car_logos/Alpha Motor.png' },
-  { id: 'alpina', name: 'alpina', firstLetter: 'A', logoUrl: 'images/car_logos/alpina.png' },
+  { id: 'Alpina', name: 'Alpina', firstLetter: 'A', logoUrl: 'images/car_logos/Alpina1.png' },
   { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/Alpine.png' },
   { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/AM晓澳.png' },
   { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/APEX.png' },
   { id: 'apollo', name: 'apollo', firstLetter: 'A', logoUrl: '/images/car_logos/apollo.png' },
   { id: 'ARASH', name: 'ARASH', firstLetter: 'A', logoUrl: '/images/car_logos/ARASH.png' },
-  
- 
-  
 
   // B
   { id: 'BMW', name: 'BMW', firstLetter: 'B', logoUrl: '/images/car_logos/BMW.png' },
