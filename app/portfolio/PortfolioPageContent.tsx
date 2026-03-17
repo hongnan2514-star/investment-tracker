@@ -133,7 +133,7 @@ const carBrands: CarBrand[] = [
   { id: 'Agile Automotive', name: 'Agile Automotive', firstLetter: 'A', logoUrl: '/images/car_logos/Agile Automotive.png' },
   { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/AIM.png' },
   { id: 'Alpha Motor', name: 'Alpha Motor', firstLetter: 'A', logoUrl: '/images/car_logos/Alpha Motor.png' },
-  { id: 'ALPINA', name: 'ALPINA', firstLetter: 'A', logoUrl: 'images/car_logos/ALPINA.png' },
+  { id: 'alpina', name: 'alpina', firstLetter: 'A', logoUrl: 'images/car_logos/alpina.png' },
   { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/Alpine.png' },
   { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/AM晓澳.png' },
   { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/APEX.png' },
@@ -741,7 +741,7 @@ if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Ko
       price: price,
       holdings: holdingsNum,
       marketValue: finalMarketValue,
-      currency: 'CNY',
+      currency: currency,
       lastUpdated: new Date().toISOString(),
       type: 'car',
       changePercent: 0,
@@ -783,7 +783,7 @@ if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Ko
     price: pricePerUnit,
     holdings: quantity,
     marketValue: total,
-    currency: 'CNY',
+    currency: currency,
     lastUpdated: new Date().toISOString(),
     type: 'real_estate',
     changePercent: 0,
@@ -823,7 +823,7 @@ const handleAddCashAsset = () => {
     price: amount,
     holdings: 1,
     marketValue: amount,
-    currency: 'CNY',
+    currency: currency,
     lastUpdated: new Date().toISOString(),
     type: 'custom',
     changePercent: 0,
@@ -873,7 +873,7 @@ const handleAddCustomAsset = () => {
     price: finalAmount,
     holdings: 1,
     marketValue: finalAmount,
-    currency: 'CNY',
+    currency: currency,
     lastUpdated: new Date().toISOString(),
     type: customAssetType,
     changePercent: 0,
@@ -1452,7 +1452,6 @@ const renderCashForm = () => (
             step="0.01"
             min="0"
           />
-          <p className="text-xs text-gray-400 mt-1">单位：CNY</p >
         </div>
 
         {/* 存入日期 */}
@@ -1575,7 +1574,6 @@ const renderCustomAssetForm = () => (
             step="0.01"
             min="0"
           />
-          <p className="text-xs text-gray-400 mt-1">单位：CNY</p >
         </div>
 
         {/* 订单时间 */}

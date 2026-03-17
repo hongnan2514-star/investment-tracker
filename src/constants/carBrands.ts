@@ -31,6 +31,7 @@ const getFirstLetter = (name: string): string => {
 const rawBrands: { name: string }[] = [
   { name: '阿尔法-罗密欧'},
   { name: '奥迪AUDI' },
+  { name: 'alpina' },
 
   // B 组
   { name: 'BAC' },
