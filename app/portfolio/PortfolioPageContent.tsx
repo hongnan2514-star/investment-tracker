@@ -6,7 +6,7 @@ import {  // 图标
   Plus, Zap, Home, BarChart3, Hotel, X, ChevronRight, Search,
   Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2,
   PieChart, Bitcoin, Activity, Car, Blocks, MoreVertical, ChevronDown, ListFilterPlus,
-  Banknote
+  Banknote, Receipt
 } from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { Asset } from '@/src/constants/types';
@@ -37,7 +37,8 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   metal: { name: '贵金属', color: '#f59e0b' },
   car: { name: '车辆', color: '#06b6d4' },
   real_estate: { name: '不动产', color: '#f97316' },
-  custom: { name: '自定义', color: '#6b7280' }
+  receivable: { name: '应收款', color: '#9b59b6'},
+  custom_asset: { name: '自定义', color: '#95a5a6' },
 };
 
 interface FoundAsset {
@@ -53,7 +54,7 @@ interface FoundAsset {
 }
 
 type MainCategory = 'liquid' | 'fixed' | 'custom' | null;
-type AssetType = 'stock' | 'etf' | 'fund' | 'real_estate' | 'custom' | 'crypto' | 'car' | 'metal' | null;
+type AssetType = 'stock' | 'etf' | 'fund' | 'real_estate' | 'custom' | 'crypto' | 'car' | 'metal' | 'receivable' | 'custom_asset' | null;
 
 export default function PortfolioPage() {
   const [showMenu, setShowMenu] = useState(false);
@@ -89,6 +90,14 @@ export default function PortfolioPage() {
   const [selectedIcon, setSelectedIcon] = useState<string>('');
   const [showIconPage, setShowIconPage] = useState(false);
   const [realEstateQuantity, setRealEstateQuantity] = useState<string>('1');
+  const [customAssetType, setCustomAssetType] = useState<string>('stock');          // 选择的子类型
+  const [customAssetName, setCustomAssetName] = useState<string>('');
+  const [customAssetAmount, setCustomAssetAmount] = useState<string>('');
+  const [customAssetOrderDate, setCustomAssetOrderDate] = useState<string>('');
+  const [customAssetNotes, setCustomAssetNotes] = useState<string>('');
+  const [customAssetIncludeInChart, setCustomAssetIncludeInChart] = useState<boolean>(true);
+  const [customAssetIcon, setCustomAssetIcon] = useState<string>('');
+  const [showCustomIconPage, setShowCustomIconPage] = useState(false);
   
   // 使用前过滤
   const slugify = (name: string): string => {
@@ -115,7 +124,7 @@ const carBrands: CarBrand[] = [
   { id: 'Aston Martin', name: 'Aston Martin', firstLetter: 'A', logoUrl: '/images/car_logos/Aston Martin.png' },
   { id: 'AITO', name: 'AITO', firstLetter: 'A', logoUrl: '/images/car_logos/AITO.png' },
   { id: 'AC', name: 'AC', firstLetter: 'A', logoUrl: '/images/car_logos/AC.png' },
-  { id: 'ABARTC', name: 'ABARTH', firstLetter: 'A', logoUrl: '/images/car_logos/ABARTH.png' },
+  { id: 'Abarth', name: 'Abarth', firstLetter: 'A', logoUrl: '/images/car_logos/abarth1.png' },
   { id: 'abt', name: 'ABT', firstLetter: 'A', logoUrl: '/images/car_logos/abt.png' },
   { id: 'ac-schnitzer', name: 'AC Schnitzer', firstLetter: 'A', logoUrl: '/images/car_logos/ac-schnitzer.png' },
   { id: 'Alfa Romeo', name: 'Alfa Romeo', firstLetter:'A', logoUrl: '/images/car_logos/Alfa Romeo.png' },
@@ -133,6 +142,7 @@ const carBrands: CarBrand[] = [
   { id: 'apollo', name: 'apollo', firstLetter: 'A', logoUrl: '/images/car_logos/apollo.png' },
   { id: 'ARASH', name: 'ARASH', firstLetter: 'A', logoUrl: '/images/car_logos/ARASH.png' },
   
+ 
   
 
   // B
@@ -141,10 +151,13 @@ const carBrands: CarBrand[] = [
   { id: '宾利', name: '宾利', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
   { id: ' Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
   { id: '劳斯莱斯', name: '劳斯莱斯', firstLetter:' L', logoUrl:'/images/car_logos/劳斯莱斯.png' },
+
+  // M
   { id: 'mercedes-benz', name: 'Mercedes-Benz', firstLetter: 'M', logoUrl: '/images/car_logos/Mercedes-Benz.png' },
   { id: 'Maybach', name: 'Maybach', firstLetter: 'M', logoUrl: '/images/car_logos/Maybach.png' },
   { id: 'Mclaren', name: ' Mclaren', firstLetter: 'M', logoUrl: '/images/car_logos/Mclaren.png' },
-  { id: 'MASERATI', name: ' MASERATI', firstLetter: 'M', logoUrl: '/images/car_logos/MASERATI.png' },
+  { id: 'MASERATI', name: 'MASERATI', firstLetter: 'M', logoUrl: '/images/car_logos/MANSORY.png' },
+  { id: 'MANSORY', name: 'MANSORY', firstLetter: 'M', logoUrl: '/images/car_logos/Mclaren.png' },
   { id: '克莱斯勒', name: '克莱斯勒', firstLetter:'K', logoUrl:'/images/car_logos/克莱斯勒.png' },
   { id: '理想', name: '理想', firstLetter:'L', logoUrl:'/images/car_logos/理想.png'},
   { id: '路虎', name: '路虎', firstLetter:'L', logoUrl:'/images/car_logos/路虎.png'},
@@ -497,7 +510,20 @@ if (type === 'custom') {
       // 重置现金表单
       setCashName('');
       setSelectedIcon('');
-    } else {
+    } else if (selectedAssetType === 'custom_asset') {
+      setView('categories');
+  setSelectedMainCategory(null);
+  setSelectedAssetType(null);
+  // 重置自定义资产表单
+  setCustomAssetType('stock');
+  setCustomAssetName('');
+  setCustomAssetAmount('');
+  setCustomAssetOrderDate('');
+  setCustomAssetNotes('');
+  setCustomAssetIncludeInChart(true);
+  setCustomAssetIcon('');
+    }
+      else {
       setView('subCategories');
       setSelectedAssetType(null);
     }
@@ -816,6 +842,54 @@ const handleAddCashAsset = () => {
   setHoldings("");
   setPurchaseDate("");
   setCostPrice("");
+  setView('categories');
+  setSelectedMainCategory(null);
+  setSelectedAssetType(null);
+  setShowMenu(false);
+};
+
+const handleAddCustomAsset = () => {
+  const name = customAssetName.trim();
+  const amount = parseFloat(customAssetAmount);
+  if (!name) {
+    alert('请输入资产名称');
+    return;
+  }
+  if (amount <= 0) {
+    alert('请输入有效的金额');
+    return;
+  }
+
+  const newAsset: Asset = {
+    symbol: `CUSTOM-${Date.now()}`,
+    name: name,
+    price: amount,
+    holdings: 1,
+    marketValue: amount,
+    currency: 'CNY',
+    lastUpdated: new Date().toISOString(),
+    type: customAssetType,
+    changePercent: 0,
+    purchaseDate: customAssetOrderDate || undefined,
+    costPrice: amount,
+    logoUrl: customAssetIcon ? `/icons/payment/${customAssetIcon}` : undefined,
+    notes: customAssetNotes || undefined,        // 直接赋值
+    includeInChart: customAssetIncludeInChart,   // 直接赋值
+  };
+
+  addAsset(newAsset);
+  setAssets(getAssets());
+
+  alert(`已添加自定义资产: ${name}`);
+
+  // 重置状态
+  setCustomAssetType('stock');
+  setCustomAssetName('');
+  setCustomAssetAmount('');
+  setCustomAssetOrderDate('');
+  setCustomAssetNotes('');
+  setCustomAssetIncludeInChart(true);
+  setCustomAssetIcon('');
   setView('categories');
   setSelectedMainCategory(null);
   setSelectedAssetType(null);
@@ -1403,6 +1477,162 @@ const renderCashForm = () => (
   </div>
 );
 
+// 资产子类型选项（用于下拉框）
+const assetTypeOptions = [
+  { value: 'stock', label: '股票' },
+  { value: 'fund', label: '基金' },
+  { value: 'crypto', label: '加密货币' },
+  { value: 'metal', label: '贵金属' },
+  { value: 'real_estate', label: '不动产' },
+  { value: 'car', label: '汽车' },
+  { value: 'custom', label: '现金' },
+  { value: 'receivable', label: '应收款' },
+  { value: 'custom_asset', label: '自定义资产类型' },
+];
+
+const renderCustomAssetForm = () => (
+  <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
+    <div className="flex flex-col gap-2 mb-6">
+      <div className="flex items-center gap-2">
+        <span className="bg-purple-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">
+          自定义资产
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {/* 资产类型选择 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">资产类型</label>
+          <select
+            value={customAssetType}
+            onChange={(e) => setCustomAssetType(e.target.value)}
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+          >
+            {assetTypeOptions.map(option => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 图标选择（按钮形式） */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">选择图标（可选）</label>
+          <button
+            onClick={() => setShowCustomIconPage(true)}
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-left text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              {customAssetIcon ? (
+                <img
+                  src={`/icons/payment/${customAssetIcon}`}
+                  alt=""
+                  className="w-6 h-6 object-contain rounded-lg"
+                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                />
+              ) : (
+                <Activity size={20} className="text-gray-500" />
+              )}
+              <span className="truncate">
+                {customAssetIcon ? allIcons.find(i => i.file === customAssetIcon)?.name || '已选择' : '点击选择图标'}
+              </span>
+            </div>
+            <ChevronDown size={20} className="text-gray-500 flex-shrink-0" />
+          </button>
+        </div>
+
+        {/* 资产名称 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">资产名称</label>
+          <input
+            type="text"
+            placeholder="例如 劳力士手表"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={customAssetName}
+            onChange={(e) => setCustomAssetName(e.target.value)}
+          />
+        </div>
+
+        {/* 金额 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">金额</label>
+          <input
+            type="number"
+            placeholder="0.00"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={customAssetAmount}
+            onChange={(e) => setCustomAssetAmount(e.target.value)}
+            step="0.01"
+            min="0"
+          />
+          <p className="text-xs text-gray-400 mt-1">单位：CNY</p >
+        </div>
+
+        {/* 订单时间 */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">订单时间</label>
+          <input
+            type="date"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 appearance-none"
+            value={customAssetOrderDate}
+            onChange={(e) => setCustomAssetOrderDate(e.target.value)}
+          />
+        </div>
+
+        {/* 备注（可选） */}
+        <div>
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">备注</label>
+          <input
+            type="text"
+            placeholder="可选"
+            className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500"
+            value={customAssetNotes}
+            onChange={(e) => setCustomAssetNotes(e.target.value)}
+          />
+        </div>
+
+        {/* 计入图表开关 */}
+        <div className="flex items-center justify-between">
+          <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">计入图表</label>
+          <button
+            onClick={() => setCustomAssetIncludeInChart(!customAssetIncludeInChart)}
+            className={`w-12 h-6 rounded-full transition-colors ${
+              customAssetIncludeInChart ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <div
+              className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                customAssetIncludeInChart ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+      <button
+        onClick={handleAddCustomAsset}
+        disabled={!customAssetName.trim() || !customAssetAmount || parseFloat(customAssetAmount) <= 0}
+        className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+      >
+        确认添加
+      </button>
+    </div>
+
+    {/* 图标选择弹层 */}
+    {showCustomIconPage && (
+      <IconSelector
+        groups={iconGroups}
+        onSelect={(iconFile) => {
+          setCustomAssetIcon(iconFile);
+          setShowCustomIconPage(false);
+        }}
+        onClose={() => setShowCustomIconPage(false)}
+      />
+    )}
+  </div>
+);
+
 const renderSearch = () => {
   // 汽车类型（保持原有逻辑）
   if (selectedAssetType === 'car') {
@@ -1640,6 +1870,25 @@ if (selectedAssetType === 'custom') {
         <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">添加现金</h3>
       </div>
       <div className="min-h-[200px]">{renderCashForm()}</div>
+    </div>
+  );
+}
+
+if (selectedAssetType === 'custom_asset') {
+  return (
+    <div
+      ref={scrollContainerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      className="flex flex-col animate-in fade-in slide-in-from-right duration-300 max-h-[70vh] overflow-y-auto"
+    >
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={handleBack} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500 dark:text-gray-300">
+          <ArrowLeft size={20} />
+        </button>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">添加自定义资产</h3>
+      </div>
+      <div className="min-h-[200px]">{renderCustomAssetForm()}</div>
     </div>
   );
 }
@@ -1978,6 +2227,8 @@ if (selectedAssetType === 'custom') {
                       </div>
                     );
                   }
+                  if (asset.type === 'receivable') return <Receipt size={16} className="text-gray-700 dark:text-gray-200" />;
+if (asset.type === 'custom_asset') return <Activity size={16} className="text-gray-700 dark:text-gray-200" />;
                   return <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />;
                 })()}
               </div>
@@ -2143,6 +2394,40 @@ if (selectedAssetType === 'custom') {
                 </div>
                 <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
               </button>
+              <button
+  onClick={() => {
+    setSelectedAssetType('custom_asset');
+    setView('search');
+    setSearchQuery('');
+    setFoundAsset(null);
+    setSearchError(null);
+    setHoldings("");
+    setPurchaseDate("");
+    setCostPrice("");
+    setCustomAssetType('stock');
+    setCustomAssetName('');
+    setCustomAssetAmount('');
+    setCustomAssetOrderDate('');
+    setCustomAssetNotes('');
+    setCustomAssetIncludeInChart(true);
+    setCustomAssetIcon('');
+    setBrandsList([]);
+    setSelectedBrandId('');
+    setSelectedBrandName('');
+  }}
+  className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"
+>
+  <div className="flex items-center gap-4">
+    <div className="bg-purple-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20">
+      <Activity size={24} />
+    </div>
+    <div className="text-left">
+      <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">自定义资产</p >
+      <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">收藏品、奢侈品、其他</p >
+    </div>
+  </div>
+  <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
+</button>
             </div>
           </>
         )}

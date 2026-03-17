@@ -1,3 +1,4 @@
+// src/constants/type.ts
 export interface Asset {
   symbol: string;
   name: string;
@@ -11,4 +12,6 @@ export interface Asset {
   logoUrl?: string;
   purchaseDate?: string;
   costPrice?: number;
+  notes?: string;
+  includeInChart?: boolean;
 }

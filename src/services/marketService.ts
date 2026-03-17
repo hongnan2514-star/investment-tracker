@@ -59,6 +59,11 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
   const priceMap = new Map();
 
   await Promise.all(validAssets.map(async (asset) => {
+
+    if (asset.symbol.startsWith('CUSTOM-')) {
+      return;
+    }
+    
     if (asset.type === 'crypto') {
       try {
         const res = await fetch(`/api/crypto/minute?symbol=${encodeURIComponent(asset.symbol)}&resolution=5m&limit=2`);
