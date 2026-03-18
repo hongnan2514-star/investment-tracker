@@ -9,15 +9,15 @@ import {
   saveCryptoHistory,
 } from '@/src/services/fundHistoryDB';
 import { fetchTiingoDailyHistory } from '../../data-sources/tiingo-stock';
+import { fetchYahooHistory } from '../../data-sources/yahoo-finance';
 import { fetchCryptoDailyHistory } from '../../data-sources/crypto-ccxt';
+import { StockPrice } from '@/src/services/fundHistoryDB';
 
 // 更新队列，只用于串行化，不关心返回值类型
 let updateQueue = Promise.resolve() as Promise<void>;
 
 async function enqueueUpdate<T>(fn: () => Promise<T>): Promise<T> {
-  // 等待当前队列完成，然后执行新任务，返回其结果
   const resultPromise = updateQueue.then(fn);
-  // 更新队列为忽略结果的新 Promise（仅用于串行化）
   updateQueue = resultPromise.then(() => {}).catch(() => {});
   return resultPromise;
 }
@@ -44,26 +44,49 @@ async function updateStockHistory(symbol: string): Promise<{ updated: boolean; c
         console.log(`[历史更新] 股票 ${symbol} 无历史数据，将拉取全量`);
       }
 
-      // 3. 从 Tiingo 拉取增量数据
-      const freshData = await fetchTiingoDailyHistory(symbol, sinceDate);
+      // 3. 先尝试 Tiingo
+      const tiingoData = await fetchTiingoDailyHistory(symbol, sinceDate);
+      let freshData: StockPrice[] | null = null;
+      if (tiingoData && tiingoData.length > 0) {
+        freshData = tiingoData.map(item => ({
+          symbol,
+          date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
+          open: item.open,
+          high: item.high,
+          low: item.low,
+          close: item.close,
+          volume: item.volume,
+        }));
+      } else {
+        // Tiingo 失败，判断是否为 A股或港股（需要雅虎后备）
+        const isAStock = symbol.includes('.SS') || symbol.includes('.SZ');
+        const isHKStock = symbol.includes('.HK') || /^\d{4,5}$/.test(symbol);
+        if (isAStock || isHKStock) {
+          console.log(`[历史更新] Tiingo 获取日线失败，尝试雅虎后备: ${symbol}`);
+          const yahooData = await fetchYahooHistory(symbol, 365 * 5);
+          if (yahooData && yahooData.length > 0) {
+            if (sinceDate) {
+              const sinceTimestamp = new Date(sinceDate).getTime();
+              freshData = yahooData.filter(item => new Date(item.date).getTime() >= sinceTimestamp);
+            } else {
+              freshData = yahooData;
+            }
+          }
+        } else {
+          // 美股等其他市场，不尝试雅虎后备
+          console.log(`[历史更新] ${symbol} 不是A股/港股，Tiingo 失败后不再尝试`);
+        }
+      }
+
       if (!freshData || freshData.length === 0) {
-        console.warn(`[历史更新] 获取股票 ${symbol} 日线数据失败`);
+        console.warn(`[历史更新] 所有数据源均无法获取股票 ${symbol} 日线数据`);
         return { updated: false };
       }
 
-      // 4. 转换为 StockPrice 格式并保存
-      const records = freshData.map(item => ({
-        symbol,
-        date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close,
-        volume: item.volume,
-      }));
-      await saveStockHistory(records);
-      console.log(`[历史更新] 股票 ${symbol} 历史数据已保存 (${records.length}条)`);
-      return { updated: true, count: records.length };
+      // 4. 保存到数据库
+      await saveStockHistory(freshData);
+      console.log(`[历史更新] 股票 ${symbol} 历史数据已保存 (${freshData.length}条)`);
+      return { updated: true, count: freshData.length };
     } catch (error) {
       console.error(`[历史更新] 更新股票 ${symbol} 失败:`, error);
       return { updated: false };

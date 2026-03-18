@@ -136,19 +136,23 @@ const carBrands: CarBrand[] = [
   { id: 'Alpina', name: 'Alpina', firstLetter: 'A', logoUrl: 'images/car_logos/Alpina1.png' },
   { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/Alpine.png' },
   { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/am晓澳.png' },
-  { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/APEX.png' },
+  { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/apex.png' },
   { id: 'apollo', name: 'apollo', firstLetter: 'A', logoUrl: '/images/car_logos/apollo.png' },
-  { id: 'ARASH', name: 'ARASH', firstLetter: 'A', logoUrl: '/images/car_logos/ARASH.png' },
+  { id: 'ARASH', name: 'ARASH', firstLetter: 'A', logoUrl: '/images/car_logos/arash.png' },
+  { id: '阿莫迪罗', name: '阿莫迪罗', firstLetter: 'A', logoUrl: '/images/car_logos/阿莫迪罗.png'},
+  { id: '阿娜亚', name: '阿娜亚', firstLetter: 'A', logoUrl: '/images/car_logos/阿娜亚.png'},
+  { id: 'AIAT', name: 'AIAT', firstLetter: 'A', logoUrl: '/images/car_logos/aiat.png'},
+  { id: 'arcfox极狐', name: 'arcfox极狐', firstLetter: 'A', logoUrl: '/images/car_logos/arcfox极狐.png'},
 
   // B
   { id: 'BMW', name: 'BMW', firstLetter: 'B', logoUrl: '/images/car_logos/BMW.png' },
   { id: 'Porsche', name: 'Porsche', firstLetter:'P', logoUrl:'/images/car_logos/Porsche.png' },
-  { id: '宾利', name: '宾利', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
-  { id: ' Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
-  { id: '劳斯莱斯', name: '劳斯莱斯', firstLetter:' L', logoUrl:'/images/car_logos/劳斯莱斯.png' },
+  { id: 'Bentley', name: 'Bentley', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
+  { id: 'Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
+  { id: 'Rolls Royce', name: 'Rolls Royce', firstLetter:' L', logoUrl:'/images/car_logos/劳斯莱斯.png' },
 
   // K
-  { id: '克莱斯勒', name: '克莱斯勒', firstLetter:'K', logoUrl:'/images/car_logos/克莱斯勒.png' },
+  { id: 'Chrysler', name: 'Chrysler', firstLetter:'K', logoUrl:'/images/car_logos/克莱斯勒.png' },
 
   // M
   { id: 'mercedes-benz', name: 'Mercedes-Benz', firstLetter: 'M', logoUrl: '/images/car_logos/Mercedes-Benz.png' },
@@ -159,7 +163,7 @@ const carBrands: CarBrand[] = [
   
   // L
   { id: '理想', name: '理想', firstLetter:'L', logoUrl:'/images/car_logos/理想.png'},
-  { id: '路虎', name: '路虎', firstLetter:'L', logoUrl:'/images/car_logos/路虎.png'},
+  { id: 'Land Rover', name: 'Land Rover', firstLetter:'L', logoUrl:'/images/car_logos/路虎.png'},
 
   // X
   { id: '小米', name: '小米', firstLetter:'X', logoUrl:'/images/car_logos/小米.png' },
@@ -331,24 +335,31 @@ useEffect(() => {
     }
 
     const converted = await Promise.all(
-      assets.map(async (asset) => {
-        const fromCurrency = asset.currency || 'USD';
-        console.log(`[convertAll] ${asset.symbol}: from=${fromCurrency}, to=${currency}, value=${asset.marketValue}`);
-        
-        try {
-          const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
-          console.log(`[convertAll] ${asset.symbol} converted: ${newMarketValue}`);
-          return {
-            ...asset,
-            marketValue: newMarketValue,
-            // 同样转换 price 和 costPrice...
-          };
-        } catch (e) {
-          console.error(`[convertAll] 转换失败`, e);
-          return asset; // 返回原值
-        }
-      })
-    );
+  assets.map(async (asset) => {
+    const fromCurrency = asset.currency || 'USD';
+    console.log(`[convertAll] 开始转换 ${asset.symbol}: from=${fromCurrency}, to=${currency}, value=${asset.marketValue}`);
+    
+    try {
+      const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
+      // 检查转换结果是否有效
+      if (newMarketValue == null || isNaN(newMarketValue) || !isFinite(newMarketValue)) {
+        console.warn(`[convertAll] 转换后无效，保留原值:`, newMarketValue);
+        return asset;
+      }
+      console.log(`[convertAll] 转换结果 ${asset.symbol}: ${newMarketValue}`);
+      return {
+        ...asset,
+        marketValue: newMarketValue,
+        // 同样处理 price 和 costPrice
+        price: await convert(asset.price, fromCurrency as any, currency).catch(() => asset.price),
+        costPrice: asset.costPrice ? await convert(asset.costPrice, fromCurrency as any, currency).catch(() => asset.costPrice) : undefined,
+      };
+    } catch (e) {
+      console.error(`[convertAll] 转换失败`, e);
+      return asset;
+    }
+  })
+);
     setConvertedAssets(converted);
   };
   convertAll();
@@ -416,7 +427,7 @@ const sortedAssets = useMemo(() => {
   useEffect(() => {
     if (foundAsset?.price && holdings) {
       const holdingsNum = parseFloat(holdings);
-      if (!isNaN(holdingsNum)) {
+      if (isNaN(holdingsNum)) {
         setMarketValue(holdingsNum * (foundAsset.price ?? 0));
       } else {
         setMarketValue(null);
@@ -575,16 +586,16 @@ if (type === 'custom') {
     let logoUrl = '';
 
     if (data.type === 'stock' || data.type === 'etf') {
-  const cleanSymbol = data.symbol.replace(/\.(SS|SZ|US|OF)$/, '');
-  
-  // 判断是否为 A 股
-  const isAStock = /^\d{6}$/.test(cleanSymbol) && 
-                   (data.symbol.includes('.SS') || data.symbol.includes('.SZ'));
-  
-  if (isAStock) {
-    // 主 Logo 使用东方财富
-    logoUrl = `https://static.futunn.com/project/stock_company_logo/${cleanSymbol}.png`;
-  } else if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
+      const cleanSymbol = data.symbol.replace(/\.(SS|SZ|US|OF)$/, '');
+      
+      // 判断是否为 A 股
+      const isAStock = /^\d{6}$/.test(cleanSymbol) && 
+                       (data.symbol.includes('.SS') || data.symbol.includes('.SZ'));
+      
+      if (isAStock) {
+        // 主 Logo 使用东方财富
+        logoUrl = `https://static.futunn.com/project/stock_company_logo/${cleanSymbol}.png`;
+      } else if (cleanSymbol && process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID) {
         // 美股等其他市场
         logoUrl = `https://cdn.brandfetch.io/ticker/${cleanSymbol}?c=${process.env.NEXT_PUBLIC_BRANDFETCH_CLIENT_ID}`;
       }
@@ -608,9 +619,10 @@ if (type === 'custom') {
       logoUrl: logoUrl,
     });
   
-if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Kong'))) {
-  data.currency = data.currency || 'HKD';
-}
+    if (data.symbol.includes('.HK') || (data.market && data.market.includes('Hong Kong'))) {
+      data.currency = data.currency || 'HKD';
+    }
+
   } catch (error: any) {
     console.error('Search error:', error);
     if (error.message.includes('404')) {
@@ -888,54 +900,60 @@ const handleAddCustomAsset = () => {
 };
 
   const handleAddAsset = () => {
-    if (!foundAsset || !holdings) return;
+  if (!foundAsset || !holdings) return;
 
-    const holdingsNum = parseFloat(holdings);
-    const finalMarketValue = marketValue ?? 0;
+  // 确保价格有效
+  if (foundAsset.price == null || isNaN(foundAsset.price)) {
+    alert('获取价格失败，请稍后重试');
+    return;
+  }
 
-    const newAsset: Asset = {
-      symbol: foundAsset.symbol,
-      name: foundAsset.name,
-      price: foundAsset.price ?? 0,
-      holdings: holdingsNum,
-      marketValue: finalMarketValue,
-      currency: foundAsset.currency,
-      lastUpdated: new Date().toISOString(),
-      type: foundAsset.type || selectedAssetType || 'stock',
-      changePercent: foundAsset.changePercent || 0,
-      logoUrl: foundAsset.logoUrl,
-      purchaseDate: purchaseDate || undefined,
-      costPrice: costPrice ? parseFloat(costPrice) : undefined,
-    };
+  const holdingsNum = parseFloat(holdings);
+  const finalMarketValue = marketValue ?? 0;
 
-    addAsset(newAsset);
-    setAssets(getAssets());
-
-    if (foundAsset.logoUrl) {
-      cacheLogo(foundAsset.symbol, foundAsset.logoUrl).catch(console.warn);
-    }
-
-    // 如果是股票或ETF，异步拉取历史数据
-if (newAsset.type === 'stock' || newAsset.type === 'etf') {
-  fetch('/api/history/update', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ asset: { type: newAsset.type, symbol: newAsset.symbol } })
-  }).catch(err => console.error(`拉取 ${newAsset.symbol} 历史数据失败:`, err));
-}
-
-    alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表`);
-
-    setFoundAsset(null);
-    setSearchQuery('');
-    setHoldings("");
-    setPurchaseDate("");
-    setCostPrice("");
-    setView('categories');
-    setSelectedMainCategory(null);
-    setSelectedAssetType(null);
-    setShowMenu(false);
+  const newAsset: Asset = {
+    symbol: foundAsset.symbol,
+    name: foundAsset.name,
+    price: foundAsset.price ?? 0,
+    holdings: holdingsNum,
+    marketValue: finalMarketValue,
+    currency: foundAsset.currency,
+    lastUpdated: new Date().toISOString(),
+    type: foundAsset.type || selectedAssetType || 'stock',
+    changePercent: foundAsset.changePercent || 0,
+    logoUrl: foundAsset.logoUrl,
+    purchaseDate: purchaseDate || undefined,
+    costPrice: costPrice ? parseFloat(costPrice) : undefined,
   };
+
+  addAsset(newAsset);
+  setAssets(getAssets());
+
+  if (foundAsset.logoUrl) {
+    cacheLogo(foundAsset.symbol, foundAsset.logoUrl).catch(console.warn);
+  }
+
+  // 如果是股票或ETF，异步拉取历史数据
+  if (newAsset.type === 'stock' || newAsset.type === 'etf') {
+    fetch('/api/history/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ asset: { type: newAsset.type, symbol: newAsset.symbol } })
+    }).catch(err => console.error(`拉取 ${newAsset.symbol} 历史数据失败:`, err));
+  }
+
+  alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表`);
+
+  setFoundAsset(null);
+  setSearchQuery('');
+  setHoldings("");
+  setPurchaseDate("");
+  setCostPrice("");
+  setView('categories');
+  setSelectedMainCategory(null);
+  setSelectedAssetType(null);
+  setShowMenu(false);
+};
 
   const getProfitLossColor = (asset: Asset) => {
     if (asset.costPrice && asset.costPrice > 0) {
@@ -2135,21 +2153,28 @@ if (selectedAssetType === 'custom_asset') {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filteredAndSortedAssets.length > 0 ? (
   filteredAndSortedAssets.map(asset => {
-    const profitLossColor = getProfitLossColor(asset);
-    const profitLossSmallColor = getProfitLossSmallColor(asset);
-    let displayPercent = Number(asset.changePercent) || 0;
-    let displayPercentSign = displayPercent > 0 ? '+' : '';
-    if (asset.costPrice && asset.costPrice > 0) {
-      const calculatedPercent = ((Number(asset.price) - Number(asset.costPrice)) / Number(asset.costPrice)) * 100;
-      displayPercent = calculatedPercent;
-      displayPercentSign = calculatedPercent > 0 ? '+' : '';
-    }
+  const profitLossColor = getProfitLossColor(asset);
+  const profitLossSmallColor = getProfitLossSmallColor(asset);
+  let displayPercent = Number(asset.changePercent) || 0;
+  let displayPercentSign = displayPercent > 0 ? '+' : '';
+  if (asset.costPrice && asset.costPrice > 0) {
+    const calculatedPercent = ((Number(asset.price) - Number(asset.costPrice)) / Number(asset.costPrice)) * 100;
+    displayPercent = calculatedPercent;
+    displayPercentSign = calculatedPercent > 0 ? '+' : '';
+  }
 
-    const cachedLogo = getCachedLogo(asset.symbol);
-    const logoSrc = cachedLogo || asset.logoUrl;
+  const cachedLogo = getCachedLogo(asset.symbol);
+  const logoSrc = cachedLogo || asset.logoUrl;
 
-    // 判断是否为需要简化显示的资产类型
-    const isSimpleAsset = ['car', 'custom', 'liability' ].includes(asset.type);
+  // 判断是否为需要简化显示的资产类型
+  const isSimpleAsset = ['car', 'custom', 'liability' ].includes(asset.type);
+
+  // ✅ 计算安全的市值，放在 return 之前
+  const safeMarketValue = 
+    asset.marketValue != null && !isNaN(asset.marketValue) && isFinite(asset.marketValue)
+      ? asset.marketValue
+      : asset.holdings * asset.price;
+
 
     return (
       <div
@@ -2239,14 +2264,14 @@ if (selectedAssetType === 'custom_asset') {
               </div>
             </div>
             <div className="text-right flex-shrink-0 max-w-[90px]">
-              <p className={`text-base font-black truncate ${profitLossColor}`} title={`${asset.marketValue.toFixed(2)}`}>
-                {formatLargeNumber(asset.marketValue)}
-              </p >
+<p className={`text-base font-black truncate ${profitLossColor}`} title={`${safeMarketValue.toFixed(2)}`}>
+  {formatLargeNumber(safeMarketValue)}
+</p >
               {displayPercent !== 0 && (
-                <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
-                  {displayPercentSign}{displayPercent.toFixed(2)}%
-                </p >
-              )}
+  <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
+    {displayPercentSign}{isNaN(displayPercent) ? '0.00' : displayPercent.toFixed(2)}%
+  </p >
+)}
             </div>
           </div>
 

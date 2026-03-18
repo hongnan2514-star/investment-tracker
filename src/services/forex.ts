@@ -33,6 +33,7 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
       EUR: rates.EUR || 0.85,
       GBP: rates.GBP || 0.75,
       USDT: 1, // USDT 视为 1:1 锚定 USD
+      HKD: rates.HKD || 7.8
     };
 
     console.log('[forex] 获取到汇率:', result);
@@ -53,6 +54,7 @@ function getFallbackRates(): Record<string, number> {
     EUR: 0.85,
     GBP: 0.75,
     USDT: 1,
+    HKD: 7.8,
   };
 }
 

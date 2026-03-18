@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { convertAmount } from './forex';
 import { useCallback } from 'react';
 
-export type CurrencyCode = 'USD' | 'CNY' | 'EUR' | 'GBP' | 'USDT';
+export type CurrencyCode = 'USD' | 'CNY' | 'EUR' | 'GBP' | 'USDT'| 'HKD';
 
 export const currencySymbols: Record<CurrencyCode, string> = {
   USD: '$',
@@ -11,6 +11,7 @@ export const currencySymbols: Record<CurrencyCode, string> = {
   EUR: '€',
   GBP: '£',
   USDT: '₮',
+  HKD: 'HK$'
 };
 
 export const currencyNames: Record<CurrencyCode, string> = {
@@ -19,6 +20,7 @@ export const currencyNames: Record<CurrencyCode, string> = {
   EUR: '欧元 (EUR)',
   GBP: '英镑 (GBP)',
   USDT: '泰达币 (USDT)',
+  HKD: '港币 (HKD)',
 };
 
 const STORAGE_KEY = 'preferred_currency';

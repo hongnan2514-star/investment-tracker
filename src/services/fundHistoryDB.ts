@@ -305,7 +305,7 @@ export async function needsStockDailyUpdate(symbol: string): Promise<boolean> {
 }
 
 /**
- * 获取股票最新日线日期
+ * 获取股票最新日线日期（直接返回数据库中的日期字符串）
  */
 export async function getLatestStockDate(symbol: string): Promise<string | null> {
   const result = await sql`
@@ -313,10 +313,8 @@ export async function getLatestStockDate(symbol: string): Promise<string | null>
     WHERE symbol = ${symbol} 
     ORDER BY date DESC LIMIT 1
   `;
-  const date = result[0]?.date;
-  if (!date) return null;
-  // 统一转换为 YYYY-MM-DD 字符串
-  return new Date(date).toISOString().split('T')[0];
+  const row = result[0] as { date: string } | undefined;
+  return row ? row.date : null; // 直接返回，不经过 new Date()
 }
 
 /**

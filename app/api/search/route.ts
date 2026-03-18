@@ -1,5 +1,5 @@
 // app/api/search/route.ts
- import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { queryYahooFinance } from "../data-sources/yahoo-finance";
 import { queryFinnhub } from "@/app/api/data-sources/finnhub";
 import { searchFund } from "@/src/services/fundService";
@@ -75,6 +75,12 @@ async function searchStockOrETF(symbol: string): Promise<DataSourceResult | null
   }
 
   return null;
+}
+
+// 判断符号是否可能是加密货币（纯字母数字，无点，长度适中）
+function isLikelyCrypto(symbol: string): boolean {
+  // 常见加密货币格式：纯字母或字母+数字，不含点，长度不超过10
+  return /^[A-Za-z0-9]{2,10}$/.test(symbol) && !symbol.includes('.');
 }
 
 export async function GET(request: NextRequest) {
@@ -181,7 +187,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // --- 新增：尝试贵金属（以字母开头可能是贵金属代码） ---
+      // 尝试贵金属（以字母开头可能是贵金属代码）
       if (/^[A-Za-z]/.test(trimmedSymbol)) {
         console.log(`[搜索路由] 尝试作为贵金属搜索: ${trimmedSymbol}`);
         const metalResult = await queryJuheGold(trimmedSymbol);
@@ -210,14 +216,19 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // 最后尝试加密货币
-      const cryptoResult = await queryCryptoCCXT(trimmedSymbol);
-      if (cryptoResult.success) {
-        return NextResponse.json({
-          success: true,
-          ...cryptoResult.data,
-          source: cryptoResult.source
-        });
+      // 最后尝试加密货币 - 但只有看起来像加密货币的才尝试
+      if (isLikelyCrypto(trimmedSymbol)) {
+        console.log(`[搜索路由] 尝试作为加密货币搜索: ${trimmedSymbol}`);
+        const cryptoResult = await queryCryptoCCXT(trimmedSymbol);
+        if (cryptoResult.success) {
+          return NextResponse.json({
+            success: true,
+            ...cryptoResult.data,
+            source: cryptoResult.source
+          });
+        }
+      } else {
+        console.log(`[搜索路由] 符号 ${trimmedSymbol} 不像是加密货币，跳过搜索`);
       }
     }
 

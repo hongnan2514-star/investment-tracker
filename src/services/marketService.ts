@@ -85,17 +85,23 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
         console.error(`[加密货币] ${asset.symbol} 更新失败:`, error);
       }
     } else if (asset.type === 'stock' || asset.type === 'etf') {
-      if (!isUSMarketOpen()) return;
-      try {
-        const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
-        const data = await response.json();
-        if (data.price) {
-          priceMap.set(asset.symbol, { price: data.price, changePercent: data.changePercent || 0 });
-        }
-      } catch (error) {
-        console.error(`[股票] ${asset.symbol} 更新失败:`, error);
-      }
-    } else if (asset.type === 'fund') {
+  if (!isUSMarketOpen()) return;
+  try {
+    const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
+    const data = await response.json();
+    const price = Number(data.price);
+    if (data.price != null && !isNaN(price)) {
+      priceMap.set(asset.symbol, { 
+        price: price, 
+        changePercent: data.changePercent || 0 
+      });
+    } else {
+      console.warn(`[股票] ${asset.symbol} 返回无效价格，跳过更新`, data.price);
+    }
+  } catch (error) {
+    console.error(`[股票] ${asset.symbol} 更新失败:`, error);
+  }
+} else if (asset.type === 'fund') {
   try {
     // 调用专用 API 获取最新净值，注意传递不带后缀的代码
     const response = await fetch(`/api/fund/latest?code=${encodeURIComponent(asset.symbol.replace(/\.OF$/, ''))}`);
