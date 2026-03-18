@@ -8,40 +8,15 @@ import { eventBus } from '@/src/utils/eventBus';
 import { useTheme } from '@/app/ThemeProvider';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 
-// 资产类型显示名称和颜色映射（已补全）
+// 资产类型显示名称和颜色映射
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
-  stock: {
-    name: '股票',
-    color: '#1e67f7'
-  },
-  fund: {
-    name: '基金',
-    color: '#b91010'
-  },
-  etf: {
-    name: 'ETF',
-    color: '#8b5cf6'
-  },
-  crypto: {
-    name: '加密货币',
-    color: '#ec4899'
-  },
-  metal: {
-    name: '贵金属',
-    color: '#f59e0b'
-  },
-  car: {
-    name: '车辆',
-    color: '#06b6d4'
-  },
-  real_estate: {
-    name: '房产',
-    color: '#f97316'
-  },
-  custom: {
-    name: '现金',
-    color: '#1db81f'
-  }
+  stock: { name: '股票', color: '#1e67f7' },
+  fund: { name: '基金', color: '#b91010' },
+  crypto: { name: '加密货币', color: '#ec4899' },
+  metal: { name: '贵金属', color: '#f59e0b' },
+  car: { name: '车辆', color: '#06b6d4' },
+  real_estate: { name: '房产', color: '#f97316' },
+  custom: { name: '现金', color: '#1db81f' },
 };
 
 // 为未知类型生成颜色的后备函数
@@ -60,21 +35,14 @@ export default function AssetPieChart() {
   const { currency, symbol } = useCurrency();
   const { convert, loading } = useCurrencyConverter();
 
-  // 原始数据（以 USDT 计价）
-  const [rawTotal, setRawTotal] = useState<number>(0);
-  const [rawTypeValues, setRawTypeValues] = useState<Record<string, number>>({});
-
-  // 转换后的数据
-  const [convertedTotal, setConvertedTotal] = useState(rawTotal);
-  const [convertedTypeValues, setConvertedTypeValues] = useState<Record<string, number>>(rawTypeValues);
-  const [pieData, setPieData] = useState<{ 
+  const [pieData, setPieData] = useState<{
     type: string;
-    name: string; 
-    value: number; 
+    name: string;
+    value: number;
     percent: string;
     color: string;
   }[]>([]);
-
+  const [totalConverted, setTotalConverted] = useState<number>(0);
 
   const [outerRadius, setOuterRadius] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
@@ -99,14 +67,16 @@ export default function AssetPieChart() {
     };
   }, []);
 
-  // 更新原始数据（假设资产以 USDT 计价）
-  const updateRawData = useCallback((assets: Asset[]) => {
+  // 核心更新函数：获取原始资产，按各自货币转换到当前货币，并生成饼图数据
+  const updatePieData = useCallback(async () => {
+    const assets = getAssets() as Asset[];
     if (assets.length === 0) {
-      setRawTotal(0);
-      setRawTypeValues({});
+      setPieData([]);
+      setTotalConverted(0);
       return;
     }
 
+    // 过滤掉无效或零值资产
     const validAssets = assets.filter(asset => 
       asset.marketValue != null && 
       Number.isFinite(asset.marketValue) && 
@@ -114,87 +84,61 @@ export default function AssetPieChart() {
     );
 
     if (validAssets.length === 0) {
-      setRawTotal(0);
-      setRawTypeValues({});
+      setPieData([]);
+      setTotalConverted(0);
       return;
     }
 
-    const total = validAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
-    setRawTotal(total);
+    // 将每个资产从其原始货币转换到当前货币
+    const convertedAssets = await Promise.all(
+      validAssets.map(async (asset) => {
+        const fromCurrency = asset.currency || 'USD';
+        const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
+        return {
+          ...asset,
+          marketValue: convertedValue,
+        };
+      })
+    );
 
-    const typeGroups = validAssets.reduce((groups, asset) => {
+    // 计算转换后的总市值
+    const total = convertedAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
+    setTotalConverted(total);
+
+    // 按资产类型分组
+    const typeGroups = convertedAssets.reduce((groups, asset) => {
       const type = asset.type || 'unknown';
       groups[type] = (groups[type] || 0) + asset.marketValue;
       return groups;
     }, {} as Record<string, number>);
-    setRawTypeValues(typeGroups);
-  }, []);
 
-  // 当原始数据变化时，重置转换值为原始值（确保与服务端一致）
-  useEffect(() => {
-    setConvertedTotal(rawTotal);
-    setConvertedTypeValues(rawTypeValues);
-  }, [rawTotal, rawTypeValues]);
-
-  // 汇率转换：当货币或原始数据变化时进行转换（唯一转换 effect）
-  useEffect(() => {
-    const convertValues = async () => {
-      if (rawTotal === 0) {
-        setConvertedTotal(0);
-        setConvertedTypeValues({});
-        return;
-      }
-
-      const newTotal = await convert(rawTotal, 'USDT', currency);
-      const entries = Object.entries(rawTypeValues);
-      const convertedEntries = await Promise.all(
-        entries.map(async ([type, value]) => [type, await convert(value, 'USDT', currency)])
-      );
-      const newTypeValues = Object.fromEntries(convertedEntries);
-
-      setConvertedTotal(newTotal);
-      setConvertedTypeValues(newTypeValues);
-    };
-    convertValues();
-  }, [rawTotal, rawTypeValues, currency, convert]);
-
-  // 根据转换后的数据生成饼图数据
-  useEffect(() => {
-    if (convertedTotal === 0 || Object.keys(convertedTypeValues).length === 0) {
-      setPieData([]);
-      return;
-    }
-
-    const newData = Object.entries(convertedTypeValues)
+    // 生成饼图数据
+    const newData = Object.entries(typeGroups)
       .map(([type, value]) => {
         const config = ASSET_TYPE_CONFIG[type];
         return {
           type,
           name: config?.name || type,
           value,
-          percent: ((value / convertedTotal) * 100).toFixed(1) + '%',
+          percent: ((value / total) * 100).toFixed(1) + '%',
           color: config?.color || getColorForUnknownType(type),
         };
       })
       .sort((a, b) => b.value - a.value);
 
     setPieData(newData);
-  }, [convertedTotal, convertedTypeValues]);
+  }, [currency, convert]);
 
-  // 初始加载和事件订阅
+  // 订阅资产更新事件
   useEffect(() => {
-    updateRawData(getAssets() as Asset[]);
-    const unsubscribeAssetsUpdated = eventBus.subscribe('assetsUpdated', () => {
-      updateRawData(getAssets() as Asset[]);
-    });
-    const unsubscribeUserChanged = eventBus.subscribe('userChanged', () => {
-      updateRawData(getAssets() as Asset[]);
-    });
+    updatePieData();
+    const unsubscribeAssetsUpdated = eventBus.subscribe('assetsUpdated', updatePieData);
+    const unsubscribeUserChanged = eventBus.subscribe('userChanged', updatePieData);
     return () => {
       unsubscribeAssetsUpdated();
       unsubscribeUserChanged();
     };
-  }, [updateRawData]);
+  }, [updatePieData]);
 
   if (pieData.length === 0) {
     return (
@@ -214,7 +158,7 @@ export default function AssetPieChart() {
           总市值: 
           {loading && <span className="ml-1 text-blue-500 animate-pulse">汇率更新中...</span>}
           <span className="font-bold text-gray-900 dark:text-gray-100 ml-1">
-            {symbol}{convertedTotal.toFixed(2)}
+            {symbol}{totalConverted.toFixed(2)}
           </span>
         </div>
       </div>
@@ -228,7 +172,7 @@ export default function AssetPieChart() {
                 data={pieData}
                 cx="50%"
                 cy="50%"
-                innerRadius={outerRadius * (isMobile ? 0.55 : 6)}
+                innerRadius={outerRadius * (isMobile ? 0.55 : 0.6)}
                 outerRadius={outerRadius}
                 paddingAngle={2}
                 dataKey="value"
@@ -251,7 +195,7 @@ export default function AssetPieChart() {
                   
                   const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
                   const fontSize = isMobile ? 12 : 14;
-                  const displayPercent = payload.percent; 
+                  const displayPercent = payload.percent;
                   
                   return (
                     <text
@@ -311,7 +255,7 @@ export default function AssetPieChart() {
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">合计</span>
               <span className="text-base font-bold text-gray-900 dark:text-gray-100">
-                {symbol}{convertedTotal.toFixed(2)}
+                {symbol}{totalConverted.toFixed(2)}
               </span>
             </div>
           </div>

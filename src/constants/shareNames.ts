@@ -1497,5 +1497,9 @@ export const AShareNameMap: Record<string, string> = {
 
   "159525.SZ": "红利低波ETF",
   "159770.SZ": "机器人ETF",
+  "159899.SZ": "软件ETF招商",
+  "159859.SZ": "生物医药ETF",
   "161226.SZ": "国投白银LOF",
+  "510210.SS": "上证指数ETF",
+
 };

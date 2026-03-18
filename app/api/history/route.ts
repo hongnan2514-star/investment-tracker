@@ -29,6 +29,8 @@ import { fetchTiingoDailyHistory } from '../data-sources/tiingo-stock';
 import { fetchStockMinuteData } from '../data-sources/yahoo-finance';
 import { FundNav } from '@/src/services/fundHistoryDB'
 import { fetchFundHistoryFromEastMoney } from '../data-sources/eastmoney-fund';
+import { fetchYahooHistory } from '../data-sources/yahoo-finance';
+import { StockPrice } from '@/src/services/fundHistoryDB'
 
 const timeframeSeconds: Record<string, number> = {
   '15m': 15 * 60,
@@ -65,6 +67,35 @@ function isOverFiveYears(startDateStr: string): boolean {
   const diffTime = now.getTime() - start.getTime();
   const diffDays = diffTime / (1000 * 60 * 60 * 24);
   return diffDays > 5 * 365;
+}
+
+async function fetchStockDailyWithFallback(symbol: string, sinceDate?: string): Promise<StockPrice[] | null> {
+  // 先尝试 Tiingo
+  const tiingoData = await fetchTiingoDailyHistory(symbol, sinceDate);
+  if (tiingoData && tiingoData.length > 0) {
+    // 将 Tiingo 数据转换为 StockPrice 格式
+    return tiingoData.map(item => ({
+      symbol,
+      date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      close: item.close,
+      volume: item.volume,
+    }));
+  }
+
+  // Tiingo 失败，尝试雅虎
+  console.log(`[历史API] Tiingo 获取日线失败，尝试雅虎后备: ${symbol}`);
+  const yahooData = await fetchYahooHistory(symbol, 365 * 5); // 拉取最多5年
+  if (yahooData && yahooData.length > 0) {
+    if (sinceDate) {
+      const sinceTimestamp = new Date(sinceDate).getTime();
+      return yahooData.filter(item => new Date(item.date).getTime() >= sinceTimestamp);
+    }
+    return yahooData;
+  }
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -160,21 +191,12 @@ export async function GET(request: NextRequest) {
                 console.log(`[历史API] 无历史数据，将拉取全量`);
               }
 
-              const freshDaily = await fetchTiingoDailyHistory(symbol, sinceDate);
-              if (freshDaily && freshDaily.length > 0) {
-                const records = freshDaily.map(item => ({
-                  symbol,
-                  date: new Date(item.timestamp * 1000).toISOString().split('T')[0],
-                  open: item.open,
-                  high: item.high,
-                  low: item.low,
-                  close: item.close,
-                  volume: item.volume,
-                }));
-                await saveStockHistory(records);
-                console.log(`[历史API] 已保存 ${records.length} 条股票日线数据`);
-              }
-            }
+              const freshDaily = await fetchStockDailyWithFallback(symbol, sinceDate);
+  if (freshDaily && freshDaily.length > 0) {
+    await saveStockHistory(freshDaily); // 直接保存，无需再次映射
+    console.log(`[历史API] 已保存 ${freshDaily.length} 条股票日线数据`);
+  }
+}
 
             // 从数据库获取从 startDate 开始的数据
             const stockHistory = await getStockHistorySince(symbol, startDate);
@@ -183,8 +205,19 @@ export async function GET(request: NextRequest) {
         } else {
           // 1d_hk：港股月线，直接获取最近 limit 条日线数据
           console.log(`[历史API] 月线日线请求，获取最近 ${limit} 条日线数据`);
-    const stockHistory = await getStockHistory(symbol, limit);
-    history = stockHistory.map(item => ({ date: item.date, value: item.close }));
+    let stockHistory = await getStockHistory(symbol, limit);
+if (stockHistory.length === 0) {
+  console.log(`[历史API] 股票 ${symbol} 数据库中无日线数据，尝试从雅虎拉取`);
+  const yahooData = await fetchYahooHistory(symbol, limit * 2); // 拉取足够条数
+  if (yahooData && yahooData.length > 0) {
+    await saveStockHistory(yahooData);
+    console.log(`[历史API] 已从雅虎保存 ${yahooData.length} 条日线数据`);
+    stockHistory = await getStockHistory(symbol, limit);
+  } else {
+    console.warn(`[历史API] 雅虎也无法获取 ${symbol} 日线数据`);
+  }
+}
+history = stockHistory.map(item => ({ date: item.date, value: item.close }));
         }
       } else {
         // 分钟数据分支（处理 15m、1h、6h 等）—— 原样保留，确保 1d 能正确进入
