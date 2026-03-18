@@ -9,9 +9,6 @@ import ExpandedChart from './ExpandedChart';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 
 export default function SummaryCard() {
-  const [totalAssets, setTotalAssets] = useState<number>(0);
-  const [totalLiabilities, setTotalLiabilities] = useState<number>(0);
-  const [todayProfit, setTodayProfit] = useState<number>(0);
   const [convertedTotalAssets, setConvertedTotalAssets] = useState<number>(0);
   const [convertedTotalLiabilities, setConvertedTotalLiabilities] = useState<number>(0);
   const [convertedNetWorth, setConvertedNetWorth] = useState<number>(0);
@@ -30,67 +27,65 @@ export default function SummaryCard() {
     return num.toFixed(2);
   };
 
-  const updateTotals = useCallback(() => {
-    const assets = getAssets();
+  // 核心刷新函数：重新获取资产，按各自货币转换，并计算汇总值
+  const refreshData = useCallback(async () => {
+    const assets = getAssets() as Asset[];
     let assetsSum = 0;
     let liabilitiesSum = 0;
     let profitSum = 0;
 
-    assets.forEach(asset => {
-      if (asset.type === 'liability') {
-        liabilitiesSum += Math.abs(asset.marketValue);
-      } else {
-        assetsSum += asset.marketValue;
-      }
-      const assetProfit = asset.price * asset.holdings * (asset.changePercent || 0) / 100;
-      profitSum += assetProfit;
-    });
+    // 并行转换所有资产
+    await Promise.all(
+      assets.map(async (asset) => {
+        const fromCurrency = asset.currency || 'USD';
+        // 转换市值
+        const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
+        if (asset.type === 'liability') {
+          liabilitiesSum += Math.abs(convertedValue); // 负债取绝对值累加
+        } else {
+          assetsSum += convertedValue;
+        }
 
-    setTotalAssets(assetsSum);
-    setTotalLiabilities(liabilitiesSum);
-    setTodayProfit(profitSum);
-  }, []);
+        // 转换今日收益（如果有）
+        const assetProfit = asset.price * asset.holdings * (asset.changePercent || 0) / 100;
+        const convertedProfitValue = await convert(assetProfit, fromCurrency as any, currency);
+        profitSum += convertedProfitValue;
+      })
+    );
 
-  useEffect(() => {
-    const convertValues = async () => {
-      const [newAssets, newLiabilities, newProfit] = await Promise.all([
-        convert(totalAssets, 'USDT', currency),
-        convert(totalLiabilities, 'USDT', currency),
-        convert(todayProfit, 'USDT', currency),
-      ]);
-      setConvertedTotalAssets(newAssets);
-      setConvertedTotalLiabilities(newLiabilities);
-      setConvertedNetWorth(newAssets - newLiabilities);
-      setConvertedProfit(newProfit);
-    };
-    convertValues();
-  }, [totalAssets, totalLiabilities, todayProfit, currency, convert]);
+    setConvertedTotalAssets(assetsSum);
+    setConvertedTotalLiabilities(liabilitiesSum);
+    setConvertedNetWorth(assetsSum - liabilitiesSum);
+    setConvertedProfit(profitSum);
+  }, [currency, convert]);
 
+  // 更新历史数据
   const updateHistory = useCallback(() => {
     const data = getHistoryData(24);
     setHistoryData(data);
   }, []);
 
+  // 初始化、资产更新、货币变化时刷新数据
   useEffect(() => {
     recordSnapshot();
-    updateTotals();
+    refreshData();
     updateHistory();
 
     const unsubscribeAssets = eventBus.subscribe('assetsUpdated', () => {
-      updateTotals();
+      refreshData();
       updateHistory();
     });
 
-    return () => unsubscribeAssets();
-  }, [updateTotals, updateHistory]);
-
-  useEffect(() => {
     const unsubscribeUser = eventBus.subscribe('userChanged', () => {
-      updateTotals();
+      refreshData();
       updateHistory();
     });
-    return () => unsubscribeUser();
-  }, [updateTotals, updateHistory]);
+
+    return () => {
+      unsubscribeAssets();
+      unsubscribeUser();
+    };
+  }, [refreshData, updateHistory]);
 
   const getYAxisDomain = (): [number, number] => {
     if (historyData.length === 0) return [0, convertedNetWorth || 100];
@@ -148,8 +143,7 @@ export default function SummaryCard() {
             onClick={() => setIsExpanded(true)}
           >
             {historyData.length < 2 ? (
-              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-              </div>
+              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={historyData.map(p => ({ pv: p.value }))}>
@@ -169,43 +163,43 @@ export default function SummaryCard() {
         )}
       </div>
 
-      {/* 资产与负债卡片 - 蓝色背景，白色文字 */}
+      {/* 资产与负债卡片 - 颜色已改为橙色，可自行调整 */}
       <div className="grid grid-cols-2 gap-4 mt-4">
-        <div className="bg-[#00b7ff] dark:bg-[#00b7ff] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
+        <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
           <span className="text-xs font-medium text-white">资产</span>
           <span className="text-lg font-SF text-white leading-tight">
             {formatLargeNumber(convertedTotalAssets)}
           </span>
         </div>
-        {/* 负债卡片 - 显示负数 */}
-<div className="bg-[#00b7ff] dark:bg-[#00b7ff] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
-  <span className="text-xs font-medium text-white">负债</span>
-  <span className="text-lg font-SF text-white leading-tight">
-    -{formatLargeNumber(convertedTotalLiabilities)}
-  </span>
-</div>
+        <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
+          <span className="text-xs font-medium text-white">负债</span>
+          <span className="text-lg font-SF text-white leading-tight">
+            -{formatLargeNumber(convertedTotalLiabilities)}
+          </span>
+        </div>
       </div>
 
       {/* 展开区域 */}
       {(isExpanded || isClosing) && (
-  <div
-    className={`mt-6 pt-6 transition-all duration-300 ease-in-out transform ${
-      isClosing ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'
-    }`}
-    onTransitionEnd={() => {
-      if (isClosing) {
-        setIsExpanded(false);
-        setIsClosing(false);
-      }
-    }}
-  >
-    <ExpandedChart 
-      totalValue={convertedNetWorth} 
-      currencySymbol={symbol} 
-      todayProfit={convertedProfit}
-      onClose={handleClose}
-    />
-  </div>
-)}
-</div>
-)}
+        <div
+          className={`mt-6 pt-6 transition-all duration-300 ease-in-out transform ${
+            isClosing ? 'opacity-0 -translate-y-4' : 'opacity-100 translate-y-0'
+          }`}
+          onTransitionEnd={() => {
+            if (isClosing) {
+              setIsExpanded(false);
+              setIsClosing(false);
+            }
+          }}
+        >
+          <ExpandedChart 
+            totalValue={convertedNetWorth} 
+            currencySymbol={symbol} 
+            todayProfit={convertedProfit}
+            onClose={handleClose}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

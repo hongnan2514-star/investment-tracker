@@ -1,58 +1,52 @@
 // src/services/forex.ts
 import { CurrencyCode } from './currency';
 
-// 使用 exchangerate-api.com 免费版，无需密钥
-const API_URL = 'https://api.exchangerate-api.com/v4/latest/USD';
+// 使用 Frankfurter 作为主要源（无需密钥）
+const API_URL = 'https://api.frankfurter.app/latest?from=USD';
 
 // 汇率缓存
 let ratesCache: Record<string, number> | null = null;
 let lastFetchTime = 0;
-const CACHE_TTL = 60 * 60 * 1000; // 1小时缓存，确保不超免费额度
+const CACHE_TTL = 60 * 60 * 1000; // 1小时缓存
 
-/**
- * 获取以USD为基准的汇率
- */
 export async function getExchangeRates(): Promise<Record<string, number>> {
   const now = Date.now();
 
-  // 缓存有效则直接返回
   if (ratesCache && (now - lastFetchTime) < CACHE_TTL) {
+    console.log('[forex] 使用缓存汇率');
     return ratesCache;
   }
 
   try {
+    console.log('[forex] 正在从 Frankfurter 获取汇率...');
     const response = await fetch(API_URL);
-    if (!response.ok) {
-      throw new Error(`汇率API请求失败: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    
-    // API 返回格式: { rates: { CNY: 7.2, EUR: 0.85, GBP: 0.75, ... } }
+
+    // Frankfurter 返回格式：{ rates: { CNY: 7.2, EUR: 0.85, ... } }
     const rates = data.rates;
-    
-    // 构建支持我们需要的货币的汇率映射
+
+    // 确保包含所有支持货币，缺失时使用备用值
     const result: Record<string, number> = {
       USD: 1,
       CNY: rates.CNY || 7.2,
       EUR: rates.EUR || 0.85,
       GBP: rates.GBP || 0.75,
-      USDT: 1, // USDT 视为与USD 1:1
+      USDT: 1, // USDT 视为 1:1 锚定 USD
     };
 
+    console.log('[forex] 获取到汇率:', result);
     ratesCache = result;
     lastFetchTime = now;
     return result;
-
   } catch (error) {
-    console.error('汇率获取失败，使用备用汇率:', error);
+    console.error('[forex] 汇率获取失败，使用备用汇率:', error);
     return getFallbackRates();
   }
 }
 
-/**
- * 备用汇率（当API失败时使用）
- */
 function getFallbackRates(): Record<string, number> {
+  console.warn('[forex] 使用备用固定汇率');
   return {
     USD: 1,
     CNY: 7.2,
@@ -74,13 +68,13 @@ export async function convertAmount(
   toCurrency: CurrencyCode
 ): Promise<number> {
   if (fromCurrency === toCurrency) return amount;
-  
+
   const rates = await getExchangeRates();
-  
-  // 先转换为USD（基准货币）
+
+  // 以 USD 为中间货币转换
   const amountInUSD = fromCurrency === 'USD' ? amount : amount / rates[fromCurrency];
-  // 再从USD转换为目标货币
   const result = amountInUSD * rates[toCurrency];
-  
-  return result;
+
+  // 保留两位小数
+  return Math.round(result * 100) / 100;
 }

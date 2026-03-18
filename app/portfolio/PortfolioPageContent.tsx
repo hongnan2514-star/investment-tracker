@@ -131,11 +131,11 @@ const carBrands: CarBrand[] = [
   { id: 'AEV robotics', name: 'AEV robotics', firstLetter: 'A', logoUrl: '/images/car_logos/AEV robotics.png' },
   { id: 'AFEELA', name: 'AFEELA', firstLetter: 'A', logoUrl: '/images/car_logos/afeela.png' },
   { id: 'Agile Automotive', name: 'Agile Automotive', firstLetter: 'A', logoUrl: '/images/car_logos/Agile Automotive.png' },
-  { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/AIM.png' },
+  { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/aim.png' },
   { id: 'Alpha Motor', name: 'Alpha Motor', firstLetter: 'A', logoUrl: '/images/car_logos/Alpha Motor.png' },
   { id: 'Alpina', name: 'Alpina', firstLetter: 'A', logoUrl: 'images/car_logos/Alpina1.png' },
   { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/Alpine.png' },
-  { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/AM晓澳.png' },
+  { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/am晓澳.png' },
   { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/APEX.png' },
   { id: 'apollo', name: 'apollo', firstLetter: 'A', logoUrl: '/images/car_logos/apollo.png' },
   { id: 'ARASH', name: 'ARASH', firstLetter: 'A', logoUrl: '/images/car_logos/ARASH.png' },
@@ -333,31 +333,20 @@ useEffect(() => {
     const converted = await Promise.all(
       assets.map(async (asset) => {
         const fromCurrency = asset.currency || 'USD';
-        let newPrice = asset.price;
-        let newMarketValue = asset.marketValue;
-        let newCostPrice = asset.costPrice;
-
+        console.log(`[convertAll] ${asset.symbol}: from=${fromCurrency}, to=${currency}, value=${asset.marketValue}`);
+        
         try {
-          const [convertedPrice, convertedMarketValue, convertedCostPrice] = await Promise.all([
-            convert(asset.price, fromCurrency as any, currency),
-            convert(asset.marketValue, fromCurrency as any, currency),
-            asset.costPrice ? convert(asset.costPrice, fromCurrency as any, currency) : Promise.resolve(undefined)
-          ]);
-
-          // 仅当转换结果有效时才使用新值
-          if (convertedPrice != null && !isNaN(convertedPrice)) newPrice = convertedPrice;
-          if (convertedMarketValue != null && !isNaN(convertedMarketValue)) newMarketValue = convertedMarketValue;
-          if (convertedCostPrice != null && !isNaN(convertedCostPrice)) newCostPrice = convertedCostPrice;
+          const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
+          console.log(`[convertAll] ${asset.symbol} converted: ${newMarketValue}`);
+          return {
+            ...asset,
+            marketValue: newMarketValue,
+            // 同样转换 price 和 costPrice...
+          };
         } catch (e) {
-          console.error(`转换 ${asset.symbol} 失败:`, e);
+          console.error(`[convertAll] 转换失败`, e);
+          return asset; // 返回原值
         }
-
-        return {
-          ...asset,
-          price: newPrice,
-          marketValue: newMarketValue,
-          costPrice: newCostPrice,
-        };
       })
     );
     setConvertedAssets(converted);

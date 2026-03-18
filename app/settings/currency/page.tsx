@@ -3,21 +3,20 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import { currencyNames, currencySymbols, useCurrency, CurrencyCode } from '@/src/services/currency';
-import { useUser } from '@/src/hooks/useUser'; // 导入用户 Hook
+import { currencyNames, useCurrency, CurrencyCode } from '@/src/services/currency';
+import { useUser } from '@/src/hooks/useUser';
 
 export default function CurrencyPage() {
   const router = useRouter();
   const { currency, setCurrency } = useCurrency();
-  const { user, updateUser } = useUser(); // 获取用户信息和更新函数
+  const { user, updateUser } = useUser();
 
   const handleSelect = async (code: CurrencyCode) => {
-    setCurrency(code); // 更新本地状态和 localStorage
+    setCurrency(code);
     if (user) {
-      // 如果已登录，将偏好同步到服务器
       await updateUser({ preferredCurrency: code });
     }
-    router.back(); // 返回上一页
+    router.back();
   };
 
   return (
@@ -44,7 +43,13 @@ export default function CurrencyPage() {
             }`}
           >
             <div className="flex items-center gap-3">
-              <span className="text-xl font-bold">{currencySymbols[code]}</span>
+              {/* 国旗图标，保持原始比例 */}
+              <img
+                src={`/flags/${code}.png/`}
+                alt={code}
+                className="w-6 h-auto object-contain"  // 宽度固定，高度自适应，保持比例
+                onError={(e) => (e.currentTarget.style.display = 'none')} // 图片加载失败时隐藏
+              />
               <span className="text-gray-700 dark:text-gray-300">{currencyNames[code]}</span>
             </div>
             {currency === code && (
