@@ -129,7 +129,7 @@ const carBrands: CarBrand[] = [
   { id: 'AION', name: 'AION', firstLetter: 'A', logoUrl: '/images/car_logos/AION.png' },
   { id: 'AEHRA', name: 'AEHRA', firstLetter: 'A', logoUrl: '/images/car_logos/aehra.png' },
   { id: 'AEV robotics', name: 'AEV robotics', firstLetter: 'A', logoUrl: '/images/car_logos/AEV robotics.png' },
-  { id: 'AFEELA', name: 'AFEELA', firstLetter: 'A', logoUrl: '/images/car_logos/AFEELA.png' },
+  { id: 'AFEELA', name: 'AFEELA', firstLetter: 'A', logoUrl: '/images/car_logos/afeela.png' },
   { id: 'Agile Automotive', name: 'Agile Automotive', firstLetter: 'A', logoUrl: '/images/car_logos/Agile Automotive.png' },
   { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/AIM.png' },
   { id: 'Alpha Motor', name: 'Alpha Motor', firstLetter: 'A', logoUrl: '/images/car_logos/Alpha Motor.png' },
@@ -1486,9 +1486,6 @@ const assetTypeOptions = [
   { value: 'fund', label: '基金' },
   { value: 'crypto', label: '加密货币' },
   { value: 'metal', label: '贵金属' },
-  { value: 'real_estate', label: '不动产' },
-  { value: 'car', label: '汽车' },
-  { value: 'custom', label: '现金' },
   { value: 'receivable', label: '应收款' },
   { value: 'liability', label: '负债' },
 ];

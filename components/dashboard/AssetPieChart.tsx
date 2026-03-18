@@ -11,12 +11,15 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 // 资产类型显示名称和颜色映射
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   stock: { name: '股票', color: '#1e67f7' },
-  fund: { name: '基金', color: '#b91010' },
+  fund: { name: '基金', color: '#320bcd' },
   crypto: { name: '加密货币', color: '#ec4899' },
   metal: { name: '贵金属', color: '#f59e0b' },
   car: { name: '车辆', color: '#06b6d4' },
-  real_estate: { name: '房产', color: '#f97316' },
+  real_estate: { name: '不动产', color: '#f97316' },
   custom: { name: '现金', color: '#1db81f' },
+  receivable: { name: '应收款', color: 'rgb(13, 16, 226)'},
+  liability: { name: '负债', color: 'rgb(223, 11, 11)'},
+  custom_asset: { name: '自定义', color: 'rgb(114, 116, 127)'}
 };
 
 // 为未知类型生成颜色的后备函数
