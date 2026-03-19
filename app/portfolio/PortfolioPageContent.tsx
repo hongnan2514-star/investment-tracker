@@ -20,6 +20,7 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';  //
 import AssetDetailDrawer from './AssetDetailDrawer';
 import BrandSelector from './BrandSelector';
 import IconSelector from './IconSelector';
+import { useAssetRefresh } from '@/src/hooks/useAssetRefresh';
 
 
 interface CarBrand {
@@ -203,6 +204,18 @@ const carBrands: CarBrand[] = [
   const [selectedBrandName, setSelectedBrandName] = useState<string>('');
   const [loadingCarData, setLoadingCarData] = useState(false);
   const [assets, setAssets] = useState<Asset[]>(() => getAssets());
+  const { hasCrypto, hasStock, hasMetal, hasFund } = useMemo(() => {
+  const types = assets.map(a => a.type);
+  return {
+    hasCrypto: types.includes('crypto'),
+    hasStock: types.includes('stock') || types.includes('etf'),
+    hasMetal: types.includes('metal'),
+    hasFund: types.includes('fund'),
+  };
+}, [assets]);
+
+// 调用自定义 Hook
+useAssetRefresh({ hasCrypto, hasStock, hasMetal, hasFund });
   const [convertedAssets, setConvertedAssets] = useState<Asset[]>(() => getAssets());  // 转换后的资产列表（价格和市值已按目标货币转换）
   const { currency } = useCurrency(); // 获取当前货币代码
   const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
@@ -293,39 +306,6 @@ useEffect(() => {
   localStorage.setItem(HIDDEN_TYPES_KEY, JSON.stringify(arr));
 }, [hiddenAssetTypes]);
 
-
-
-  const refreshTimer = useRef<NodeJS.Timeout | number | null>(null);
-
-  const refreshPrices = async () => {
-    const currentAssets = getAssets();
-    if (currentAssets.length === 0) {
-      setAssets([]);
-      return;
-    }
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      const updatedAssets = await refreshAllAssets(currentAssets);
-      setAssets(updatedAssets);
-    } catch (error) {
-      console.error('刷新价格失败:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-    console.log('当前资产列表:', getAssets().map(a => a.symbol));
-  };
-
-  useEffect(() => {
-    refreshPrices();
-    refreshTimer.current = setInterval(refreshPrices, 60000);
-    return () => {
-      if (refreshTimer.current) {
-        clearInterval(refreshTimer.current as number);
-      }
-    };
-  }, []);
-
   // 当 assets 或 currency 变化时，重新计算转换后的值
 useEffect(() => {
   const convertAll = async () => {
@@ -365,10 +345,6 @@ useEffect(() => {
   convertAll();
 }, [assets, currency, convert]);
 
-  useEffect(() => {
-    refreshPrices();
-  }, [assets.length]);
-
   const currencySymbolMap: Record<string, string> = {
     CNY: '¥',
     USD: '$',
@@ -398,10 +374,6 @@ const sortedAssets = useMemo(() => {
     removeCachedLogo(symbol);
     const remainingAssets = getAssets();
     setAssets(remainingAssets);
-    if (refreshTimer.current) {
-      clearInterval(refreshTimer.current as number);
-    }
-    refreshTimer.current = setInterval(refreshPrices, 10000);
     console.log(`已删除 ${symbol}，剩余资产:`, remainingAssets.length);
   };
 
@@ -2175,7 +2147,6 @@ if (selectedAssetType === 'custom_asset') {
       ? asset.marketValue
       : asset.holdings * asset.price;
 
-
     return (
       <div
         key={asset.symbol}
@@ -2192,16 +2163,29 @@ if (selectedAssetType === 'custom_asset') {
                   const cachedLogo = getCachedLogo(asset.symbol);
 
                   if (isAStock && code) {
-                    const localPath = `/images/company_logos/${code}.png`;
-                    return (
-                      <img
-                        src={localPath}
-                        alt={asset.name}
-                        className="w-6 h-6 object-contain rounded-lg"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    );
-                  }
+  const localPath = `/images/company_logos/${code}.png`;
+  return (
+    <div className="relative w-6 h-6">
+      <img
+        src={localPath}
+        alt={asset.name}
+        className="w-6 h-6 object-contain rounded-lg absolute inset-0"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none';
+          const parent = e.currentTarget.parentElement;
+          if (parent) {
+            const icon = parent.querySelector('.stock-fallback-icon');
+            if (icon) (icon as HTMLElement).style.display = 'block';
+          }
+        }}
+      />
+      <TrendingUp 
+        size={16} 
+        className="stock-fallback-icon w-6 h-6 text-gray-700 dark:text-gray-200 absolute inset-0 hidden"
+      />
+    </div>
+  );
+}
 
                   if (cachedLogo || asset.logoUrl) {
                     return (

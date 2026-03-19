@@ -1,3 +1,4 @@
+// app/page.tsx
 import Image from "next/image";
 import SummaryCard from '@/components/dashboard/SummaryCard';
 import AssetPieChart from "@/components/dashboard/AssetPieChart";

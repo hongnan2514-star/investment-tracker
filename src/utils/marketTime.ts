@@ -189,3 +189,33 @@ function getEarlyCloseDays(year: number): string[] {
   const xmasEve = new Date(year, 11, 24);
   return [blackFriday.toISOString().split('T')[0], xmasEve.toISOString().split('T')[0]];
 }
+
+// 判断A股交易时间（北京时间，周一至周五 9:30-11:30, 13:00-15:00）
+export function isAStockMarketOpen(date: Date = new Date()): boolean {
+  const day = date.getDay();
+  if (day === 0 || day === 6) return false; // 周末休市
+
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const current = hours * 60 + minutes;
+
+  const morningStart = 9 * 60 + 30;  // 9:30
+  const morningEnd = 11 * 60 + 30;   // 11:30
+  const afternoonStart = 13 * 60;    // 13:00
+  const afternoonEnd = 15 * 60;      // 15:00
+
+  return (current >= morningStart && current <= morningEnd) ||
+         (current >= afternoonStart && current <= afternoonEnd);
+}
+
+// 判断贵金属（上海黄金交易所）交易时间：周一至周五 9:00-15:30（夜盘暂不考虑）
+export function isMetalMarketOpen(date: Date = new Date()): boolean {
+  const day = date.getDay();
+  if (day === 0 || day === 6) return false;
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const current = hours * 60 + minutes;
+  const start = 9 * 60;      // 9:00
+  const end = 15 * 60 + 30;  // 15:30
+  return current >= start && current <= end;
+}

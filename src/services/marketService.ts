@@ -205,48 +205,6 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
 
   if (updatedAssets.length > 0) recordSnapshot();
 
-  // 后台异步更新历史数据
-  updatedAssets.forEach(asset => {
-    if (asset.type === 'crypto') {
-      const resolution = '5m';
-      fetch(`/api/crypto/needs-update?symbol=${encodeURIComponent(asset.symbol)}&resolution=${resolution}&maxAge=300`)
-        .then(res => res.json())
-        .then(({ needsUpdate }) => {
-          if (needsUpdate) {
-            return queryCryptoOHLCV(asset.symbol.split('/')[0], resolution, 288);
-          }
-        })
-        .then(data => {
-          if (data && data.length > 0) {
-            const records = data.map(item => ({
-              symbol: asset.symbol,
-              timestamp: item.timestamp,
-              resolution,
-              open: item.close,
-              high: item.close,
-              low: item.close,
-              close: item.close,
-              volume: 0,
-            }));
-            return fetch('/api/crypto/minute', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(records)
-            });
-          }
-        })
-        .catch(err => console.error(`更新分钟历史失败 ${asset.symbol}:`, err));
-    }
-
-    if (asset.type === 'stock' || asset.type === 'etf' || asset.type === 'crypto') {
-      fetch('/api/history/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ asset })
-      }).catch(err => console.error(`后台历史更新请求失败 ${asset.symbol}:`, err));
-    }
-  });
-
   eventBus.emit('assetsUpdated', updatedAssets);
   return updatedAssets;
 }

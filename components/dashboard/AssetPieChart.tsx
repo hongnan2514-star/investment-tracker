@@ -180,8 +180,10 @@ export default function AssetPieChart() {
                 paddingAngle={2}
                 dataKey="value"
                 labelLine={false}
-                label={({ name, percent, payload, cx, cy, outerRadius, startAngle, endAngle }) => {
-                  if (percent == null || percent < 0.03) return null;
+                label={({ payload, cx, cy, outerRadius, startAngle, endAngle }) => {
+                  // 使用 payload.value 与总市值计算实际占比，确保过滤准确
+                  const percentValue = payload.value / totalConverted;
+                  if (percentValue < 0.03) return null; // 占比低于3%不显示标签
 
                   const RADIAN = Math.PI / 180;
                   const midAngle = (startAngle + endAngle) / 2;
@@ -198,7 +200,7 @@ export default function AssetPieChart() {
                   
                   const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
                   const fontSize = isMobile ? 12 : 14;
-                  const displayPercent = payload.percent;
+                  const displayPercent = (percentValue * 100).toFixed(1) + '%';
                   
                   return (
                     <text
@@ -210,7 +212,7 @@ export default function AssetPieChart() {
                       fontSize={fontSize}
                       fontWeight="600"
                     >
-                      {`${name} ${displayPercent}`}
+                      {`${payload.name} ${displayPercent}`}
                     </text>
                   );
                 }}
@@ -228,7 +230,7 @@ export default function AssetPieChart() {
           </ResponsiveContainer>
         </div>
 
-        {/* 图例区域 */}
+        {/* 图例区域（保持不变） */}
         <div className="w-full md:w-1/2 space-y-4">
           {pieData.map((entry) => (
             <div key={entry.type} className="flex items-center justify-between">
