@@ -6,7 +6,7 @@ import { CurrencyCode } from '@/src/services/currency';
 
 const sql = neon(process.env.POSTGRES_URL!);
 
-// 获取单个资产的历史价格（日线），并转换为目标货币
+// 获取单个资产的历史价格（日线），并转换为目标货币（转换失败时保留原值）
 async function getAssetHistoryWithCurrency(
   symbol: string,
   type: string,
@@ -20,17 +20,31 @@ async function getAssetHistoryWithCurrency(
   url.searchParams.set('type', type);
   url.searchParams.set('range', 'since_holding');
   url.searchParams.set('startDate', startDate);
-  const res = await fetch(url.toString());
-  const json = await res.json();
-  if (!json.success) return new Map();
-  const history = json.data as { date: string; value: number }[];
-  const map = new Map<string, number>();
-  for (const point of history) {
-    const dateStr = point.date.split('T')[0];
-    const convertedPrice = await convertAmount(point.value, fromCurrency, toCurrency);
-    map.set(dateStr, convertedPrice);
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      console.error(`获取历史数据失败: ${symbol}, status: ${res.status}`);
+      return new Map();
+    }
+    const json = await res.json();
+    if (!json.success) return new Map();
+    const history = json.data as { date: string; value: number }[];
+    const map = new Map<string, number>();
+    for (const point of history) {
+      const dateStr = point.date.split('T')[0];
+      let price = point.value;
+      try {
+        price = await convertAmount(price, fromCurrency, toCurrency);
+      } catch (convErr) {
+        console.warn(`汇率转换失败 ${symbol} ${fromCurrency}->${toCurrency}:`, convErr);
+      }
+      map.set(dateStr, price);
+    }
+    return map;
+  } catch (error) {
+    console.error(`获取资产历史数据异常 ${symbol}:`, error);
+    return new Map();
   }
-  return map;
 }
 
 export async function POST(request: NextRequest) {
@@ -51,10 +65,18 @@ export async function POST(request: NextRequest) {
         WHERE user_id = ${userId} AND snapshot_time >= ${startTime.toISOString()}
         ORDER BY snapshot_time ASC
       `;
-      const results = await Promise.all(snapshots.map(async (s) => ({
-        timestamp: new Date(s.snapshot_time).getTime(),
-        value: await convertAmount(s.net_worth, 'CNY', targetCurrency as CurrencyCode),
-      })));
+      const results = await Promise.all(snapshots.map(async (s) => {
+        let value = s.net_worth;
+        try {
+          value = await convertAmount(value, 'CNY', targetCurrency as CurrencyCode);
+        } catch (err) {
+          console.warn(`1D 快照汇率转换失败: ${err}`);
+        }
+        return {
+          timestamp: new Date(s.snapshot_time).getTime(),
+          value,
+        };
+      }));
       return NextResponse.json({ data: results });
     }
 
@@ -88,8 +110,13 @@ export async function POST(request: NextRequest) {
         let current = new Date(start);
         while (current <= end) {
           const dateStr = current.toISOString().split('T')[0];
-          const convertedPrice = await convertAmount(asset.price, fromCurrency, toCurrency);
-          priceMap.set(dateStr, convertedPrice);
+          let price = asset.price;
+          try {
+            price = await convertAmount(price, fromCurrency, toCurrency);
+          } catch (err) {
+            console.warn(`静态资产汇率转换失败 ${asset.symbol}:`, err);
+          }
+          priceMap.set(dateStr, price);
           current.setDate(current.getDate() + 1);
         }
         return { holdings: asset.holdings, type: asset.type, priceMap };
