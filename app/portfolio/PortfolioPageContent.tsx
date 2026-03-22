@@ -138,7 +138,7 @@ const carBrands: CarBrand[] = [
   { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/aim.png' },
   { id: 'Alpha Motor', name: 'Alpha Motor', firstLetter: 'A', logoUrl: '/images/car_logos/Alpha Motor.png' },
   { id: 'Alpina', name: 'Alpina', firstLetter: 'A', logoUrl: 'images/car_logos/alpina.png' },
-  { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/Alpine.png' },
+  { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/ALPINE.png' },
   { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/am晓澳.png' },
   { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/apex.png' },
   { id: 'apollo', name: 'apollo', firstLetter: 'A', logoUrl: '/images/car_logos/apollo.png' },

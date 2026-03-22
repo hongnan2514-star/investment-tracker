@@ -12,11 +12,9 @@ async function getAssetHistoryWithCurrency(
   type: string,
   startDate: string,
   fromCurrency: CurrencyCode,
-  toCurrency: CurrencyCode
+  toCurrency: CurrencyCode,
+  baseUrl: string
 ): Promise<Map<string, number>> {
-  // 动态获取当前域名（优先使用环境变量，否则用 Vercel 提供的内置变量，最后回退到本地开发地址）
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
-                  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
   const url = new URL('/api/history', baseUrl);
   url.searchParams.set('symbol', symbol);
   url.searchParams.set('type', type);
@@ -41,6 +39,9 @@ export async function POST(request: NextRequest) {
     if (!userId || !period) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
+
+    // 获取当前请求的 origin（例如 https://your-app.vercel.app）
+    const baseUrl = request.nextUrl.origin;
 
     // 1日：使用快照，并转换为 targetCurrency
     if (period === '1D') {
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 有历史数据的资产
-      const historyMap = await getAssetHistoryWithCurrency(asset.symbol, asset.type, buyDate, fromCurrency, toCurrency);
+      const historyMap = await getAssetHistoryWithCurrency(asset.symbol, asset.type, buyDate, fromCurrency, toCurrency, baseUrl);
       const filledMap = new Map<string, number>();
       let lastPrice: number | null = null;
       let current = new Date(start);
