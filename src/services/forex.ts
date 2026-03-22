@@ -17,22 +17,25 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
     return ratesCache;
   }
 
+  // 如果是 Vercel 环境，直接使用固定汇率（避免网络请求失败）
+  if (process.env.VERCEL) {
+    console.log('[forex] Vercel 环境，使用固定汇率');
+    return getFixedRates();
+  }
+
   try {
     console.log('[forex] 正在从 Frankfurter 获取汇率...');
     const response = await fetch(API_URL);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
 
-    // Frankfurter 返回格式：{ rates: { CNY: 7.2, EUR: 0.85, ... } }
     const rates = data.rates;
-
-    // 确保包含所有支持货币，缺失时使用备用值
     const result: Record<string, number> = {
       USD: 1,
       CNY: rates.CNY || 7.2,
       EUR: rates.EUR || 0.85,
       GBP: rates.GBP || 0.75,
-      USDT: 1, // USDT 视为 1:1 锚定 USD
+      USDT: 1,
       HKD: rates.HKD || 7.8
     };
 
@@ -42,12 +45,11 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
     return result;
   } catch (error) {
     console.error('[forex] 汇率获取失败，使用备用汇率:', error);
-    return getFallbackRates();
+    return getFixedRates();
   }
 }
 
-function getFallbackRates(): Record<string, number> {
-  console.warn('[forex] 使用备用固定汇率');
+function getFixedRates(): Record<string, number> {
   return {
     USD: 1,
     CNY: 7.2,

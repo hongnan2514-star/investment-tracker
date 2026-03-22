@@ -6,7 +6,6 @@ import { Loader2, ChevronUp } from 'lucide-react';
 import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
 import { useCurrency } from '@/src/services/currency';
 import { eventBus } from '@/src/utils/eventBus';
-import { unsubscribe } from 'diagnostics_channel';
 
 type Period = '1D' | '1W' | '1M' | '6M';
 
@@ -90,12 +89,12 @@ export default function ExpandedChart({ totalValue, currencySymbol, todayProfit,
 
   // 监听资产变化，清空缓存并强制刷新
   useEffect(() => {
-  const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
-    cache.clear();
-    fetchData(true);
-  });
-  return () => unsubscribe(); // ✅ 正确
-}, []);
+    const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
+      cache.clear();
+      fetchData(true);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
@@ -103,12 +102,11 @@ export default function ExpandedChart({ totalValue, currencySymbol, todayProfit,
     return () => {
       mounted.current = false;
     };
-  }, [period, currency]); // 只依赖周期和货币，不依赖 totalValue
+  }, [period, currency]);
 
   // 当 totalValue 变化（如汇率转换）且是1D周期时，更新补点（但不重新请求整个历史）
   useEffect(() => {
     if (period === '1D') {
-      // 尝试更新缓存中的最后一个点，避免重新请求
       const cached = cache.get(cacheKey);
       if (cached && cached.data.length > 0) {
         const newData = [...cached.data];
@@ -211,7 +209,6 @@ export default function ExpandedChart({ totalValue, currencySymbol, todayProfit,
             key={p}
             onClick={() => {
               onPeriodChange(p);
-              // 切换周期时，fetchData 会在 useEffect 中自动执行（因为 period 变化）
             }}
             className={`px-3 py-1.5 text-sm font-bold transition rounded-full ${
               period === p

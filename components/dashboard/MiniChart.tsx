@@ -17,7 +17,7 @@ interface Props {
 
 // 缓存数据，键为 `${period}_${currency}`
 const cache = new Map<string, { data: { value: number }[]; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5分钟（可根据需要调整）
+const CACHE_TTL = 5 * 60 * 1000;
 
 export default function MiniChart({ period, totalValue, currencySymbol, profit, onClick }: Props) {
   const [chartData, setChartData] = useState<{ value: number }[]>([]);
@@ -25,10 +25,8 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
   const { currency } = useCurrency();
   const lineColor = profit >= 0 ? '#22c55e' : '#ef4444';
   const cacheKey = `${period}_${currency}`;
-  const assetsVersionRef = useRef<string>(JSON.stringify(getAssets())); // 用于监听资产变化
 
   const fetchData = async (force = false) => {
-    // 检查缓存
     const cached = cache.get(cacheKey);
     const now = Date.now();
     if (!force && cached && (now - cached.timestamp) < CACHE_TTL) {
@@ -51,14 +49,12 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
       if (json.error) throw new Error(json.error);
       let rawData: { timestamp: number; value: number }[] = json.data || [];
 
-      // 去重
       const uniqueData = rawData.filter((point, index, self) =>
         index === 0 || point.timestamp !== self[index-1].timestamp
       );
 
       let finalData = period === '1D' ? uniqueData.slice(-24) : uniqueData;
 
-      // 确保至少两个点
       if (finalData.length < 2) {
         const nowTs = Date.now();
         const currentValue = totalValue;
@@ -78,13 +74,13 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
   };
 
   useEffect(() => {
-  const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
-    cache.clear();
-    fetchData(true);
-  });
-  fetchData();
-  return () => unsubscribe(); // ✅ 正确
-}, [period, currency, totalValue]); // 注意 totalValue 变化也可能由汇率引起，但汇率变化时货币已变，缓存键会变
+    const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
+      cache.clear();
+      fetchData(true);
+    });
+    fetchData();
+    return () => unsubscribe();
+  }, [period, currency, totalValue]);
 
   const getYAxisDomain = (): [number, number] => {
     if (chartData.length === 0) return [0, totalValue || 100];
