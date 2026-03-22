@@ -1,19 +1,4 @@
-// app/api/history/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-
-// 临时绕过所有业务逻辑，直接返回空数据，用于排查 401 问题
-export async function GET(request: NextRequest) {
-  // 检查是否为内部调用（由 snapshot/history 发起）
-  const internal = request.nextUrl.searchParams.get('internal') === 'true';
-  // 如果内部调用，也返回空数据（测试用）
-  console.log(`[历史API] 临时测试模式，internal=${internal}`);
-  
-  // 直接返回空数据，绕过所有数据库查询和外部API调用
-  return NextResponse.json({ success: true, data: [] });
-}
-
-// 原有业务逻辑已全部注释，待问题解决后恢复
-/*
 import { 
   getFundHistory, 
   getCryptoMinuteHistory, 
@@ -35,7 +20,7 @@ import {
   getFundHistorySince,
   saveFundHistory,
 } from '@/src/services/fundHistoryDB';
-import { fetchCryptoMinuteData, fetchCryptoDailyHistory, } from '../data-sources/crypto-ccxt';
+import { fetchCryptoMinuteData, fetchCryptoDailyHistory } from '../data-sources/crypto-ccxt';
 import { fetchTiingoMinuteData } from '../data-sources/tiingo-stock';
 import { fetchAStockMinuteDataFromSina } from '../data-sources/sina-stock';
 import { fetchTiingoDailyHistory } from '../data-sources/tiingo-stock';
@@ -81,7 +66,6 @@ function isOverFiveYears(startDateStr: string): boolean {
 }
 
 async function fetchStockDailyWithFallback(symbol: string, sinceDate?: string): Promise<StockPrice[] | null> {
-  // 先尝试 Tiingo
   const tiingoData = await fetchTiingoDailyHistory(symbol, sinceDate);
   if (tiingoData && tiingoData.length > 0) {
     return tiingoData.map(item => ({
@@ -107,6 +91,7 @@ async function fetchStockDailyWithFallback(symbol: string, sinceDate?: string): 
 }
 
 export async function GET(request: NextRequest) {
+  // 获取 internal 参数，用于内部调用日志（无需认证）
   const internal = request.nextUrl.searchParams.get('internal') === 'true';
   const symbol = request.nextUrl.searchParams.get('symbol');
   const type = request.nextUrl.searchParams.get('type');
@@ -123,7 +108,7 @@ export async function GET(request: NextRequest) {
   else if (range === '1月') range = '1M';
   else if (range === '持有以来') range = 'since_holding';
 
-  console.log(`[历史API] 原始range=${rawRange}, 标准化后=${range}`);
+  console.log(`[历史API] 原始range=${rawRange}, 标准化后=${range}, internal=${internal}`);
 
   try {
     let history: { date: string; value: number }[] = [];
@@ -131,6 +116,7 @@ export async function GET(request: NextRequest) {
     if (type === 'fund') {
       const cleanCode = symbol.replace(/\.OF$/, '');
       console.time(`[性能] 基金 ${cleanCode} ${range}`);
+
       if (range === 'since_holding') {
         const startDate = request.nextUrl.searchParams.get('startDate');
         if (!startDate) {
@@ -194,6 +180,7 @@ export async function GET(request: NextRequest) {
             history = stockHistory.map(item => ({ date: item.date, value: item.close }));
           }
         } else {
+          // 1d_hk：港股月线，直接获取最近 limit 条日线数据
           console.log(`[历史API] 月线日线请求，获取最近 ${limit} 条日线数据`);
           let stockHistory = await getStockHistory(symbol, limit);
           if (stockHistory.length === 0) {
@@ -210,7 +197,7 @@ export async function GET(request: NextRequest) {
           history = stockHistory.map(item => ({ date: item.date, value: item.close }));
         }
       } else {
-        // 分钟数据分支（处理 15m、1h、6h 等）—— 原样保留，确保 1d 能正确进入
+        // 分钟数据分支（处理 15m、1h、6h 等）—— 原样保留
         const validResolutions = ['15m', '1h', '4h', '6h'];
         let resolution: string;
         if (validResolutions.includes(range)) {
@@ -313,7 +300,7 @@ export async function GET(request: NextRequest) {
             console.log(`[历史API] 股票已保存 ${records.length} 条 ${resolution} 数据`);
             console.timeLog(perfLabel, `保存 ${records.length} 条到数据库完成`);
           }
-        } 
+        }
         const minuteData = await getStockMinuteHistory(symbol, resolution, limit);
         console.log(`[历史API] 股票从数据库获取到 ${minuteData.length} 条 ${resolution} 原始数据`);
         console.timeLog(perfLabel, `从数据库获取 ${limit} 条数据完成`);
@@ -539,4 +526,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, data: [], error: error.message });
   }
 }
-*/
