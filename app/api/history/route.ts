@@ -313,7 +313,7 @@ export async function GET(request: NextRequest) {
             console.log(`[历史API] 股票已保存 ${records.length} 条 ${resolution} 数据`);
             console.timeLog(perfLabel, `保存 ${records.length} 条到数据库完成`);
           }
-        }
+        } 
         const minuteData = await getStockMinuteHistory(symbol, resolution, limit);
         console.log(`[历史API] 股票从数据库获取到 ${minuteData.length} 条 ${resolution} 原始数据`);
         console.timeLog(perfLabel, `从数据库获取 ${limit} 条数据完成`);
