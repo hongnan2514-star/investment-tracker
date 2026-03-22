@@ -14,7 +14,10 @@ async function getAssetHistoryWithCurrency(
   fromCurrency: CurrencyCode,
   toCurrency: CurrencyCode
 ): Promise<Map<string, number>> {
-  const url = new URL('/api/history', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000');
+  // 动态获取当前域名（优先使用环境变量，否则用 Vercel 提供的内置变量，最后回退到本地开发地址）
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
+                  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  const url = new URL('/api/history', baseUrl);
   url.searchParams.set('symbol', symbol);
   url.searchParams.set('type', type);
   url.searchParams.set('range', 'since_holding');
