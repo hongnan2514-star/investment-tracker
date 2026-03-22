@@ -20,6 +20,7 @@ async function getAssetHistoryWithCurrency(
   url.searchParams.set('type', type);
   url.searchParams.set('range', 'since_holding');
   url.searchParams.set('startDate', startDate);
+  url.searchParams.set('internal', 'true');
   try {
     const res = await fetch(url.toString());
     if (!res.ok) {

@@ -99,6 +99,7 @@ async function fetchStockDailyWithFallback(symbol: string, sinceDate?: string): 
 }
 
 export async function GET(request: NextRequest) {
+  const internal = request.nextUrl.searchParams.get('internal') === 'true';
   const symbol = request.nextUrl.searchParams.get('symbol');
   const type = request.nextUrl.searchParams.get('type');
   const rawRange = request.nextUrl.searchParams.get('range') || '1d';
