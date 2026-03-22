@@ -12,7 +12,7 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   stock: { name: '股票', color: '#1e67f7' },
   fund: { name: '基金', color: '#320bcd' },
-  crypto: { name: '加密货币', color: '#ec4899' },
+  crypto: { name: '数字货币', color: '#ec4899' },
   metal: { name: '贵金属', color: '#f59e0b' },
   car: { name: '车辆', color: '#06b6d4' },
   real_estate: { name: '不动产', color: '#f97316' },

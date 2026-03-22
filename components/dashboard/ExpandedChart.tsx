@@ -1,10 +1,12 @@
 // components/dashboard/ExpandedChart.tsx
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, Tooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Loader2, ChevronUp } from 'lucide-react';
-import { getAssets } from '@/src/utils/assetStorage';
-import { getHistoryData } from '@/src/services/historyService';
+import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
+import { useCurrency } from '@/src/services/currency';
+import { eventBus } from '@/src/utils/eventBus';
+import { unsubscribe } from 'diagnostics_channel';
 
 type Period = '1D' | '1W' | '1M' | '6M';
 
@@ -13,60 +15,117 @@ interface Props {
   currencySymbol: string;
   todayProfit: number;
   onClose: () => void;
+  period: Period;
+  onPeriodChange: (period: Period) => void;
 }
 
-export default function ExpandedChart({ totalValue, currencySymbol, todayProfit, onClose }: Props) {
-  const [period, setPeriod] = useState<Period>('1D');
+// 与迷你图共享缓存（也可独立，但使用相同键）
+const cache = new Map<string, { data: { time: string; value: number }[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000;
+
+export default function ExpandedChart({ totalValue, currencySymbol, todayProfit, onClose, period, onPeriodChange }: Props) {
   const [chartData, setChartData] = useState<{ time: string; value: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const mounted = useRef(true);
 
+  const { currency } = useCurrency();
   const lineColor = todayProfit >= 0 ? '#22c55e' : '#ef4444';
+  const cacheKey = `${period}_${currency}`;
 
-  const fetchPortfolioHistory = async () => {
+  const fetchData = async (force = false) => {
+    if (!mounted.current) return;
+    const cached = cache.get(cacheKey);
+    const now = Date.now();
+    if (!force && cached && (now - cached.timestamp) < CACHE_TTL) {
+      setChartData(cached.data);
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      const assets = getAssets();
-      console.log('前端资产数量:', assets.length);
+      const userId = getCurrentUserId();
+      if (!userId) throw new Error('用户未登录');
 
-      const res = await fetch('/api/history/portfolio', {
+      const assets = getAssets();
+      const res = await fetch('/api/snapshot/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assets, period }),
+        body: JSON.stringify({ userId, period, targetCurrency: currency, assets }),
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       let rawData: { timestamp: number; value: number }[] = json.data || [];
 
-      if (rawData.length === 0) {
-        console.log('API无数据，使用本地快照作为后备');
-        const hours = period === '1D' ? 24 : period === '1W' ? 168 : 720;
-        const snapshot = getHistoryData(hours);
-        rawData = snapshot.map(p => ({
-          timestamp: p.timestamp,
-          value: p.value,
-        }));
+      const uniqueData = rawData.filter((point, index, self) =>
+        index === 0 || point.timestamp !== self[index-1].timestamp
+      );
+
+      let finalData = period === '1D' ? uniqueData.slice(-24) : uniqueData;
+
+      if (finalData.length < 2) {
+        const nowTs = Date.now();
+        const currentValue = totalValue;
+        finalData.push({ timestamp: nowTs, value: currentValue });
+        finalData.sort((a, b) => a.timestamp - b.timestamp);
       }
 
-      // 格式化时间：1D显示 HH:mm，其他显示 MM-DD
-      const formatted = rawData.map(p => ({
+      const formatted = finalData.map(p => ({
         time: period === '1D'
           ? new Date(p.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
           : new Date(p.timestamp).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }),
         value: p.value,
       }));
-      setChartData(formatted);
+      if (mounted.current) {
+        setChartData(formatted);
+        cache.set(cacheKey, { data: formatted, timestamp: now });
+      }
     } catch (err: any) {
-      setError(err.message || '加载失败');
+      if (mounted.current) setError(err.message || '加载失败');
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   };
 
+  // 监听资产变化，清空缓存并强制刷新
   useEffect(() => {
-    fetchPortfolioHistory();
-  }, [period]);
+  const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
+    cache.clear();
+    fetchData(true);
+  });
+  return () => unsubscribe(); // ✅ 正确
+}, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    fetchData();
+    return () => {
+      mounted.current = false;
+    };
+  }, [period, currency]); // 只依赖周期和货币，不依赖 totalValue
+
+  // 当 totalValue 变化（如汇率转换）且是1D周期时，更新补点（但不重新请求整个历史）
+  useEffect(() => {
+    if (period === '1D') {
+      // 尝试更新缓存中的最后一个点，避免重新请求
+      const cached = cache.get(cacheKey);
+      if (cached && cached.data.length > 0) {
+        const newData = [...cached.data];
+        const lastPoint = newData[newData.length - 1];
+        const newValue = totalValue;
+        if (lastPoint.value !== newValue) {
+          const now = Date.now();
+          const newTime = new Date(now).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+          newData[newData.length - 1] = { ...lastPoint, time: newTime, value: newValue };
+          setChartData(newData);
+          cache.set(cacheKey, { data: newData, timestamp: cached.timestamp });
+        }
+      } else {
+        fetchData();
+      }
+    }
+  }, [totalValue, period]);
 
   const getYAxisDomain = (): [number, number] => {
     if (chartData.length === 0) return [0, totalValue || 100];
@@ -87,7 +146,6 @@ export default function ExpandedChart({ totalValue, currencySymbol, todayProfit,
     </filter>
   );
 
-  // 中文周期标签
   const periodLabels: Record<Period, string> = {
     '1D': '1日',
     '1W': '1周',
@@ -122,7 +180,7 @@ export default function ExpandedChart({ totalValue, currencySymbol, todayProfit,
               <Tooltip
                 formatter={(value: any) => {
                   const numValue = typeof value === 'number' ? value : 0;
-                  return [`${currencySymbol}${numValue.toFixed(2)}`, '总资产'];
+                  return [`${currencySymbol}${numValue.toFixed(2)}`, '净资产'];
                 }}
                 labelFormatter={(label) => `时间: ${label}`}
                 contentStyle={{
@@ -147,23 +205,25 @@ export default function ExpandedChart({ totalValue, currencySymbol, todayProfit,
         )}
       </div>
 
-      {/* 周期按钮 - 等宽均匀排列 */}
       <div className="flex justify-between gap-2 mt-4">
-  {(['1D', '1W', '1M', '6M'] as Period[]).map(p => (
-    <button
-      key={p}
-      onClick={() => setPeriod(p)}
-      className={`px-3 py-1.5 text-sm font-bold transition rounded-full ${
-        period === p
-          ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-          : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-      }`}
-    >
-      {periodLabels[p]}
-    </button>
-  ))}
-</div>
-      {/* 朝上的箭头按钮 */}
+        {(['1D', '1W', '1M', '6M'] as Period[]).map(p => (
+          <button
+            key={p}
+            onClick={() => {
+              onPeriodChange(p);
+              // 切换周期时，fetchData 会在 useEffect 中自动执行（因为 period 变化）
+            }}
+            className={`px-3 py-1.5 text-sm font-bold transition rounded-full ${
+              period === p
+                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                : 'bg-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            {periodLabels[p]}
+          </button>
+        ))}
+      </div>
+
       <div className="flex justify-center mt-4">
         <button
           onClick={onClose}

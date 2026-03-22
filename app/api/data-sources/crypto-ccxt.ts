@@ -16,6 +16,7 @@ async function fetchFromCoinGecko(symbol: string): Promise<DataSourceResult> {
       'SOL': 'solana',
       'XRP': 'ripple',
       'ADA': 'cardano',
+      'OKB': 'okb',
       'DOGE': 'dogecoin',
       'DOT': 'polkadot',
       'MATIC': 'polygon',

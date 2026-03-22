@@ -4,7 +4,7 @@ import { getAssets } from '@/src/utils/assetStorage';
 // 单个历史数据点
 export interface HistoryPoint {
   timestamp: number;  // 毫秒时间戳
-  value: number;      // 总资产
+  value: number;      // 净资产（已扣除负债）
 }
 
 const STORAGE_KEY = 'asset_history';
@@ -19,12 +19,13 @@ function getFullHistory(): HistoryPoint[] {
   return stored ? JSON.parse(stored) : [];
 }
 
-// 记录当前总资产快照（带频率限制）
+// 记录当前净资产快照（带频率限制）
 export function recordSnapshot(): void {
   const assets = getAssets();
   if (assets.length === 0) return;
 
-  const total = assets.reduce((sum, asset) => sum + asset.marketValue, 0);
+  // 净资产 = 所有资产市值之和（负债的 marketValue 为负数，会自然扣除）
+  const netWorth = assets.reduce((sum, asset) => sum + asset.marketValue, 0);
   const now = Date.now();
 
   const history = getFullHistory();
@@ -38,7 +39,7 @@ export function recordSnapshot(): void {
   }
 
   // 添加新点
-  history.push({ timestamp: now, value: total });
+  history.push({ timestamp: now, value: netWorth });
 
   // 清理超过 MAX_HOURS 的数据（按时间）
   const cutoff = now - MAX_HOURS * 60 * 60 * 1000;

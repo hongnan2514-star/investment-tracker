@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/shared/BottomNav";
 import { ThemeProvider } from "./ThemeProvider";
+import SnapshotScheduler from "@/components/shared/SnapshotScheduler"; // 新增导入
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,9 +34,9 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <BottomNav />
+          <SnapshotScheduler /> {/* 新增组件，放在底部 */}
         </ThemeProvider>
       </body>
     </html>
   );
 }
-

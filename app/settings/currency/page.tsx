@@ -58,10 +58,6 @@ export default function CurrencyPage() {
           </button>
         ))}
       </div>
-
-      <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
-        * 当前版本仅切换货币符号，数值不进行汇率换算
-      </p >
     </main>
   );
 }

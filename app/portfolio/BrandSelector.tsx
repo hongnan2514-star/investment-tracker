@@ -86,7 +86,7 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
                   {letter}
                 </div>
                 {/* 大背景框 */}
-                <div className="bg-gray-100 dark:bg-gray-950 rounded-3xl p-4">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-3xl p-4">
                   <div className="grid grid-cols-4 gap-4">
                     {grouped.groups[letter].map(brand => (
                       <button

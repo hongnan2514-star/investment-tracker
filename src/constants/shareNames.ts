@@ -1489,6 +1489,8 @@ export const AShareNameMap: Record<string, string> = {
 "603999.SS": "读者传媒",
 
 "002031.SZ": "巨轮智能",
+"000858.SZ": "五粮液",
+"000333.SZ": "美的集团",
 
 "300750.SZ": "宁德时代",
 

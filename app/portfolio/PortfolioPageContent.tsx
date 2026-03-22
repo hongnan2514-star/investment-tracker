@@ -1,7 +1,7 @@
 // app/portfolio/PortfolioPageContent.tsx
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {  // 图标
   Plus, Zap, Home, BarChart3, Hotel, X, ChevronRight, Search,
   Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2,
@@ -38,9 +38,12 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   car: { name: '车辆', color: '#06b6d4' },
   real_estate: { name: '不动产', color: '#f97316' },
   receivable: { name: '应收款', color: '#9b59b6'},
-  custom_asset: { name: '自定义', color: '#95a5a6' },
-  liability: { name: '负债', color: '#e74c3c'}
+  custom: { name: '现金', color: '#95a5a6' },
+  custom_asset: { name: '自定义', color: '#e4f806ff'},
+  liability: { name: '负债', color: '#e74c3c'},
 };
+
+
 
 interface FoundAsset {
   symbol: string;
@@ -79,7 +82,7 @@ export default function PortfolioPage() {
   const HIDDEN_TYPES_KEY = 'portfolio_hiddenTypes';
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [sortExpanded, setSortExpanded] = useState(false);
-  const [filterExpanded, setFilterExpanded] = useState(true);
+  const [filterExpanded, setFilterExpanded] = useState(false);
   const [isLoadingMetal, setIsLoadingMetal] = useState(false);
   const [metalError, setMetalError] = useState<string | null>(null);
   const [realEstateName, setRealEstateName] = useState('');
@@ -134,7 +137,7 @@ const carBrands: CarBrand[] = [
   { id: 'Agile Automotive', name: 'Agile Automotive', firstLetter: 'A', logoUrl: '/images/car_logos/Agile Automotive.png' },
   { id: 'AIM', name: 'AIM', firstLetter: 'A', logoUrl: '/images/car_logos/aim.png' },
   { id: 'Alpha Motor', name: 'Alpha Motor', firstLetter: 'A', logoUrl: '/images/car_logos/Alpha Motor.png' },
-  { id: 'Alpina', name: 'Alpina', firstLetter: 'A', logoUrl: 'images/car_logos/Alpina1.png' },
+  { id: 'Alpina', name: 'Alpina', firstLetter: 'A', logoUrl: 'images/car_logos/alpina.png' },
   { id: 'Alpine', name: 'Alpine', firstLetter: 'A', logoUrl: '/images/car_logos/Alpine.png' },
   { id: 'AM晓澳', name: 'AM晓澳', firstLetter: 'A', logoUrl: '/images/car_logos/am晓澳.png' },
   { id: 'APEX', name: 'APEX', firstLetter: 'A', logoUrl: '/images/car_logos/apex.png' },
@@ -144,13 +147,20 @@ const carBrands: CarBrand[] = [
   { id: '阿娜亚', name: '阿娜亚', firstLetter: 'A', logoUrl: '/images/car_logos/阿娜亚.png'},
   { id: 'AIAT', name: 'AIAT', firstLetter: 'A', logoUrl: '/images/car_logos/aiat.png'},
   { id: 'arcfox极狐', name: 'arcfox极狐', firstLetter: 'A', logoUrl: '/images/car_logos/arcfox极狐.png'},
+  { id: '阿维塔', name: '阿维塔', firstLetter: 'A', logoUrl: '/images/car_logos/阿维塔.png'},
+  { id: '埃尚', name: '埃尚', firstLetter: 'A', logoUrl: '/images/car_logos/埃尚.png'},
+  { id: 'ICONIO', name: 'ICONIO', firstLetter: 'A', logoUrl: '/images/car_logos/ICONIO.png'},
 
   // B
   { id: 'BMW', name: 'BMW', firstLetter: 'B', logoUrl: '/images/car_logos/BMW.png' },
+  { id: 'BUGATTI', name: 'BUGATTI', firstLetter: 'B', logoUrl: '/images/car_logos/布加迪.png'},
   { id: 'Porsche', name: 'Porsche', firstLetter:'P', logoUrl:'/images/car_logos/Porsche.png' },
   { id: 'Bentley', name: 'Bentley', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
   { id: 'Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
   { id: 'Rolls Royce', name: 'Rolls Royce', firstLetter:' L', logoUrl:'/images/car_logos/劳斯莱斯.png' },
+
+  // H
+  { id: 'HONDA', name: 'HONDA', firstLetter: 'H', logoUrl: '/images/car_logos/HONDA.png'},
 
   // K
   { id: 'Chrysler', name: 'Chrysler', firstLetter:'K', logoUrl:'/images/car_logos/克莱斯勒.png' },
@@ -204,6 +214,9 @@ const carBrands: CarBrand[] = [
   const [selectedBrandName, setSelectedBrandName] = useState<string>('');
   const [loadingCarData, setLoadingCarData] = useState(false);
   const [assets, setAssets] = useState<Asset[]>(() => getAssets());
+  useEffect(() => {
+  console.log('当前资产类型:', assets.map(a => ({ symbol: a.symbol, type: a.type })));
+}, [assets]);
   const { hasCrypto, hasStock, hasMetal, hasFund } = useMemo(() => {
   const types = assets.map(a => a.type);
   return {
@@ -219,6 +232,79 @@ useAssetRefresh({ hasCrypto, hasStock, hasMetal, hasFund });
   const [convertedAssets, setConvertedAssets] = useState<Asset[]>(() => getAssets());  // 转换后的资产列表（价格和市值已按目标货币转换）
   const { currency } = useCurrency(); // 获取当前货币代码
   const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
+  // 定义转换函数
+const convertAll = useCallback(async () => {
+  const currentAssets = getAssets(); // 直接从存储获取最新资产
+  if (currentAssets.length === 0) {
+    setConvertedAssets([]);
+    return;
+  }
+
+  console.log(`[货币转换] 开始转换，目标货币: ${currency}`);
+  const converted = await Promise.all(
+    currentAssets.map(async (asset) => {
+      const fromCurrency = asset.currency || 'USD';
+      try {
+        const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
+        if (newMarketValue == null || isNaN(newMarketValue) || !isFinite(newMarketValue)) {
+          return asset;
+        }
+        return {
+          ...asset,
+          marketValue: newMarketValue,
+          price: await convert(asset.price, fromCurrency as any, currency).catch(() => asset.price),
+          costPrice: asset.costPrice ? await convert(asset.costPrice, fromCurrency as any, currency).catch(() => asset.costPrice) : undefined,
+        };
+      } catch (e) {
+        console.error(`转换失败 ${asset.symbol}:`, e);
+        return asset;
+      }
+    })
+  );
+  setConvertedAssets(converted);
+  console.log(`[货币转换] 完成`);
+}, [currency, convert]);
+
+// 货币切换时自动转换
+useEffect(() => {
+  convertAll();
+}, [currency]); // 只在货币变化时执行
+
+// 初始加载时执行一次转换
+useEffect(() => {
+  convertAll();
+}, []); // 空依赖，仅挂载时执行
+
+// ==================== 资产更新事件处理 ====================
+useEffect(() => {
+  const handleUpdate = (updatedAssets?: Asset[]) => {
+    if (updatedAssets) {
+      // 价格刷新事件（携带新资产列表）
+      console.log('收到价格刷新事件，更新 assets');
+      setAssets([...updatedAssets]);
+      // 不更新 convertedAssets，等待货币切换或手动触发
+    } else {
+      // 添加/删除资产事件（无参数）
+      const updated = getAssets();
+      console.log('收到资产变更事件，重新读取并转换');
+      setAssets([...updated]);
+      convertAll(); // 重新转换以反映新资产
+    }
+  };
+
+  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleUpdate);
+  const unsubscribeUser = eventBus.subscribe('userChanged', () => {
+    // 用户切换时重新加载资产并转换
+    const updated = getAssets();
+    setAssets(updated);
+    convertAll();
+  });
+
+  return () => {
+    unsubscribeAssets();
+    unsubscribeUser();
+  };
+}, [convertAll]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -306,45 +392,6 @@ useEffect(() => {
   localStorage.setItem(HIDDEN_TYPES_KEY, JSON.stringify(arr));
 }, [hiddenAssetTypes]);
 
-  // 当 assets 或 currency 变化时，重新计算转换后的值
-useEffect(() => {
-  const convertAll = async () => {
-    if (assets.length === 0) {
-      setConvertedAssets([]);
-      return;
-    }
-
-    const converted = await Promise.all(
-  assets.map(async (asset) => {
-    const fromCurrency = asset.currency || 'USD';
-    console.log(`[convertAll] 开始转换 ${asset.symbol}: from=${fromCurrency}, to=${currency}, value=${asset.marketValue}`);
-    
-    try {
-      const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
-      // 检查转换结果是否有效
-      if (newMarketValue == null || isNaN(newMarketValue) || !isFinite(newMarketValue)) {
-        console.warn(`[convertAll] 转换后无效，保留原值:`, newMarketValue);
-        return asset;
-      }
-      console.log(`[convertAll] 转换结果 ${asset.symbol}: ${newMarketValue}`);
-      return {
-        ...asset,
-        marketValue: newMarketValue,
-        // 同样处理 price 和 costPrice
-        price: await convert(asset.price, fromCurrency as any, currency).catch(() => asset.price),
-        costPrice: asset.costPrice ? await convert(asset.costPrice, fromCurrency as any, currency).catch(() => asset.costPrice) : undefined,
-      };
-    } catch (e) {
-      console.error(`[convertAll] 转换失败`, e);
-      return asset;
-    }
-  })
-);
-    setConvertedAssets(converted);
-  };
-  convertAll();
-}, [assets, currency, convert]);
-
   const currencySymbolMap: Record<string, string> = {
     CNY: '¥',
     USD: '$',
@@ -397,17 +444,17 @@ const sortedAssets = useMemo(() => {
   };
 
   useEffect(() => {
-    if (foundAsset?.price && holdings) {
-      const holdingsNum = parseFloat(holdings);
-      if (isNaN(holdingsNum)) {
-        setMarketValue(holdingsNum * (foundAsset.price ?? 0));
-      } else {
-        setMarketValue(null);
-      }
+  if (foundAsset?.price && holdings) {
+    const holdingsNum = parseFloat(holdings);
+    if (!isNaN(holdingsNum) && holdingsNum > 0) {
+      setMarketValue(holdingsNum * foundAsset.price);
     } else {
       setMarketValue(null);
     }
-  }, [holdings, foundAsset?.price]);
+  } else {
+    setMarketValue(null);
+  }
+}, [holdings, foundAsset?.price]);
 
   const handleMainCategoryClick = (category: MainCategory) => {
   if (category === 'custom') {
@@ -655,28 +702,6 @@ if (type === 'custom') {
     }
   };
 
-  useEffect(() => {
-  const handleUpdate = () => {
-    const updated = getAssets();
-  console.log('收到 assetsUpdated 事件，最新资产:', updated);
-  setAssets(updated);
-  };
-
-  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleUpdate);
-  const unsubscribeUser = eventBus.subscribe('userChanged', handleUpdate);
-
-  return () => {
-    unsubscribeAssets();
-    unsubscribeUser();
-  };
-}, []);
-
-  const handleUpdate = () => {
-  const updated = getAssets();
-  console.log('收到 assetsUpdated 事件，最新资产:', updated);
-  setAssets(updated); // 更新原始资产列表
-};
-
   // 汽车添加处理（纯手动输入）
   const handleAddCarAsset = () => {
     if (!selectedBrandId) {
@@ -723,7 +748,7 @@ if (type === 'custom') {
     addAsset(newAsset);
     setAssets(getAssets());
 
-    alert(`已添加汽车资产: ${carName}`);
+    //alert(`已添加汽车资产: ${carName}`);
 
     // 重置状态并关闭菜单
     setSelectedBrandId('');
@@ -764,7 +789,7 @@ if (type === 'custom') {
   addAsset(newAsset);
   setAssets(getAssets());
 
-  alert(`已添加房产资产: ${name}`);
+  //alert(`已添加房产资产: ${name}`);
 
   // 重置状态
   setRealEstateName('');
@@ -805,7 +830,7 @@ const handleAddCashAsset = () => {
   addAsset(newAsset);
   setAssets(getAssets());
 
-  alert(`已添加现金资产: ${name}`);
+  //alert(`已添加现金资产: ${name}`);
 
   // 重置状态
   setCashName('');
@@ -856,7 +881,7 @@ const handleAddCustomAsset = () => {
   addAsset(newAsset);
   setAssets(getAssets());
 
-  alert(`已添加自定义资产: ${name}`);
+  //alert(`已添加自定义资产: ${name}`);
 
   // 重置状态
   setCustomAssetType('');
@@ -881,7 +906,7 @@ const handleAddCustomAsset = () => {
   }
 
   const holdingsNum = parseFloat(holdings);
-  const finalMarketValue = marketValue ?? 0;
+  const finalMarketValue = !isNaN(holdingsNum) && holdingsNum > 0 ? holdingsNum * foundAsset.price : 0;
 
   const newAsset: Asset = {
     symbol: foundAsset.symbol,
@@ -914,7 +939,7 @@ const handleAddCustomAsset = () => {
     }).catch(err => console.error(`拉取 ${newAsset.symbol} 历史数据失败:`, err));
   }
 
-  alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表`);
+  //alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表`);
 
   setFoundAsset(null);
   setSearchQuery('');
@@ -1106,6 +1131,8 @@ const bankIcons = [
   { name: 'ABC', file: 'abc.png'},
   { name: 'BOC', file: 'boc.png'},
   { name: 'CCB', file: 'ccb.png'},
+  { name: 'CMB', file: 'cmb.png'},
+  { name: 'PAB', file: 'pab.png'},
 ];
 const allIcons = [...networkIcons, ...bankIcons];
 
@@ -2082,7 +2109,7 @@ if (selectedAssetType === 'custom_asset') {
               className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
               onClick={() => setFilterExpanded(!filterExpanded)}
             >
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">筛选资产</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">展示设置</span>
               <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${filterExpanded ? '' : '-rotate-90'}`} />
             </div>
             {filterExpanded && (
@@ -2125,6 +2152,7 @@ if (selectedAssetType === 'custom_asset') {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {filteredAndSortedAssets.length > 0 ? (
   filteredAndSortedAssets.map(asset => {
+  console.log(`渲染 ${asset.symbol} 价格: ${asset.price}`);
   const profitLossColor = getProfitLossColor(asset);
   const profitLossSmallColor = getProfitLossSmallColor(asset);
   let displayPercent = Number(asset.changePercent) || 0;

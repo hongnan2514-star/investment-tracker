@@ -48,6 +48,7 @@ function isUSMarketOpen(): boolean {
 }
 
 export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
+  console.log('refreshAllAssets 开始，传入资产:', assets.map(a => ({ symbol: a.symbol, type: a.type })));
   if (assets.length === 0) return assets;
 
   const currentAssets = getAssets();
@@ -60,31 +61,37 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
 
   await Promise.all(validAssets.map(async (asset) => {
 
+      console.log(`[处理资产] ${asset.symbol}, type=${asset.type}`);
+
     if (asset.symbol.startsWith('CUSTOM-')) {
       return;
     }
     
-    if (asset.type === 'crypto') {
-      try {
-        const res = await fetch(`/api/crypto/minute?symbol=${encodeURIComponent(asset.symbol)}&resolution=5m&limit=2`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.length > 0) {
-            const latest = data[0];
-            let changePercent = 0;
-            if (data.length >= 2) {
-              const previous = data[1];
-              if (previous.close > 0) {
-                changePercent = ((latest.close - previous.close) / previous.close) * 100;
-              }
-            }
-            priceMap.set(asset.symbol, { price: latest.close, changePercent });
-          }
-        }
-      } catch (error) {
-        console.error(`[加密货币] ${asset.symbol} 更新失败:`, error);
+    else if (asset.type && asset.type.trim().toLowerCase() === 'crypto') {
+  try {
+    console.log(`[加密货币] 请求 ${asset.symbol} 价格`);
+    const response = await fetch(`/api/crypto/price?symbol=${encodeURIComponent(asset.symbol)}`, {
+      signal: AbortSignal.timeout(100000),
+    });
+    console.log(`[加密货币] ${asset.symbol} 响应状态:`, response.status);
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`[加密货币] ${asset.symbol} 返回数据:`, data);
+      const price = parseFloat(data.lastPrice);
+      const changePercent = parseFloat(data.priceChangePercent) || 0;
+      if (!isNaN(price)) {
+        priceMap.set(asset.symbol, { price, changePercent });
+        console.log(`[加密货币] ${asset.symbol} 价格更新为 ${price}`);
+      } else {
+        console.warn(`[加密货币] ${asset.symbol} 返回无效价格`, data);
       }
-    } else if (asset.type === 'stock' || asset.type === 'etf') {
+    } else {
+      console.warn(`[加密货币] ${asset.symbol} API 路由失败 (${response.status})`);
+    }
+  } catch (error) {
+    console.error(`[加密货币] ${asset.symbol} 更新失败:`, error);
+  }
+} else if (asset.type === 'stock' || asset.type === 'etf') {
   if (!isUSMarketOpen()) return;
   try {
     const response = await fetch(`/api/search?symbol=${encodeURIComponent(asset.symbol)}`);
@@ -205,6 +212,7 @@ export async function refreshAllAssets(assets: Asset[]): Promise<Asset[]> {
 
   if (updatedAssets.length > 0) recordSnapshot();
 
-  eventBus.emit('assetsUpdated', updatedAssets);
-  return updatedAssets;
+console.log('refreshAllAssets 完成，更新后的资产:', updatedAssets.map(a => ({ symbol: a.symbol, price: a.price })));
+eventBus.emit('assetsUpdated', updatedAssets); // 传递数据
+return updatedAssets;
 }

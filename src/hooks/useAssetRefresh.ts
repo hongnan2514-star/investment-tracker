@@ -39,15 +39,15 @@ export function useAssetRefresh({ hasCrypto, hasStock, hasMetal, hasFund }: Asse
 
   // --- 加密货币：15分钟定时器 ---
   useEffect(() => {
-    if (!hasCrypto) return;
-    refreshByType(['crypto']);
-    const id = setInterval(() => refreshByType(['crypto']), 15 * 60 * 1000);
-    timers.current.crypto = id;
-    return () => {
-      if (timers.current.crypto) clearInterval(timers.current.crypto);
-    };
-  }, [hasCrypto, refreshByType]);
-
+  console.log('Crypto timer useEffect, hasCrypto =', hasCrypto);
+  if (!hasCrypto) return;
+  refreshByType(['crypto']);
+  const id = setInterval(() => refreshByType(['crypto']), 15 * 60 * 1000);
+  timers.current.crypto = id;
+  return () => {
+    if (timers.current.crypto) clearInterval(timers.current.crypto);
+  };
+}, [hasCrypto, refreshByType]);
   // --- 股票/ETF：交易时段每5分钟 ---
   useEffect(() => {
     if (!hasStock) return;
