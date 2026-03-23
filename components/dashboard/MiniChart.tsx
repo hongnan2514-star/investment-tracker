@@ -17,7 +17,7 @@ interface Props {
 }
 
 const cache = new Map<string, { data: { value: number }[]; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 15 * 60 * 1000;
 
 export default function MiniChart({ period, totalValue, currencySymbol, profit, onClick }: Props) {
   const [chartData, setChartData] = useState<{ value: number }[]>([]);

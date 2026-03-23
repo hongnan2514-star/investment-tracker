@@ -1,12 +1,11 @@
 // components/dashboard/SummaryCard.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { Eye,EyeClosed } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+import { Eye, EyeClosed } from 'lucide-react';
 import { getAssets } from '@/src/utils/assetStorage';
 import { Asset } from '@/src/constants/types';
 import { eventBus } from '@/src/utils/eventBus';
-import { getHistoryData, HistoryPoint, recordSnapshot } from '@/src/services/historyService';
+import { recordSnapshot } from '@/src/services/historyService';
 import ExpandedChart from './ExpandedChart';
 import MiniChart from './MiniChart';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
@@ -19,7 +18,6 @@ export default function SummaryCard() {
   const [convertedTotalLiabilities, setConvertedTotalLiabilities] = useState<number>(0);
   const [convertedNetWorth, setConvertedNetWorth] = useState<number>(0);
   const [convertedProfit, setConvertedProfit] = useState<number>(0);
-  const [historyData, setHistoryData] = useState<HistoryPoint[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('1W');
@@ -112,31 +110,23 @@ export default function SummaryCard() {
     return () => { isActive = false; };
   }, [todayProfitConverted]);
 
-  const updateHistory = useCallback(() => {
-    const data = getHistoryData(24);
-    setHistoryData(data);
-  }, []);
-
   useEffect(() => {
     recordSnapshot();
     refreshData();
-    updateHistory();
 
     const unsubscribeAssets = eventBus.subscribe('assetsUpdated', () => {
       refreshData();
-      updateHistory();
     });
 
     const unsubscribeUser = eventBus.subscribe('userChanged', () => {
       refreshData();
-      updateHistory();
     });
 
     return () => {
       unsubscribeAssets();
       unsubscribeUser();
     };
-  }, [refreshData, updateHistory]);
+  }, [refreshData]);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -164,18 +154,6 @@ export default function SummaryCard() {
     setIsAmountHidden(newHidden);
     eventBus.emit('toggleAmountVisibility', newHidden);
   };
-
-  // 计算 Y 轴范围（用于迷你走势图）
-  const getYAxisDomain = (): [number, number] => {
-    if (historyData.length === 0) return [0, convertedNetWorth || 100];
-    const values = historyData.map(p => p.value);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const padding = (max - min) * 0.1;
-    return [Math.max(0, min - padding), max + padding];
-  };
-
-  const lineColor = convertedProfit >= 0 ? '#22c55e' : '#ef4444';
 
   return (
     <div className="mb-6 px-2">
@@ -225,28 +203,13 @@ export default function SummaryCard() {
 
         {/* 迷你走势图 */}
         {!isExpanded && !isClosing && (
-          <div
-            className="w-24 h-12 mb-2 cursor-pointer hover:opacity-80 transition active:scale-95"
+          <MiniChart
+            period={selectedPeriod}
+            totalValue={convertedNetWorth}
+            currencySymbol={symbol}
+            profit={convertedProfit}
             onClick={() => setIsExpanded(true)}
-          >
-            {historyData.length < 2 ? (
-              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={historyData.map(p => ({ pv: p.value }))}>
-                  <YAxis domain={getYAxisDomain()} hide={true} />
-                  <Line
-                    type="monotone"
-                    dataKey="pv"
-                    stroke={lineColor}
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+          />
         )}
       </div>
 
