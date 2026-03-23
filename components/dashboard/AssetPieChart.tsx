@@ -252,7 +252,7 @@ export default function AssetPieChart() {
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {entry.name}
                   </span>
-                </div>
+                </div> 
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 min-w-[60px] text-right">
