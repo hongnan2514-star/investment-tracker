@@ -46,6 +46,7 @@ export default function AssetPieChart() {
     color: string;
   }[]>([]);
   const [totalConverted, setTotalConverted] = useState<number>(0);
+  const [isAmountHidden, setIsAmountHidden] = useState(false);
 
   const [outerRadius, setOuterRadius] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
@@ -68,6 +69,14 @@ export default function AssetPieChart() {
       window.removeEventListener('resize', handleResize);
       if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
     };
+  }, []);
+
+  // 订阅金额隐藏状态
+  useEffect(() => {
+    const unsubscribe = eventBus.subscribe('toggleAmountVisibility', (hidden: boolean) => {
+      setIsAmountHidden(hidden);
+    });
+    return unsubscribe;
   }, []);
 
   // 核心更新函数：获取原始资产，按各自货币转换到当前货币，并生成饼图数据
@@ -161,7 +170,7 @@ export default function AssetPieChart() {
           总市值: 
           {loading && <span className="ml-1 text-blue-500 animate-pulse">汇率更新中...</span>}
           <span className="font-bold text-gray-900 dark:text-gray-100 ml-1">
-            {symbol}{totalConverted.toFixed(2)}
+            {isAmountHidden ? '****' : `${symbol}${totalConverted.toFixed(2)}`}
           </span>
         </div>
       </div>
@@ -230,7 +239,7 @@ export default function AssetPieChart() {
           </ResponsiveContainer>
         </div>
 
-        {/* 图例区域（保持不变） */}
+        {/* 图例区域 */}
         <div className="w-full md:w-1/2 space-y-4">
           {pieData.map((entry) => (
             <div key={entry.type} className="flex items-center justify-between">
@@ -250,7 +259,7 @@ export default function AssetPieChart() {
                   {entry.percent}
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400 min-w-[80px] text-right">
-                  {symbol}{entry.value.toFixed(0)}
+                  {isAmountHidden ? '****' : `${symbol}${entry.value.toFixed(0)}`}
                 </span>
               </div>
             </div>
@@ -260,7 +269,7 @@ export default function AssetPieChart() {
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">合计</span>
               <span className="text-base font-bold text-gray-900 dark:text-gray-100">
-                {symbol}{totalConverted.toFixed(2)}
+                {isAmountHidden ? '****' : `${symbol}${totalConverted.toFixed(2)}`}
               </span>
             </div>
           </div>

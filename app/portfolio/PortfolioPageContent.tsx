@@ -6,7 +6,7 @@ import {  // 图标
   Plus, Zap, Home, BarChart3, Hotel, X, ChevronRight, Search,
   Loader2, AlertCircle, ArrowLeft, TrendingUp, BarChart2,
   PieChart, Bitcoin, Activity, CarFront, Blocks, MoreVertical, ChevronDown, ListFilterPlus,
-  Banknote, Receipt, ReceiptText 
+  Banknote, Receipt, ReceiptText, ChevronUp 
 } from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { Asset } from '@/src/constants/types';
@@ -2068,41 +2068,81 @@ if (selectedAssetType === 'custom_asset') {
               <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${sortExpanded ? '' : '-rotate-90'}`} />
             </div>
             {sortExpanded && (
-              <>
-                <button
-                  onClick={() => {
-                    if (sortBy === 'marketValue') {
-                      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-                    } else {
-                      setSortBy('marketValue');
-                      setSortOrder('desc');
-                    }
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center justify-between"
-                >
-                  <span>持有额</span>
-                  <span className="text-xs">
-                    {sortBy === 'marketValue' && (sortOrder === 'desc' ? '🔽' : '🔼')}
-                  </span>
-                </button>
-                <button
-                  onClick={() => {
-                    if (sortBy === 'changePercent') {
-                      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-                    } else {
-                      setSortBy('changePercent');
-                      setSortOrder('desc');
-                    }
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg flex items-center justify-between"
-                >
-                  <span>盈亏率</span>
-                  <span className="text-xs">
-                    {sortBy === 'changePercent' && (sortOrder === 'desc' ? '🔽' : '🔼')}
-                  </span>
-                </button>
-              </>
-            )}
+  <>
+    {/* 持有额 */}
+    <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+      <span 
+        onClick={() => {
+          if (sortBy === 'marketValue') {
+            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+          } else {
+            setSortBy('marketValue');
+            setSortOrder('desc');
+          }
+        }}
+        className="cursor-pointer"
+      >
+        持有额
+      </span>
+      <button
+        onClick={() => {
+          if (sortBy === 'marketValue') {
+            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+          } else {
+            setSortBy('marketValue');
+            setSortOrder('desc');
+          }
+        }}
+        className="cursor-pointer p-0 focus:outline-none"
+      >
+        {sortBy === 'marketValue' && sortOrder === 'asc' ? (
+          <ChevronUp size={16} className="text-blue-500" />
+        ) : sortBy === 'marketValue' && sortOrder === 'desc' ? (
+          <ChevronDown size={16} className="text-blue-500" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 hover:text-gray-600" />
+        )}
+      </button>
+    </div>
+
+    {/* 盈亏率 */}
+    <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+      <span 
+        onClick={() => {
+          if (sortBy === 'changePercent') {
+            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+          } else {
+            setSortBy('changePercent');
+            setSortOrder('desc');
+          }
+        }}
+        className="cursor-pointer"
+      >
+        盈亏率
+      </span>
+      <button
+        onClick={() => {
+          if (sortBy === 'changePercent') {
+            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+          } else {
+            setSortBy('changePercent');
+            setSortOrder('desc');
+          }
+        }}
+        className="cursor-pointer p-0 focus:outline-none"
+      >
+        {sortBy === 'changePercent' && sortOrder === 'asc' ? (
+          <ChevronUp size={16} className="text-blue-500" />
+        ) : sortBy === 'changePercent' && sortOrder === 'desc' ? (
+          <ChevronDown size={16} className="text-blue-500" />
+        ) : (
+          <ChevronDown size={16} className="text-gray-400 hover:text-gray-600" />
+        )}
+      </button>
+    </div>
+  </>
+)}
+
             <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
             {/* 筛选资产标题行 */}
             <div

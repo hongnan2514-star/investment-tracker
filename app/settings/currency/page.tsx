@@ -28,10 +28,9 @@ export default function CurrencyPage() {
         >
           <ChevronLeft size={24} className="text-gray-600 dark:text-gray-300" />
         </button>
-        <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">选择计价货币</h1>
       </header>
 
-      <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-2 shadow-md">
+      <div className="bg-gray-50 dark:bg-black rounded-3xl p-2 ">
         {(Object.keys(currencyNames) as CurrencyCode[]).map((code) => (
           <button
             key={code}

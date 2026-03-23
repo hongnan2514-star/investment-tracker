@@ -1,3 +1,4 @@
+// components/dashboard/MiniChart.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
@@ -5,7 +6,7 @@ import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
 import { useCurrency } from '@/src/services/currency';
 import { eventBus } from '@/src/utils/eventBus';
 
-type Period = '1D' | '1W' | '1M' | '6M';
+type Period = '1W' | '1M' | '6M';
 
 interface Props {
   period: Period;
@@ -15,7 +16,6 @@ interface Props {
   onClick: () => void;
 }
 
-// 缓存数据，键为 `${period}_${currency}`
 const cache = new Map<string, { data: { value: number }[]; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
@@ -53,7 +53,7 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
         index === 0 || point.timestamp !== self[index-1].timestamp
       );
 
-      let finalData = period === '1D' ? uniqueData.slice(-24) : uniqueData;
+      let finalData = uniqueData; // 无需切片
 
       if (finalData.length < 2) {
         const nowTs = Date.now();
@@ -91,6 +91,17 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
     return [min, max];
   };
 
+  // 定义光晕滤镜
+  const glowFilter = (
+    <filter id="miniGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  );
+
   return (
     <div
       className="w-24 h-12 mb-2 cursor-pointer hover:opacity-80 transition active:scale-95"
@@ -108,6 +119,7 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
       ) : (
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
+            <defs>{glowFilter}</defs>
             <YAxis domain={getYAxisDomain()} hide={true} />
             <Line
               type="monotone"
@@ -117,6 +129,7 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
               dot={false}
               activeDot={false}
               isAnimationActive={false}
+              filter="url(#miniGlow)"
             />
           </LineChart>
         </ResponsiveContainer>

@@ -3,11 +3,9 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
-import { useCurrency } from '@/src/services/currency';
 import { eventBus } from '@/src/utils/eventBus';
 
 export default function SnapshotScheduler() {
-  const { currency } = useCurrency();
   const isRecording = useRef(false);
 
   const recordSnapshot = useCallback(async () => {
@@ -30,11 +28,11 @@ export default function SnapshotScheduler() {
       const response = await fetch('/api/snapshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, assets, targetCurrency: currency }),
+        body: JSON.stringify({ userId, assets }), // 不再传递 targetCurrency
       });
       if (response.ok) {
         const data = await response.json();
-        console.log(`✅ 快照已记录 (货币: ${currency}, 净资产: ${data.netWorth})`);
+        console.log(`✅ 快照已记录 (净资产: ${data.netWorth} CNY)`);
       } else {
         const errorText = await response.text();
         console.error('❌ 快照记录失败:', errorText);
@@ -44,7 +42,7 @@ export default function SnapshotScheduler() {
     } finally {
       isRecording.current = false;
     }
-  }, [currency]);
+  }, []);
 
   useEffect(() => {
     recordSnapshot();

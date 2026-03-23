@@ -6,7 +6,6 @@ import { CurrencyCode } from '@/src/services/currency';
 
 const sql = neon(process.env.POSTGRES_URL!);
 
-// 获取单个资产的历史价格（日线），并转换为目标货币（转换失败时保留原值）
 async function getAssetHistoryWithCurrency(
   symbol: string,
   type: string,
@@ -55,17 +54,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
-    // 获取当前请求的 origin（例如 https://your-app.vercel.app）
     const baseUrl = request.nextUrl.origin;
 
-    // 1日：使用快照，并转换为 targetCurrency
     if (period === '1D') {
       const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const startStr = startTime.toISOString();
+
+      // 查询快照，直接返回时间戳（毫秒）
       const snapshots = await sql`
-        SELECT snapshot_time, net_worth FROM snapshots
-        WHERE user_id = ${userId} AND snapshot_time >= ${startTime.toISOString()}
+        SELECT EXTRACT(EPOCH FROM snapshot_time) * 1000 as timestamp, net_worth FROM snapshots
+        WHERE user_id = ${userId} AND snapshot_time >= ${startStr}
         ORDER BY snapshot_time ASC
       `;
+
       const results = await Promise.all(snapshots.map(async (s) => {
         let value = s.net_worth;
         try {
@@ -74,14 +75,14 @@ export async function POST(request: NextRequest) {
           console.warn(`1D 快照汇率转换失败: ${err}`);
         }
         return {
-          timestamp: new Date(s.snapshot_time).getTime(),
+          timestamp: s.timestamp,
           value,
         };
       }));
       return NextResponse.json({ data: results });
     }
 
-    // 其他周期：实时计算，并转换为 targetCurrency
+    // 其他周期（1W, 1M, 6M）处理保持不变，但同样使用时间戳
     let daysAgo: number;
     switch (period) {
       case '1W': daysAgo = 7; break;
@@ -97,63 +98,68 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: [] });
     }
 
-    // 构建每个资产的历史价格 map（已转换为 targetCurrency）
     const assetHistories = await Promise.all(assets.map(async (asset: any) => {
-      const buyDate = asset.purchaseDate || startStr;
-      const start = new Date(Math.max(new Date(buyDate).getTime(), startDateObj.getTime()));
-      const end = new Date();
-      const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
-      const toCurrency = targetCurrency as CurrencyCode;
+  const buyDate = asset.purchaseDate || startStr;
+  const start = new Date(Math.max(new Date(buyDate).getTime(), startDateObj.getTime()));
+  const end = new Date();
+  const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
+  const toCurrency = targetCurrency as CurrencyCode;
 
-      // 无历史价格资产（现金、不动产、汽车等）
-      if (['car', 'real_estate', 'custom', 'custom_asset', 'receivable'].includes(asset.type)) {
-        const priceMap = new Map<string, number>();
-        let current = new Date(start);
-        while (current <= end) {
-          const dateStr = current.toISOString().split('T')[0];
-          let price = asset.price;
-          try {
-            price = await convertAmount(price, fromCurrency, toCurrency);
-          } catch (err) {
-            console.warn(`静态资产汇率转换失败 ${asset.symbol}:`, err);
-          }
-          priceMap.set(dateStr, price);
-          current.setDate(current.getDate() + 1);
-        }
-        return { holdings: asset.holdings, type: asset.type, priceMap };
-      }
+  // 无历史价格资产（现金、不动产、汽车、自定义资产，以及自定义符号的基金、股票等）
+if (['car', 'real_estate', 'custom', 'custom_asset', 'receivable'].includes(asset.type) 
+    || asset.symbol.startsWith('CUSTOM-') 
+    || asset.symbol.startsWith('CASH-') 
+    || asset.symbol.startsWith('REAL_ESTATE-') 
+    || asset.symbol.startsWith('CAR-')) {
+  // 静态资产处理
+  const priceMap = new Map<string, number>();
+  let current = new Date(start);
+  let price = asset.price;
+  try {
+    price = await convertAmount(price, fromCurrency, toCurrency);
+  } catch (err) {
+    console.error(`静态资产汇率转换失败 ${asset.symbol}:`, err);
+  }
+  while (current <= end) {
+    const dateStr = current.toISOString().split('T')[0];
+    priceMap.set(dateStr, price);
+    current.setDate(current.getDate() + 1);
+  }
+  return { holdings: asset.holdings, type: asset.type, priceMap, symbol: asset.symbol };
+}
 
-      // 负债资产
-      if (asset.type === 'liability') {
-        const priceMap = new Map<string, number>();
-        let current = new Date(start);
-        while (current <= end) {
-          const dateStr = current.toISOString().split('T')[0];
-          priceMap.set(dateStr, 1);
-          current.setDate(current.getDate() + 1);
-        }
-        const holdings = Math.abs(asset.marketValue);
-        return { holdings, type: asset.type, priceMap };
-      }
+  // 负债资产
+  if (asset.type === 'liability') {
+    const priceMap = new Map<string, number>();
+    let current = new Date(start);
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      priceMap.set(dateStr, 1);
+      current.setDate(current.getDate() + 1);
+    }
+    const holdings = Math.abs(asset.marketValue);
+    return { holdings, type: asset.type, priceMap, symbol: asset.symbol };
+  }
 
-      // 有历史数据的资产
-      const historyMap = await getAssetHistoryWithCurrency(asset.symbol, asset.type, buyDate, fromCurrency, toCurrency, baseUrl);
-      const filledMap = new Map<string, number>();
-      let lastPrice: number | null = null;
-      let current = new Date(start);
-      while (current <= end) {
-        const dateStr = current.toISOString().split('T')[0];
-        const price = historyMap.get(dateStr);
-        if (price !== undefined) {
-          lastPrice = price;
-          filledMap.set(dateStr, price);
-        } else if (lastPrice !== null) {
-          filledMap.set(dateStr, lastPrice);
-        }
-        current.setDate(current.getDate() + 1);
-      }
-      return { holdings: asset.holdings, type: asset.type, priceMap: filledMap };
-    }));
+  // 有历史数据的资产（股票、基金、加密货币）
+  console.log(`[历史资产] ${asset.symbol}, 类型=${asset.type}, 买入日期=${buyDate}`);
+  const historyMap = await getAssetHistoryWithCurrency(asset.symbol, asset.type, buyDate, fromCurrency, toCurrency, baseUrl);
+  const filledMap = new Map<string, number>();
+  let lastPrice: number | null = null;
+  let current = new Date(start);
+  while (current <= end) {
+    const dateStr = current.toISOString().split('T')[0];
+    const price = historyMap.get(dateStr);
+    if (price !== undefined) {
+      lastPrice = price;
+      filledMap.set(dateStr, price);
+    } else if (lastPrice !== null) {
+      filledMap.set(dateStr, lastPrice);
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return { holdings: asset.holdings, type: asset.type, priceMap: filledMap, symbol: asset.symbol };
+}));
 
     const results: { timestamp: number; value: number }[] = [];
     const currentDate = new Date(startDateObj);
