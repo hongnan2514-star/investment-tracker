@@ -8,44 +8,58 @@ const sql = neon(process.env.POSTGRES_URL!);
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, assets } = await request.json(); // 忽略 targetCurrency
+    const { userId, assets } = await request.json();
     if (!userId) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
 
     let totalAssets = 0;
     let totalLiabilities = 0;
+    let assetList = assets;
 
-    if (assets && Array.isArray(assets)) {
-      for (const asset of assets) {
-        const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
-        let value = asset.marketValue;
-        // 统一转换为 CNY
-        if (fromCurrency !== 'CNY') {
-          value = await convertAmount(value, fromCurrency, 'CNY');
-        }
-        if (asset.type === 'liability') {
-          totalLiabilities += Math.abs(value);
-        } else {
-          totalAssets += value;
-        }
-      }
-    } else {
-      // 从数据库 assets 表查询
-      const assetRows = await sql`
-        SELECT market_value, currency, type FROM assets WHERE user_id = ${userId}
+    // 如果没有传入 assets，则从 user_assets 表读取
+    if (!assets || !Array.isArray(assets)) {
+      const result = await sql`
+        SELECT assets FROM user_assets WHERE user_id = ${userId}
       `;
-      for (const row of assetRows) {
-        const fromCurrency = (row.currency || 'USD') as CurrencyCode;
-        let value = row.market_value;
-        if (fromCurrency !== 'CNY') {
-          value = await convertAmount(value, fromCurrency, 'CNY');
-        }
-        if (row.type === 'liability') {
-          totalLiabilities += Math.abs(value);
-        } else {
-          totalAssets += value;
-        }
+      if (result.length > 0 && result[0].assets) {
+        assetList = result[0].assets;
+      } else {
+        assetList = [];
+      }
+    }
+
+    if (assetList.length === 0) {
+      // 无资产，净值为0
+      const netWorth = 0;
+      const now = new Date();
+      const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+      const snapshotHour = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate(), beijingTime.getHours(), 0, 0);
+      const snapshotTimeUTC = new Date(snapshotHour.getTime() - 8 * 60 * 60 * 1000).toISOString();
+
+      const existing = await sql`
+        SELECT id FROM snapshots WHERE user_id = ${userId} AND snapshot_time = ${snapshotTimeUTC}
+      `;
+      if (existing.length === 0) {
+        await sql`
+          INSERT INTO snapshots (user_id, snapshot_time, total_assets, total_liabilities, net_worth)
+          VALUES (${userId}, ${snapshotTimeUTC}, 0, 0, 0)
+        `;
+      }
+      return NextResponse.json({ success: true, totalAssets: 0, totalLiabilities: 0, netWorth: 0 });
+    }
+
+    // 计算总资产和总负债（统一转换为 CNY）
+    for (const asset of assetList) {
+      const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
+      let value = asset.marketValue;
+      if (fromCurrency !== 'CNY') {
+        value = await convertAmount(value, fromCurrency, 'CNY');
+      }
+      if (asset.type === 'liability') {
+        totalLiabilities += Math.abs(value);
+      } else {
+        totalAssets += value;
       }
     }
 

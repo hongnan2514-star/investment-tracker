@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
     // 获取当前请求的 origin，即您的应用固定域名
     const baseUrl = request.nextUrl.origin;
 
-    // 获取所有有资产的用户ID
-    const users = await sql`SELECT DISTINCT user_id FROM assets`;
+    // 从 user_assets 表获取所有有资产的用户ID
+    const users = await sql`SELECT DISTINCT user_id FROM user_assets`;
     const results = [];
 
     for (const user of users) {
