@@ -41,12 +41,13 @@ export default function ExpandedChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const rafRef = useRef<number | null>(null); // 用于节流
 
   const { currency } = useCurrency();
   const lineColor = todayProfit >= 0 ? '#22c55e' : '#ef4444';
   const cacheKey = `${period}_${currency}`;
 
-  // 边距配置（与 recharts 版本保持一致，避免曲线贴边）
+  // 边距配置
   const margin = { top: 20, right: 20, left: 20, bottom: 20 };
 
   // ---------- 数据获取 ----------
@@ -106,7 +107,7 @@ export default function ExpandedChart({
     }
   };
 
-  // ---------- Canvas 绘图 ----------
+  // ---------- Canvas 绘图（适配设备像素比）----------
   const drawChart = useCallback(() => {
     if (!canvasRef.current || !containerRef.current || chartData.length === 0) return;
     const canvas = canvasRef.current;
@@ -116,11 +117,17 @@ export default function ExpandedChart({
     const { width, height } = dimensions;
     if (width === 0 || height === 0) return;
 
-    canvas.width = width;
-    canvas.height = height;
+    // 适配设备像素比（解决模糊）
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(dpr, dpr);
+
     ctx.clearRect(0, 0, width, height);
 
-    // 可绘制区域（扣除边距）
+    // 可绘制区域
     const plotWidth = width - margin.left - margin.right;
     const plotHeight = height - margin.top - margin.bottom;
     if (plotWidth <= 0 || plotHeight <= 0) return;
@@ -135,7 +142,7 @@ export default function ExpandedChart({
     }
     const yRange = maxY - minY;
 
-    // 将数据点映射到 Canvas 坐标（考虑边距）
+    // 坐标映射
     const points = chartData.map((p, i) => {
       const x = margin.left + (i / (chartData.length - 1)) * plotWidth;
       const y = margin.top + plotHeight - ((p.value - minY) / yRange) * plotHeight;
@@ -151,10 +158,9 @@ export default function ExpandedChart({
       ctx.lineTo(to.x, to.y);
       if (isRight) {
         ctx.save();
-        ctx.globalAlpha = 0.06; // 右侧变淡，可调整数值
+        ctx.globalAlpha = 0.06;
         ctx.strokeStyle = lineColor;
         ctx.lineWidth = 2;
-        // 添加光晕效果（阴影）
         ctx.shadowBlur = 4;
         ctx.shadowColor = lineColor;
         ctx.stroke();
@@ -173,11 +179,9 @@ export default function ExpandedChart({
       const p2 = points[i + 1];
       const p1Right = p1.x >= splitX;
       const p2Right = p2.x >= splitX;
-
       if (p1Right === p2Right) {
         drawSegment(p1, p2, p1Right);
       } else {
-        // 计算交点
         const t = (splitX - p1.x) / (p2.x - p1.x);
         const intersectY = p1.y + (p2.y - p1.y) * t;
         const intersect = { x: splitX, y: intersectY };
@@ -186,48 +190,48 @@ export default function ExpandedChart({
       }
     }
 
-    // 绘制活动点与竖线（始终在顶部）
+    // 绘制活动点与竖线
     if (activePoint && maskLeftPercent !== null && points[activePoint.index]) {
-  const point = points[activePoint.index];
+      const point = points[activePoint.index];
 
-  // 绘制竖线（虚线）—— 灰色，无光晕
-  ctx.save();
-  ctx.shadowBlur = 0;                // 关键：关闭阴影，避免光晕
-  ctx.beginPath();
-  ctx.moveTo(point.x, margin.top);
-  ctx.lineTo(point.x, height - margin.bottom);
-  ctx.strokeStyle = '#9ca3af';       // 灰色虚线
-  ctx.setLineDash([4, 4]);
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
+      // 竖线（无阴影）
+      ctx.save();
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.moveTo(point.x, margin.top);
+      ctx.lineTo(point.x, height - margin.bottom);
+      ctx.strokeStyle = '#9ca3af';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
 
-  // 绘制圆点：白色填充 + 薄黑边框（同样关闭阴影保证边框清晰）
-  ctx.save();
-  ctx.shadowBlur = 0;
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
-  ctx.fillStyle = 'white';
-  ctx.fill();
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  ctx.restore();
+      // 圆点（白色填充 + 黑边）
+      ctx.save();
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
 
-  // 绘制时间标签 —— 灰色（字体阴影已关闭）
-  ctx.font = '12px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = '#6b7280';
-  ctx.shadowBlur = 0;
-  ctx.textAlign = 'center';
-  ctx.fillText(point.time, point.x, margin.top - 6);
-}
+      // 时间标签
+      ctx.font = '12px system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = '#6b7280';
+      ctx.shadowBlur = 0;
+      ctx.textAlign = 'center';
+      ctx.fillText(point.time, point.x, margin.top - 6);
+    }
 
-    // 可选：在图表区域绘制一个非常淡的渐变遮罩，增强视觉（非必要，但可帮助淡化效果）
+    // 可选：极淡渐变遮罩（不影响性能）
     if (splitX < width) {
       ctx.save();
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 0.04; // 极淡的渐变，不影响线条可见度，但让右侧整体感觉更柔和
+      ctx.globalAlpha = 0.04;
       const grad = ctx.createLinearGradient(splitX, 0, width, 0);
       grad.addColorStop(0, 'rgba(255,255,255,0)');
       grad.addColorStop(1, 'rgba(255,255,255,0.1)');
@@ -267,25 +271,34 @@ export default function ExpandedChart({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ---------- 交互 ----------
-  const handleInteraction = (clientX: number) => {
+  // ---------- 交互（带 requestAnimationFrame 节流）----------
+  const handleInteraction = useCallback((clientX: number) => {
     if (!containerRef.current || chartData.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
     let relativeX = (clientX - rect.left) / rect.width;
     relativeX = Math.min(Math.max(relativeX, 0), 1);
-    setMaskLeftPercent(relativeX * 100);
 
+    // 更新状态
+    setMaskLeftPercent(relativeX * 100);
     const index = Math.min(chartData.length - 1, Math.max(0, Math.floor(relativeX * chartData.length)));
     const point = chartData[index];
     setActivePoint({ time: point.time, value: point.value, index });
     onHoverValueChange(point.value, point.time);
-  };
+
+    // 请求下一帧重绘（节流）
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      drawChart();
+      rafRef.current = null;
+    });
+  }, [chartData, onHoverValueChange, drawChart]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => handleInteraction(e.clientX);
   const handleMouseLeave = () => {
     setActivePoint(null);
     setMaskLeftPercent(null);
     onHoverValueChange(null);
+    drawChart(); // 立即重绘清除标记
   };
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -296,7 +309,15 @@ export default function ExpandedChart({
     setActivePoint(null);
     setMaskLeftPercent(null);
     onHoverValueChange(null);
+    drawChart();
   };
+
+  // 清理 RAF
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   // ---------- 生命周期 ----------
   useEffect(() => {
