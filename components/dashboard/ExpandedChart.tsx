@@ -1,6 +1,6 @@
 // components/dashboard/ExpandedChart.tsx
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Loader2, ChevronUp } from 'lucide-react';
 import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
 import { useCurrency } from '@/src/services/currency';
@@ -41,13 +41,15 @@ export default function ExpandedChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const rafRef = useRef<number | null>(null); // 用于节流
+  const rafRef = useRef<number | null>(null);
+  const lastInteractionRef = useRef<{ maskPercent: number | null; activePoint: typeof activePoint }>({
+    maskPercent: null,
+    activePoint: null,
+  });
 
   const { currency } = useCurrency();
   const lineColor = todayProfit >= 0 ? '#22c55e' : '#ef4444';
   const cacheKey = `${period}_${currency}`;
-
-  // 边距配置
   const margin = { top: 20, right: 20, left: 20, bottom: 20 };
 
   // ---------- 数据获取 ----------
@@ -107,32 +109,12 @@ export default function ExpandedChart({
     }
   };
 
-  // ---------- Canvas 绘图（适配设备像素比）----------
-  const drawChart = useCallback(() => {
-    if (!canvasRef.current || !containerRef.current || chartData.length === 0) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // ---------- 坐标计算（缓存，避免重复）----------
+  const { points, yRange, minY } = useMemo(() => {
+    if (chartData.length === 0 || dimensions.width === 0 || dimensions.height === 0) {
+      return { points: [], yRange: 1, minY: 0 };
+    }
 
-    const { width, height } = dimensions;
-    if (width === 0 || height === 0) return;
-
-    // 适配设备像素比（解决模糊）
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, width, height);
-
-    // 可绘制区域
-    const plotWidth = width - margin.left - margin.right;
-    const plotHeight = height - margin.top - margin.bottom;
-    if (plotWidth <= 0 || plotHeight <= 0) return;
-
-    // 计算 Y 轴范围
     const values = chartData.map(p => p.value);
     let minY = Math.min(...values);
     let maxY = Math.max(...values);
@@ -142,36 +124,52 @@ export default function ExpandedChart({
     }
     const yRange = maxY - minY;
 
-    // 坐标映射
+    const plotWidth = dimensions.width - margin.left - margin.right;
+    const plotHeight = dimensions.height - margin.top - margin.bottom;
+
     const points = chartData.map((p, i) => {
       const x = margin.left + (i / (chartData.length - 1)) * plotWidth;
       const y = margin.top + plotHeight - ((p.value - minY) / yRange) * plotHeight;
       return { x, y, value: p.value, time: p.time };
     });
 
-    const splitX = maskLeftPercent !== null ? margin.left + (maskLeftPercent / 100) * plotWidth : width;
+    return { points, yRange, minY };
+  }, [chartData, dimensions, margin]);
 
-    // 绘制线段（分段，右侧半透明）
+  // ---------- Canvas 绘图（使用缓存坐标，移除阴影）----------
+  const drawChart = useCallback(() => {
+    if (!canvasRef.current || !containerRef.current || points.length === 0) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { width, height } = dimensions;
+    if (width === 0 || height === 0) return;
+
+    // 适配设备像素比
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+
+    const splitX = maskLeftPercent !== null ? margin.left + (maskLeftPercent / 100) * (width - margin.left - margin.right) : width;
+
+    // 绘制线段（无阴影）
     const drawSegment = (from: { x: number; y: number }, to: { x: number; y: number }, isRight: boolean) => {
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
       if (isRight) {
-        ctx.save();
-        ctx.globalAlpha = 0.06;
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = lineColor;
-        ctx.stroke();
-        ctx.restore();
+        ctx.globalAlpha = 0.06; // 右侧变淡
       } else {
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = 2;
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = lineColor;
-        ctx.stroke();
+        ctx.globalAlpha = 1;
       }
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
     };
 
     for (let i = 0; i < points.length - 1; i++) {
@@ -195,8 +193,6 @@ export default function ExpandedChart({
       const point = points[activePoint.index];
 
       // 竖线（无阴影）
-      ctx.save();
-      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.moveTo(point.x, margin.top);
       ctx.lineTo(point.x, height - margin.bottom);
@@ -205,11 +201,8 @@ export default function ExpandedChart({
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.restore();
 
-      // 圆点（白色填充 + 黑边）
-      ctx.save();
-      ctx.shadowBlur = 0;
+      // 圆点
       ctx.beginPath();
       ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
       ctx.fillStyle = 'white';
@@ -217,20 +210,17 @@ export default function ExpandedChart({
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.restore();
 
       // 时间标签
       ctx.font = '12px system-ui, -apple-system, sans-serif';
       ctx.fillStyle = '#6b7280';
-      ctx.shadowBlur = 0;
       ctx.textAlign = 'center';
       ctx.fillText(point.time, point.x, margin.top - 6);
     }
 
-    // 可选：极淡渐变遮罩（不影响性能）
+    // 极淡渐变遮罩（可选）
     if (splitX < width) {
       ctx.save();
-      ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 0.04;
       const grad = ctx.createLinearGradient(splitX, 0, width, 0);
       grad.addColorStop(0, 'rgba(255,255,255,0)');
@@ -239,7 +229,7 @@ export default function ExpandedChart({
       ctx.fillRect(splitX, 0, width - splitX, height);
       ctx.restore();
     }
-  }, [chartData, dimensions, lineColor, maskLeftPercent, activePoint, margin]);
+  }, [points, dimensions, lineColor, maskLeftPercent, activePoint, margin]);
 
   // 监听容器尺寸变化
   useEffect(() => {
@@ -271,34 +261,36 @@ export default function ExpandedChart({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ---------- 交互（带 requestAnimationFrame 节流）----------
+  // ---------- 交互（使用 RAF 节流，减少 setState 频率）----------
   const handleInteraction = useCallback((clientX: number) => {
-    if (!containerRef.current || chartData.length === 0) return;
+    if (!containerRef.current || points.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
     let relativeX = (clientX - rect.left) / rect.width;
     relativeX = Math.min(Math.max(relativeX, 0), 1);
-
-    // 更新状态
-    setMaskLeftPercent(relativeX * 100);
-    const index = Math.min(chartData.length - 1, Math.max(0, Math.floor(relativeX * chartData.length)));
+    const newMaskPercent = relativeX * 100;
+    const index = Math.min(points.length - 1, Math.max(0, Math.floor(relativeX * points.length)));
     const point = chartData[index];
-    setActivePoint({ time: point.time, value: point.value, index });
+    const newActivePoint = { time: point.time, value: point.value, index };
+
+    // 更新状态（触发重绘）
+    setMaskLeftPercent(newMaskPercent);
+    setActivePoint(newActivePoint);
     onHoverValueChange(point.value, point.time);
 
-    // 请求下一帧重绘（节流）
+    // 使用 RAF 确保重绘与屏幕刷新同步
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       drawChart();
       rafRef.current = null;
     });
-  }, [chartData, onHoverValueChange, drawChart]);
+  }, [points, chartData, onHoverValueChange, drawChart]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => handleInteraction(e.clientX);
   const handleMouseLeave = () => {
     setActivePoint(null);
     setMaskLeftPercent(null);
     onHoverValueChange(null);
-    drawChart(); // 立即重绘清除标记
+    drawChart();
   };
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     e.preventDefault();
