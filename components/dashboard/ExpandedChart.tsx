@@ -42,10 +42,6 @@ export default function ExpandedChart({
   const mounted = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const rafRef = useRef<number | null>(null);
-  const lastInteractionRef = useRef<{ maskPercent: number | null; activePoint: typeof activePoint }>({
-    maskPercent: null,
-    activePoint: null,
-  });
 
   const { currency } = useCurrency();
   const lineColor = todayProfit >= 0 ? '#22c55e' : '#ef4444';
@@ -109,7 +105,7 @@ export default function ExpandedChart({
     }
   };
 
-  // ---------- 坐标计算（缓存，避免重复）----------
+  // ---------- 坐标计算（缓存）----------
   const { points, yRange, minY } = useMemo(() => {
     if (chartData.length === 0 || dimensions.width === 0 || dimensions.height === 0) {
       return { points: [], yRange: 1, minY: 0 };
@@ -136,7 +132,7 @@ export default function ExpandedChart({
     return { points, yRange, minY };
   }, [chartData, dimensions, margin]);
 
-  // ---------- Canvas 绘图（使用缓存坐标，移除阴影）----------
+  // ---------- Canvas 绘图（带光晕，但光晕仅对线条生效）----------
   const drawChart = useCallback(() => {
     if (!canvasRef.current || !containerRef.current || points.length === 0) return;
     const canvas = canvasRef.current;
@@ -157,7 +153,7 @@ export default function ExpandedChart({
 
     const splitX = maskLeftPercent !== null ? margin.left + (maskLeftPercent / 100) * (width - margin.left - margin.right) : width;
 
-    // 绘制线段（无阴影）
+    // 绘制线段（带光晕）
     const drawSegment = (from: { x: number; y: number }, to: { x: number; y: number }, isRight: boolean) => {
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
@@ -169,6 +165,9 @@ export default function ExpandedChart({
       }
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 2;
+      // 光晕效果（仅对左侧和右侧都加，但右侧透明度低，光晕也会变淡）
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = lineColor;
       ctx.stroke();
     };
 
@@ -188,37 +187,40 @@ export default function ExpandedChart({
       }
     }
 
-    // 绘制活动点与竖线
+    // 绘制活动点与竖线（无阴影，颜色加深）
     if (activePoint && maskLeftPercent !== null && points[activePoint.index]) {
       const point = points[activePoint.index];
 
-      // 竖线（无阴影）
+      // 竖线（无阴影，颜色加深）
+      ctx.save();
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.moveTo(point.x, margin.top);
       ctx.lineTo(point.x, height - margin.bottom);
-      ctx.strokeStyle = '#9ca3af';
+      ctx.strokeStyle = '#6b7280';        // 深灰色，更明显
       ctx.setLineDash([4, 4]);
       ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 圆点
+      // 圆点（白色填充 + 黑色边框，边框加粗一点）
       ctx.beginPath();
       ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
       ctx.fillStyle = 'white';
       ctx.fill();
       ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      // 时间标签
+      // 时间标签（深灰色）
       ctx.font = '12px system-ui, -apple-system, sans-serif';
-      ctx.fillStyle = '#6b7280';
+      ctx.fillStyle = '#4b5563';          // 深灰
       ctx.textAlign = 'center';
       ctx.fillText(point.time, point.x, margin.top - 6);
+      ctx.restore();
     }
 
-    // 极淡渐变遮罩（可选）
+    // 极淡渐变遮罩
     if (splitX < width) {
       ctx.save();
       ctx.globalAlpha = 0.04;
@@ -261,7 +263,7 @@ export default function ExpandedChart({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ---------- 交互（使用 RAF 节流，减少 setState 频率）----------
+  // ---------- 交互（使用 RAF 节流）----------
   const handleInteraction = useCallback((clientX: number) => {
     if (!containerRef.current || points.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -272,12 +274,10 @@ export default function ExpandedChart({
     const point = chartData[index];
     const newActivePoint = { time: point.time, value: point.value, index };
 
-    // 更新状态（触发重绘）
     setMaskLeftPercent(newMaskPercent);
     setActivePoint(newActivePoint);
     onHoverValueChange(point.value, point.time);
 
-    // 使用 RAF 确保重绘与屏幕刷新同步
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       drawChart();
