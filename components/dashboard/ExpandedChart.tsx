@@ -190,38 +190,37 @@ export default function ExpandedChart({
     if (activePoint && maskLeftPercent !== null && points[activePoint.index]) {
   const point = points[activePoint.index];
 
-  // 绘制竖线（虚线）
+  // 绘制竖线（虚线）—— 灰色，无光晕
+  ctx.save();
+  ctx.shadowBlur = 0;                // 关键：关闭阴影，避免光晕
   ctx.beginPath();
-ctx.moveTo(point.x, margin.top);
-ctx.lineTo(point.x, height - margin.bottom);
-ctx.strokeStyle = '#9ca3af';   // 改为灰色
-ctx.setLineDash([4, 4]);
-ctx.lineWidth = 1.5;
-ctx.stroke();
-ctx.setLineDash([]);
+  ctx.moveTo(point.x, margin.top);
+  ctx.lineTo(point.x, height - margin.bottom);
+  ctx.strokeStyle = '#9ca3af';       // 灰色虚线
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
 
-  // 临时关闭阴影，使圆点边框清晰
+  // 绘制圆点：白色填充 + 薄黑边框（同样关闭阴影保证边框清晰）
+  ctx.save();
   ctx.shadowBlur = 0;
-
-  // 绘制圆点：白色填充 + 薄黑边框
   ctx.beginPath();
   ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
   ctx.fillStyle = 'white';
   ctx.fill();
-  ctx.strokeStyle = '#000000';      // 黑色边框
-  ctx.lineWidth = 1;                // 很薄的边框
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 1;
   ctx.stroke();
+  ctx.restore();
 
-  // 恢复阴影设置
-  ctx.shadowBlur = 4;
-
-  // 绘制时间标签（类似 ReferenceLine 的 label）
+  // 绘制时间标签 —— 灰色（字体阴影已关闭）
   ctx.font = '12px system-ui, -apple-system, sans-serif';
-ctx.fillStyle = '#6b7280';      // 改为灰色
-ctx.shadowBlur = 0;
-ctx.textAlign = 'center';
-ctx.fillText(point.time, point.x, margin.top - 6);
-ctx.shadowBlur = 4; // 恢复
+  ctx.fillStyle = '#6b7280';
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'center';
+  ctx.fillText(point.time, point.x, margin.top - 6);
 }
 
     // 可选：在图表区域绘制一个非常淡的渐变遮罩，增强视觉（非必要，但可帮助淡化效果）
