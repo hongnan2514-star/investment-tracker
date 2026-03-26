@@ -10,7 +10,7 @@ import {  // 图标
 } from 'lucide-react';
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { Asset } from '@/src/constants/types';
-import { addAsset, getAssets, removeAsset } from '@/src/utils/assetStorage';
+import { getCurrentUserId, setCurrentUserId } from '@/src/utils/assetStorage';
 import { refreshAllAssets } from '@/src/services/marketService';
 import { eventBus } from '@/src/utils/eventBus';
 import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCache';
@@ -213,7 +213,33 @@ const carBrands: CarBrand[] = [
   const [selectedBrandId, setSelectedBrandId] = useState<string>('');
   const [selectedBrandName, setSelectedBrandName] = useState<string>('');
   const [loadingCarData, setLoadingCarData] = useState(false);
-  const [assets, setAssets] = useState<Asset[]>(() => getAssets());
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(true);
+  const [convertedAssets, setConvertedAssets] = useState<Asset[]>([]);
+
+  // 加载资产
+const loadAssets = useCallback(async () => {
+  setLoadingAssets(true);
+  try {
+    const res = await fetch('/api/asset');
+    if (!res.ok) throw new Error('加载资产失败');
+    const data = await res.json();
+    setAssets(data);
+  } catch (err) {
+    console.error('加载资产失败', err);
+  } finally {
+    setLoadingAssets(false);
+  }
+}, []);
+
+useEffect(() => {
+  const handleUpdate = () => {
+    loadAssets();
+  };
+  const unsubscribe = eventBus.subscribe('assetsUpdated', handleUpdate); // ✅ 保存返回的取消函数
+  return () => unsubscribe();  // ✅ 直接调用取消函数
+}, [loadAssets]);
+
   useEffect(() => {
   console.log('当前资产类型:', assets.map(a => ({ symbol: a.symbol, type: a.type })));
 }, [assets]);
@@ -229,20 +255,17 @@ const carBrands: CarBrand[] = [
 
 // 调用自定义 Hook
 useAssetRefresh({ hasCrypto, hasStock, hasMetal, hasFund });
-  const [convertedAssets, setConvertedAssets] = useState<Asset[]>(() => getAssets());  // 转换后的资产列表（价格和市值已按目标货币转换）
   const { currency } = useCurrency(); // 获取当前货币代码
   const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
   // 定义转换函数
-const convertAll = useCallback(async () => {
-  const currentAssets = getAssets(); // 直接从存储获取最新资产
-  if (currentAssets.length === 0) {
-    setConvertedAssets([]);
+  const convertAll = useCallback(async () => {
+  if (assets.length === 0) {
     return;
   }
 
   console.log(`[货币转换] 开始转换，目标货币: ${currency}`);
   const converted = await Promise.all(
-    currentAssets.map(async (asset) => {
+      assets.map(async (asset)  => {
       const fromCurrency = asset.currency || 'USD';
       try {
         const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
@@ -262,41 +285,27 @@ const convertAll = useCallback(async () => {
     })
   );
   setConvertedAssets(converted);
-  console.log(`[货币转换] 完成`);
-}, [currency, convert]);
+}, [currency, convert, assets]); 
 
 // 货币切换时自动转换
 useEffect(() => {
   convertAll();
-}, [currency]); // 只在货币变化时执行
-
-// 初始加载时执行一次转换
-useEffect(() => {
-  convertAll();
-}, []); // 空依赖，仅挂载时执行
+}, [currency, convertAll]); // 只在货币变化时执行
 
 // ==================== 资产更新事件处理 ====================
 useEffect(() => {
   const handleUpdate = (updatedAssets?: Asset[]) => {
     if (updatedAssets) {
-      // 价格刷新事件（携带新资产列表）
-      console.log('收到价格刷新事件，更新 assets');
       setAssets([...updatedAssets]);
       // 不更新 convertedAssets，等待货币切换或手动触发
     } else {
-      // 添加/删除资产事件（无参数）
-      const updated = getAssets();
-      console.log('收到资产变更事件，重新读取并转换');
-      setAssets([...updated]);
-      convertAll(); // 重新转换以反映新资产
+      loadAssets();
     }
   };
 
   const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleUpdate);
   const unsubscribeUser = eventBus.subscribe('userChanged', () => {
-    // 用户切换时重新加载资产并转换
-    const updated = getAssets();
-    setAssets(updated);
+    loadAssets();
     convertAll();
   });
 
@@ -304,7 +313,7 @@ useEffect(() => {
     unsubscribeAssets();
     unsubscribeUser();
   };
-}, [convertAll]);
+}, [convertAll, loadAssets]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -371,10 +380,10 @@ const filteredAndSortedAssets = useMemo(() => {
 
   useEffect(() => {
     const unsubscribe = eventBus.subscribe('userChanged', () => {
-      setAssets(getAssets());
+      loadAssets();
     });
     return () => unsubscribe();
-  }, []);
+  }, [loadAssets]);
 
   // 保存排序方式
   useEffect(() => {
@@ -413,16 +422,21 @@ const sortedAssets = useMemo(() => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleDeleteAsset = async (symbol: string) => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+  try {
+    const res = await fetch('/api/asset', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol }),
+    });
+    if (res.ok) {
+      await loadAssets(); // 重新加载资产
+    } else {
+      console.error('删除失败');
     }
-    removeAsset(symbol);
-    removeCachedLogo(symbol);
-    const remainingAssets = getAssets();
-    setAssets(remainingAssets);
-    console.log(`已删除 ${symbol}，剩余资产:`, remainingAssets.length);
-  };
+  } catch (err) {
+    console.error('删除资产失败', err);
+  }
+};
 
   const formatLargeNumber = (num: number): string => {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -703,7 +717,7 @@ if (type === 'custom') {
   };
 
   // 汽车添加处理（纯手动输入）
-  const handleAddCarAsset = () => {
+  const handleAddCarAsset = async () => {
     if (!selectedBrandId) {
       alert('请选择品牌');
       return;
@@ -745,8 +759,21 @@ if (type === 'custom') {
       costPrice: price,
     };
 
-    addAsset(newAsset);
-    setAssets(getAssets());
+    try {
+         const res = await fetch('/api/asset', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(newAsset),
+          });
+  if (res.ok) {
+    await loadAssets(); // 重新加载资产列表
+    // 重置表单...
+  } else {
+    console.error('添加失败');
+  }
+} catch (err) {
+  console.error('添加汽车资产失败', err);
+}
 
     //alert(`已添加汽车资产: ${carName}`);
 
@@ -762,7 +789,7 @@ if (type === 'custom') {
     setShowMenu(false);
   };
 
-  const handleAddRealEstateAsset = () => {
+  const handleAddRealEstateAsset = async () => {
   const name = realEstateName.trim() || '不动产';
   const quantity = parseFloat(realEstateQuantity) || 1;
   const pricePerUnit = parseFloat(holdings) || 0;
@@ -786,25 +813,34 @@ if (type === 'custom') {
     costPrice: pricePerUnit,
   };
 
-  addAsset(newAsset);
-  setAssets(getAssets());
-
-  //alert(`已添加房产资产: ${name}`);
-
-  // 重置状态
-  setRealEstateName('');
-  setRealEstateIncludeInChart(true);
-  setRealEstateNotes('');
-  setHoldings("");
-  setPurchaseDate("");
-  setRealEstateQuantity('1');
-  setView('categories');
-  setSelectedMainCategory(null);
-  setSelectedAssetType(null);
-  setShowMenu(false);
+  try {
+    const res = await fetch('/api/asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newAsset),
+    });
+    if (res.ok) {
+      await loadAssets(); // 重新加载资产列表
+      // 重置表单
+      setRealEstateName('');
+      setRealEstateIncludeInChart(true);
+      setRealEstateNotes('');
+      setHoldings('');
+      setPurchaseDate('');
+      setRealEstateQuantity('1');
+      setView('categories');
+      setSelectedMainCategory(null);
+      setSelectedAssetType(null);
+      setShowMenu(false);
+    } else {
+      console.error('添加失败');
+    }
+  } catch (err) {
+    console.error('添加房产资产失败', err);
+  }
 };
 
-const handleAddCashAsset = () => {
+const handleAddCashAsset = async () => {
   const name = cashName.trim() || '现金';
   const amount = parseFloat(holdings) || 0;
   if (amount <= 0) {
@@ -824,30 +860,37 @@ const handleAddCashAsset = () => {
     changePercent: 0,
     purchaseDate: purchaseDate || undefined,
     costPrice: amount,
-    logoUrl: selectedIcon ? `/icons/payment/${selectedIcon}` : undefined, // 如果选择了图标则保存路径
+    logoUrl: selectedIcon ? `/icons/payment/${selectedIcon}` : undefined,
   };
 
-  addAsset(newAsset);
-  setAssets(getAssets());
-
-  //alert(`已添加现金资产: ${name}`);
-
-  // 重置状态
-  setCashName('');
-  setSelectedIcon('');
-  setHoldings("");
-  setPurchaseDate("");
-  setCostPrice("");
-  setView('categories');
-  setSelectedMainCategory(null);
-  setSelectedAssetType(null);
-  setShowMenu(false);
+  try {
+    const res = await fetch('/api/asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newAsset),
+    });
+    if (res.ok) {
+      await loadAssets();
+      // 重置状态
+      setCashName('');
+      setSelectedIcon('');
+      setHoldings('');
+      setPurchaseDate('');
+      setCostPrice('');
+      setView('categories');
+      setSelectedMainCategory(null);
+      setSelectedAssetType(null);
+      setShowMenu(false);
+    } else {
+      console.error('添加失败');
+    }
+  } catch (err) {
+    console.error('添加现金资产失败', err);
+  }
 };
 
-const handleAddCustomAsset = () => {
-  if (!customAssetType) {
-  return;
-}
+const handleAddCustomAsset = async () => {
+  if (!customAssetType) return;
   const name = customAssetName.trim();
   const amount = parseFloat(customAssetAmount);
   if (!name) {
@@ -878,25 +921,34 @@ const handleAddCustomAsset = () => {
     includeInChart: customAssetIncludeInChart,
   };
 
-  addAsset(newAsset);
-  setAssets(getAssets());
-
-  //alert(`已添加自定义资产: ${name}`);
-
-  // 重置状态
-  setCustomAssetType('');
-  setCustomAssetName('');
-  setCustomAssetAmount('');
-  setCustomAssetOrderDate('');
-  setCustomAssetNotes('');
-  setCustomAssetIncludeInChart(true);
-  setView('categories');
-  setSelectedMainCategory(null);
-  setSelectedAssetType(null);
-  setShowMenu(false);
+  try {
+    const res = await fetch('/api/asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newAsset),
+    });
+    if (res.ok) {
+      await loadAssets();
+      // 重置状态
+      setCustomAssetType('');
+      setCustomAssetName('');
+      setCustomAssetAmount('');
+      setCustomAssetOrderDate('');
+      setCustomAssetNotes('');
+      setCustomAssetIncludeInChart(true);
+      setView('categories');
+      setSelectedMainCategory(null);
+      setSelectedAssetType(null);
+      setShowMenu(false);
+    } else {
+      console.error('添加失败');
+    }
+  } catch (err) {
+    console.error('添加自定义资产失败', err);
+  }
 };
 
-  const handleAddAsset = () => {
+const handleAddAsset = async () => {
   if (!foundAsset || !holdings) return;
 
   // 确保价格有效
@@ -923,8 +975,30 @@ const handleAddCustomAsset = () => {
     costPrice: costPrice ? parseFloat(costPrice) : undefined,
   };
 
-  addAsset(newAsset);
-  setAssets(getAssets());
+  try {
+    const res = await fetch('/api/asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newAsset),
+    });
+    if (res.ok) {
+      await loadAssets();
+      // 重置表单
+      setFoundAsset(null);
+      setSearchQuery('');
+      setHoldings("");
+      setPurchaseDate("");
+      setCostPrice("");
+      setView('categories');
+      setSelectedMainCategory(null);
+      setSelectedAssetType(null);
+      setShowMenu(false);
+    } else {
+      alert('添加失败');
+    }
+  } catch (err) {
+    console.error('添加资产失败', err);
+  }
 
   if (foundAsset.logoUrl) {
     cacheLogo(foundAsset.symbol, foundAsset.logoUrl).catch(console.warn);
@@ -938,18 +1012,6 @@ const handleAddCustomAsset = () => {
       body: JSON.stringify({ asset: { type: newAsset.type, symbol: newAsset.symbol } })
     }).catch(err => console.error(`拉取 ${newAsset.symbol} 历史数据失败:`, err));
   }
-
-  //alert(`已添加 ${foundAsset.name} (${foundAsset.symbol}) 到资产列表`);
-
-  setFoundAsset(null);
-  setSearchQuery('');
-  setHoldings("");
-  setPurchaseDate("");
-  setCostPrice("");
-  setView('categories');
-  setSelectedMainCategory(null);
-  setSelectedAssetType(null);
-  setShowMenu(false);
 };
 
   const getProfitLossColor = (asset: Asset) => {
