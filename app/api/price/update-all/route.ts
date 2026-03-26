@@ -21,6 +21,12 @@ function shouldUpdateAsset(asset: any, now: Date): boolean {
   const { type, symbol, last_updated } = asset;
   const lastUpdate = last_updated ? new Date(last_updated) : null;
 
+  // 排除所有 symbol 以 CUSTOM- 开头的自定义资产
+if (asset.symbol.startsWith('CUSTOM-')) {
+  console.log(`[shouldUpdateAsset] ❌ 跳过: 自定义资产 ${asset.symbol}`);
+  return false;
+}
+
   console.log(`[shouldUpdateAsset] 检查资产: ${symbol}, type=${type}, last_updated=${last_updated}`);
 
   if (type !== 'crypto' && type !== 'fund' && type !== 'stock' && type !== 'etf' && type !== 'metal') {
@@ -135,7 +141,7 @@ export async function POST(request: Request) {
             console.log(`[PriceUpdate] 开始获取 ${asset.symbol} (${asset.type}) 价格...`);
             const priceData = await withTimeout(
               fetchPriceForAsset({ symbol: asset.symbol, type: asset.type }),
-              5000
+              8000
             );
             if (priceData && priceData.price != null && !isNaN(priceData.price)) {
               console.log(`[PriceUpdate] ✅ ${asset.symbol} 新价格: ${priceData.price}`);

@@ -78,14 +78,27 @@ async function fetchFromCoinGecko(symbol: string): Promise<DataSourceResult> {
 /**
  * 查询单个加密货币的实时行情（支持多交易所重试 + CoinGecko 后备）
  */
+/**
+ * 查询单个加密货币的实时行情（支持多交易所重试 + CoinGecko 后备）
+ */
 export async function queryCryptoCCXT(symbol: string): Promise<DataSourceResult> {
-    const cleanSymbol = symbol.toUpperCase().trim();
-    const baseMarket = `${cleanSymbol}/USDT`;
+    // ✅ 修复交易对格式：如果 symbol 已经包含 '/'，则直接使用；否则拼接 '/USDT'
+    let baseMarket: string;
+    let cleanSymbol: string;
+    if (symbol.includes('/')) {
+        // 传入的已经是交易对格式（如 "ETH/USDT"）
+        baseMarket = symbol.toUpperCase().trim();
+        cleanSymbol = baseMarket.split('/')[0];
+    } else {
+        // 传入的是基础币种（如 "BTC"），拼接 USDT 交易对
+        cleanSymbol = symbol.toUpperCase().trim();
+        baseMarket = `${cleanSymbol}/USDT`;
+    }
 
     console.log(`[Crypto-CCXT] 开始搜索: ${baseMarket}`);
 
-    // 按偏好顺序排列的交易所列表（越靠前越优先）
-    const exchangesToTry = ['binance', 'kucoin', 'gateio', 'okx', 'coinbase'];
+    // ✅ 调整交易所顺序：优先使用 kucoin、gateio 等，避免币安地域限制
+    const exchangesToTry = ['kucoin', 'gateio', 'okx', 'coinbase', 'binance'];
     let lastError: any = null;
 
     for (const exchangeId of exchangesToTry) {
@@ -178,7 +191,6 @@ export async function queryCryptoCCXT(symbol: string): Promise<DataSourceResult>
         source: 'Crypto-CCXT'
     };
 }
-
 /**
  * 获取加密货币历史K线数据（日线）
  * @param symbol 用户输入的代码，如 "BTC"
