@@ -322,7 +322,7 @@ export default function ExpandedChart({
     <div className="w-full relative">
       <div
         ref={containerRef}
-        className="h-64 w-full relative cursor-crosshair"
+        className="h-64 w-full relative cursor-crosshair touch-none"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onTouchMove={handleTouchMove}
