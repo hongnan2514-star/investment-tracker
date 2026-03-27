@@ -24,7 +24,7 @@ export default function SnapshotScheduler() {
         headers: { 'x-user-id': userId },
       });
       if (!assetsResponse.ok) {
-        console.error('[快照] 获取资产失败');
+        console.error('[快照] 获取资产失败，状态码:', assetsResponse.status);
         return;
       }
       const assets = await assetsResponse.json();
@@ -32,6 +32,14 @@ export default function SnapshotScheduler() {
         console.warn('[快照] 无资产，跳过记录');
         return;
       }
+
+      // 使用类型断言，因为 assets 的类型未知
+      const invalidAssets = (assets as any[]).filter(a => a.marketValue == null || isNaN(Number(a.marketValue)));
+      if (invalidAssets.length > 0) {
+        console.warn('[快照] 发现无效 marketValue 的资产:', invalidAssets.map(a => a.symbol));
+      }
+
+      console.log('[快照] 准备记录，资产数量:', assets.length, '，首个资产价格:', (assets as any[])[0]?.price);
 
       const response = await fetch('/api/snapshot', {
         method: 'POST',
