@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from 'react';
-import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
+import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 
 export default function SnapshotScheduler() {
@@ -19,7 +19,15 @@ export default function SnapshotScheduler() {
         return;
       }
 
-      const assets = getAssets();
+      // 从后端 API 获取最新的资产数据（包含已更新的价格）
+      const assetsResponse = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (!assetsResponse.ok) {
+        console.error('[快照] 获取资产失败');
+        return;
+      }
+      const assets = await assetsResponse.json();
       if (!assets || assets.length === 0) {
         console.warn('[快照] 无资产，跳过记录');
         return;
@@ -28,7 +36,7 @@ export default function SnapshotScheduler() {
       const response = await fetch('/api/snapshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, assets }), // 不再传递 targetCurrency
+        body: JSON.stringify({ userId, assets }),
       });
       if (response.ok) {
         const data = await response.json();

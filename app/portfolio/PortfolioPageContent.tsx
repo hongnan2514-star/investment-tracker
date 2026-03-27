@@ -221,16 +221,40 @@ const carBrands: CarBrand[] = [
 const loadAssets = useCallback(async () => {
   setLoadingAssets(true);
   try {
-    const res = await fetch('/api/asset');
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setAssets([]);
+      setLoadingAssets(false);
+      return;
+    }
+    const res = await fetch('/api/asset', {
+      headers: { 'x-user-id': userId },
+    });
     if (!res.ok) throw new Error('加载资产失败');
     const data = await res.json();
-    setAssets(data);
+    console.log('[loadAssets] 原始数据:', data);
+    // 将数字字段转换为数字类型
+    const normalizedData = (data as any[]).map((asset: any) => ({
+      ...asset,
+      price: Number(asset.price),
+      holdings: Number(asset.holdings),
+      marketValue: Number(asset.marketValue),
+      costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
+      changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
+    }));
+    console.log('[loadAssets] 转换后数据:', normalizedData);
+    setAssets(normalizedData);
   } catch (err) {
     console.error('加载资产失败', err);
   } finally {
     setLoadingAssets(false);
   }
 }, []);
+
+// 组件首次挂载时加载资产
+useEffect(() => {
+  loadAssets();
+}, [loadAssets]); // 依赖 loadAssets，确保只在函数稳定时执行一次
 
 useEffect(() => {
   const handleUpdate = () => {
@@ -254,7 +278,8 @@ useEffect(() => {
 }, [assets]);
 
 // 调用自定义 Hook
-useAssetRefresh({ hasCrypto, hasStock, hasMetal, hasFund });
+// useAssetRefresh({ hasCrypto, hasStock, hasMetal, hasFund });
+
   const { currency } = useCurrency(); // 获取当前货币代码
   const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
   // 定义转换函数
@@ -423,13 +448,21 @@ const sortedAssets = useMemo(() => {
 
   const handleDeleteAsset = async (symbol: string) => {
   try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      console.warn('用户未登录');
+      return;
+    }
     const res = await fetch('/api/asset', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
       body: JSON.stringify({ symbol }),
     });
     if (res.ok) {
-      await loadAssets(); // 重新加载资产
+      await loadAssets();
     } else {
       console.error('删除失败');
     }
@@ -760,11 +793,19 @@ if (type === 'custom') {
     };
 
     try {
-         const res = await fetch('/api/asset', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify(newAsset),
-          });
+         const userId = getCurrentUserId();
+if (!userId) {
+  alert('请先登录');
+  return;
+}
+const res = await fetch('/api/asset', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-user-id': userId,
+  },
+  body: JSON.stringify(newAsset),
+});
   if (res.ok) {
     await loadAssets(); // 重新加载资产列表
     // 重置表单...
@@ -814,9 +855,17 @@ if (type === 'custom') {
   };
 
   try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      alert('请先登录');
+      return;
+    }
     const res = await fetch('/api/asset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
@@ -864,9 +913,17 @@ const handleAddCashAsset = async () => {
   };
 
   try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      alert('请先登录');
+      return;
+    }
     const res = await fetch('/api/asset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
@@ -922,9 +979,17 @@ const handleAddCustomAsset = async () => {
   };
 
   try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      alert('请先登录');
+      return;
+    }
     const res = await fetch('/api/asset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
@@ -976,9 +1041,17 @@ const handleAddAsset = async () => {
   };
 
   try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      alert('请先登录');
+      return;
+    }
     const res = await fetch('/api/asset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
@@ -2328,7 +2401,20 @@ if (selectedAssetType === 'custom_asset') {
                     );
                   }
 
-                  if (asset.type === 'car') return <CarFront size={16} className="text-gray-700 dark:text-gray-200" />;
+                  if (asset.type === 'car') {
+  // 如果有自定义图标（品牌 logo），显示图片；否则显示默认 CarFront 图标
+  if (asset.logoUrl) {
+    return (
+      <img
+        src={asset.logoUrl}
+        alt={asset.name}
+        className="w-6 h-6 object-contain rounded-lg"
+        onError={(e) => (e.currentTarget.style.display = 'none')}
+      />
+    );
+  }
+  return <CarFront size={16} className="text-gray-700 dark:text-gray-200" />;
+}
                   if (asset.type === 'stock') return <Zap size={16} className="text-gray-700 dark:text-gray-200" />;
                   if (asset.type === 'metal') {
                     return asset.symbol && asset.symbol.includes('Ag') ? (
@@ -2339,12 +2425,23 @@ if (selectedAssetType === 'custom_asset') {
                   }
                   if (asset.type === 'real_estate') return <Hotel size={16} className="text-gray-700 dark:text-gray-200" />;
                   if (asset.type === 'custom') {
-                    return (
-                      <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                        <Banknote size={16} className="text-gray-700 dark:text-gray-200" />
-                      </div>
-                    );
-                  }
+  // 如果有自定义图标，显示图片；否则显示默认 Banknote 图标
+  if (asset.logoUrl) {
+    return (
+      <img
+        src={asset.logoUrl}
+        alt=""
+        className="w-6 h-6 object-contain rounded-lg"
+        onError={(e) => (e.currentTarget.style.display = 'none')}
+      />
+    );
+  }
+  return (
+    <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+      <Banknote size={16} className="text-gray-700 dark:text-gray-200" />
+    </div>
+  );
+}
                   if (asset.type === 'receivable') return <Receipt size={16} className="text-gray-700 dark:text-gray-200" />;
                   if (asset.type === 'custom_asset') return <Activity size={16} className="text-gray-700 dark:text-gray-200" />;
                   if (asset.type === 'liability') return <ReceiptText size={16} className="text-gray-700 dark:text-gray-200" />;
@@ -2392,9 +2489,9 @@ if (selectedAssetType === 'custom_asset') {
           {/* 仅非简单资产显示份额 */}
           {!isSimpleAsset && (
             <div className="flex justify-end mt-0.5">
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${asset.holdings.toFixed(2)}份`}>
-                {asset.holdings.toFixed(2)}份
-              </p >
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${typeof asset.holdings === 'number' ? asset.holdings.toFixed(2) : '0.00'}份`}>
+  {typeof asset.holdings === 'number' ? asset.holdings.toFixed(2) : '0.00'}份
+</p >
             </div>
           )}
 

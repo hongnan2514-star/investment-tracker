@@ -8,25 +8,23 @@ const sql = neon(process.env.POSTGRES_URL!);
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, assets } = await request.json();
+    const { userId, assets: providedAssets } = await request.json();
     if (!userId) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
 
-    let totalAssets = 0;
-    let totalLiabilities = 0;
-    let assetList = assets;
+    let assetList: any[] = [];
 
-    // 如果没有传入 assets，则从 user_assets 表读取
-    if (!assets || !Array.isArray(assets)) {
+    // 优先使用传入的资产列表（前端调用时可能传）
+    if (providedAssets && Array.isArray(providedAssets)) {
+      assetList = providedAssets;
+    } else {
+      // 否则从 assets 明细表读取最新数据
       const result = await sql`
-        SELECT assets FROM user_assets WHERE user_id = ${userId}
+        SELECT symbol, name, price, holdings, market_value, currency, type, cost_price, purchase_date, notes, include_in_chart
+        FROM assets WHERE user_id = ${userId}
       `;
-      if (result.length > 0 && result[0].assets) {
-        assetList = result[0].assets;
-      } else {
-        assetList = [];
-      }
+      assetList = result;
     }
 
     if (assetList.length === 0) {
@@ -49,10 +47,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, totalAssets: 0, totalLiabilities: 0, netWorth: 0 });
     }
 
-    // 计算总资产和总负债（统一转换为 CNY）
+    let totalAssets = 0;
+    let totalLiabilities = 0;
+
     for (const asset of assetList) {
       const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
-      let value = asset.marketValue;
+      let value = asset.market_value; // 注意字段名映射：数据库中为 market_value
       if (fromCurrency !== 'CNY') {
         value = await convertAmount(value, fromCurrency, 'CNY');
       }
@@ -65,11 +65,10 @@ export async function POST(request: NextRequest) {
 
     const netWorth = totalAssets - totalLiabilities;
 
-    // 使用北京时间（UTC+8）计算整点
+    // 北京时间整点快照
     const now = new Date();
     const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
     const snapshotHour = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate(), beijingTime.getHours(), 0, 0);
-    // 转换为 UTC 时间存储
     const snapshotTimeUTC = new Date(snapshotHour.getTime() - 8 * 60 * 60 * 1000).toISOString();
 
     const existing = await sql`
