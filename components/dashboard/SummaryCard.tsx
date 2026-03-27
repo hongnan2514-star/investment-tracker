@@ -2,7 +2,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
-import { getAssets } from '@/src/utils/assetStorage';
 import { Asset } from '@/src/constants/types';
 import { eventBus } from '@/src/utils/eventBus';
 import { recordSnapshot } from '@/src/services/historyService';
@@ -14,6 +13,8 @@ import { getCurrentUserId } from '@/src/utils/assetStorage';
 type Period = '1W' | '1M' | '6M';
 
 export default function SummaryCard() {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(true);
   const [convertedTotalAssets, setConvertedTotalAssets] = useState<number>(0);
   const [convertedTotalLiabilities, setConvertedTotalLiabilities] = useState<number>(0);
   const [convertedNetWorth, setConvertedNetWorth] = useState<number>(0);
@@ -25,20 +26,54 @@ export default function SummaryCard() {
   const [isAmountHidden, setIsAmountHidden] = useState(false);
 
   const { currency, symbol } = useCurrency();
-  const { convert, loading } = useCurrencyConverter();
+  const { convert, loading: converting } = useCurrencyConverter();
 
   const [midnightSnapshotCNY, setMidnightSnapshotCNY] = useState<number | null>(null);
   const [netWorthCNY, setNetWorthCNY] = useState<number>(0);
 
-  const formatLargeNumber = (num: number): string => {
-    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(2) + 'K';
-    return num.toFixed(2);
-  };
+  // 加载资产
+  const loadAssets = useCallback(async () => {
+    setLoadingAssets(true);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        setAssets([]);
+        setLoadingAssets(false);
+        return;
+      }
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) throw new Error('加载资产失败');
+      const data = await res.json();
+      const normalizedData = data.map((asset: any) => ({
+        ...asset,
+        price: Number(asset.price),
+        holdings: Number(asset.holdings),
+        marketValue: Number(asset.marketValue),
+        costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
+        changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
+      }));
+      setAssets(normalizedData);
+    } catch (err) {
+      console.error('加载资产失败', err);
+      setAssets([]);
+    } finally {
+      setLoadingAssets(false);
+    }
+  }, []);
 
+  // 计算总资产、负债、净值、利润（使用当前货币和 CNY）
   const refreshData = useCallback(async () => {
-    const assets = getAssets() as Asset[];
+    if (assets.length === 0) {
+      setConvertedTotalAssets(0);
+      setConvertedTotalLiabilities(0);
+      setConvertedNetWorth(0);
+      setConvertedProfit(0);
+      setNetWorthCNY(0);
+      return;
+    }
+
     let assetsSum = 0;
     let liabilitiesSum = 0;
     let profitSum = 0;
@@ -48,7 +83,6 @@ export default function SummaryCard() {
     await Promise.all(
       assets.map(async (asset) => {
         const fromCurrency = asset.currency || 'USD';
-        // 转换为当前货币
         const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
         if (asset.type === 'liability') {
           liabilitiesSum += Math.abs(convertedValue);
@@ -56,7 +90,6 @@ export default function SummaryCard() {
           assetsSum += convertedValue;
         }
 
-        // 转换为 CNY（用于今日收益计算）
         const convertedValueCNY = await convert(asset.marketValue, fromCurrency as any, 'CNY');
         if (asset.type === 'liability') {
           liabilitiesSumCNY += Math.abs(convertedValueCNY);
@@ -75,7 +108,7 @@ export default function SummaryCard() {
     setConvertedNetWorth(assetsSum - liabilitiesSum);
     setConvertedProfit(profitSum);
     setNetWorthCNY(assetsSumCNY - liabilitiesSumCNY);
-  }, [currency, convert]);
+  }, [assets, currency, convert]);
 
   // 获取今日0点快照
   useEffect(() => {
@@ -93,14 +126,14 @@ export default function SummaryCard() {
     fetchMidnightSnapshot();
   }, []);
 
-  // 计算今日收益（CNY），并转换为当前货币显示
+  // 今日收益（CNY）
   const todayProfitCNY = midnightSnapshotCNY !== null ? netWorthCNY - midnightSnapshotCNY : 0;
   const todayProfitConverted = useCallback(async () => {
     if (todayProfitCNY === 0) return 0;
     return await convert(todayProfitCNY, 'CNY', currency);
   }, [todayProfitCNY, currency, convert]);
 
-  // 更新今日收益显示（异步）
+  // 更新今日收益显示
   useEffect(() => {
     let isActive = true;
     (async () => {
@@ -110,23 +143,38 @@ export default function SummaryCard() {
     return () => { isActive = false; };
   }, [todayProfitConverted]);
 
+  // 监听资产变化事件
   useEffect(() => {
-    recordSnapshot();
-    refreshData();
-
-    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', () => {
-      refreshData();
-    });
-
-    const unsubscribeUser = eventBus.subscribe('userChanged', () => {
-      refreshData();
-    });
-
+    const handleAssetsUpdate = () => {
+      loadAssets();
+    };
+    const handleUserChange = () => {
+      loadAssets();
+    };
+    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
+    const unsubscribeUser = eventBus.subscribe('userChanged', handleUserChange);
     return () => {
       unsubscribeAssets();
       unsubscribeUser();
     };
+  }, [loadAssets]);
+
+  // 资产变化时重新计算
+  useEffect(() => {
+    refreshData();
   }, [refreshData]);
+
+  // 初始加载
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
+
+  // 记录快照（当资产变化时）
+  useEffect(() => {
+    if (assets.length > 0) {
+      recordSnapshot();
+    }
+  }, [assets]);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -137,33 +185,79 @@ export default function SummaryCard() {
   };
 
   const profitSign = convertedProfit > 0 ? '+' : convertedProfit < 0 ? '-' : '';
-  const profitColorClass = 
-    convertedProfit > 0 ? 'text-green-500' : 
-    convertedProfit < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400';
+  const profitColorClass =
+    convertedProfit > 0 ? 'text-green-500' :
+      convertedProfit < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400';
 
-  // 处理悬停时的净值更新
   const handleHoverValue = (value: number | null) => {
     setHoverNetWorth(value);
   };
 
   const displayNetWorth = hoverNetWorth !== null ? hoverNetWorth : convertedNetWorth;
 
-  // 切换金额隐藏状态
   const toggleAmountHidden = () => {
     const newHidden = !isAmountHidden;
     setIsAmountHidden(newHidden);
     eventBus.emit('toggleAmountVisibility', newHidden);
   };
 
+  const formatLargeNumber = (num: number): string => {
+    if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
+    if (num >= 1_000) return (num / 1_000).toFixed(2) + 'K';
+    return num.toFixed(2);
+  };
+
+  // 骨架屏组件（使用稳定的脉冲动画）
+  const SkeletonLine = ({ className = "w-24 h-6" }: { className?: string }) => (
+    <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${className}`} />
+  );
+
+  // 加载状态下的骨架屏版本（无迷你走势图占位）
+  if (loadingAssets) {
+    return (
+      <div className="mb-6 px-2">
+        <div className="flex justify-between items-start">
+          <div className="flex flex-col flex-1">
+            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mb-1">
+              <span className="text-xs font-semibold">净资产估值</span>
+              <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+                <Eye size={14} />
+              </button>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <SkeletonLine className="w-28 h-8" />
+              <SkeletonLine className="w-8 h-4" />
+            </div>
+            <div className="mt-2">
+              <SkeletonLine className="w-32 h-4" />
+            </div>
+          </div>
+          {/* 迷你走势图区域不显示任何占位 */}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
+            <span className="text-xs font-medium text-white">资产</span>
+            <SkeletonLine className="w-16 h-5 bg-white/30" />
+          </div>
+          <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
+            <span className="text-xs font-medium text-white">负债</span>
+            <SkeletonLine className="w-16 h-5 bg-white/30" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 正常渲染
   return (
     <div className="mb-6 px-2">
-      {/* 净资产估值区域 */}
       <div className="flex justify-between items-start">
         <div className="flex flex-col flex-1">
-          {/* 标题行：净资产估值 + 眼睛按钮 */}
           <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mb-1">
             <span className="text-xs font-semibold">净资产估值</span>
-            {loading && <span className="text-xs text-blue-500 animate-pulse">汇率更新中...</span>}
+            {converting && <span className="text-xs text-blue-500 animate-pulse">汇率更新中...</span>}
             <button
               onClick={toggleAmountHidden}
               className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors focus:outline-none focus:ring-0"
@@ -173,7 +267,6 @@ export default function SummaryCard() {
               {isAmountHidden ? <EyeClosed size={14} /> : <Eye size={14} />}
             </button>
           </div>
-          {/* 数字和今日收益 */}
           <div className="flex items-baseline gap-1">
             <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-gray-100 inline-flex items-baseline gap-1">
               {isAmountHidden ? (
@@ -201,8 +294,8 @@ export default function SummaryCard() {
           </p >
         </div>
 
-        {/* 迷你走势图 */}
         {!isExpanded && !isClosing && (
+        <div className="-ml-2 mt-2">
           <MiniChart
             period={selectedPeriod}
             totalValue={convertedNetWorth}
@@ -210,10 +303,10 @@ export default function SummaryCard() {
             profit={convertedProfit}
             onClick={() => setIsExpanded(true)}
           />
+          </div>
         )}
       </div>
 
-      {/* 资产与负债卡片 */}
       <div className="grid grid-cols-2 gap-4 mt-4">
         <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
           <span className="text-xs font-medium text-white">资产</span>
@@ -237,7 +330,6 @@ export default function SummaryCard() {
         </div>
       </div>
 
-      {/* 展开区域 */}
       {(isExpanded || isClosing) && (
         <div
           className={`mt-6 pt-6 transition-all duration-300 ease-in-out transform ${

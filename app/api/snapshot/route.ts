@@ -51,11 +51,34 @@ export async function POST(request: NextRequest) {
     let totalLiabilities = 0;
 
     for (const asset of assetList) {
-      const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
-      let value = asset.market_value; // 注意字段名映射：数据库中为 market_value
-      if (fromCurrency !== 'CNY') {
-        value = await convertAmount(value, fromCurrency, 'CNY');
+      // 1. 检查 market_value 是否有效
+      let value = asset.market_value;
+      if (value == null || isNaN(Number(value))) {
+        console.warn(`[快照] 资产 ${asset.symbol} 的 market_value 无效: ${value}，跳过`);
+        continue;
       }
+      value = Number(value);
+
+      // 2. 处理货币
+      let fromCurrency = (asset.currency || 'USD').toUpperCase();
+      // 将 USDT 映射为 USD，因为汇率服务不支持 USDT
+      if (fromCurrency === 'USDT') fromCurrency = 'USD';
+
+      // 3. 转换到 CNY（如果需要）
+      if (fromCurrency !== 'CNY') {
+        try {
+          value = await convertAmount(value, fromCurrency as CurrencyCode, 'CNY');
+          if (isNaN(value)) {
+            console.error(`[快照] 资产 ${asset.symbol} 货币转换后为 NaN，跳过`);
+            continue;
+          }
+        } catch (err) {
+          console.error(`[快照] 资产 ${asset.symbol} 货币转换失败:`, err);
+          continue;
+        }
+      }
+
+      // 4. 累加
       if (asset.type === 'liability') {
         totalLiabilities += Math.abs(value);
       } else {
