@@ -475,7 +475,7 @@ const sortedAssets = useMemo(() => {
   
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleDeleteAsset = async (symbol: string) => {
+const handleDeleteAsset = async (symbol: string) => {
   try {
     const userId = getCurrentUserId();
     if (!userId) {
@@ -491,7 +491,12 @@ const sortedAssets = useMemo(() => {
       body: JSON.stringify({ symbol }),
     });
     if (res.ok) {
-      await loadAssets();
+      // 直接从本地状态中移除该资产
+      setAssets(prevAssets => prevAssets.filter(asset => asset.symbol !== symbol));
+      // 清除缓存，保证下次从其他页面回来时重新加载最新数据
+      if (userId) assetCache.delete(userId);
+      // 通知其他组件资产已更新（如饼图、摘要等）
+      eventBus.emit('assetsUpdated');
     } else {
       console.error('删除失败');
     }
@@ -821,45 +826,49 @@ if (type === 'custom') {
       costPrice: price,
     };
 
-    try {
-         const userId = getCurrentUserId();
-if (!userId) {
-  alert('请先登录');
-  return;
-}
-const res = await fetch('/api/asset', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-user-id': userId,
-  },
-  body: JSON.stringify(newAsset),
-});
-  if (res.ok) {
-    await loadAssets(); // 重新加载资产列表
-    // 重置表单...
-  } else {
-    console.error('添加失败');
+try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      alert('请先登录');
+      return;
+    }
+    const res = await fetch('/api/asset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
+      body: JSON.stringify(newAsset),
+    });
+    if (res.ok) {
+      // 将新资产追加到本地状态
+      setAssets(prevAssets => [...prevAssets, newAsset]);
+      // 清除缓存
+      if (userId) assetCache.delete(userId);
+      // 通知其他组件
+      eventBus.emit('assetsUpdated');
+      // 重置表单和菜单状态...
+    } else {
+      console.error('添加失败');
+    }
+  } catch (err) {
+    console.error('添加汽车资产失败', err);
   }
-} catch (err) {
-  console.error('添加汽车资产失败', err);
-}
 
-    //alert(`已添加汽车资产: ${carName}`);
+  // 重置状态并关闭菜单（原有逻辑）
+  setSelectedBrandId('');
+  setSelectedBrandName('');
+  setHoldings("");
+  setPurchaseDate("");
+  setCostPrice("");
+  setView('categories');
+  setSelectedMainCategory(null);
+  setSelectedAssetType(null);
+  setShowMenu(false);
+};
 
-    // 重置状态并关闭菜单
-    setSelectedBrandId('');
-    setSelectedBrandName('');
-    setHoldings("");
-    setPurchaseDate("");
-    setCostPrice("");
-    setView('categories');
-    setSelectedMainCategory(null);
-    setSelectedAssetType(null);
-    setShowMenu(false);
-  };
-
-  const handleAddRealEstateAsset = async () => {
+// 添加不动产
+const handleAddRealEstateAsset = async () => {
   const name = realEstateName.trim() || '不动产';
   const quantity = parseFloat(realEstateQuantity) || 1;
   const pricePerUnit = parseFloat(holdings) || 0;
@@ -898,7 +907,12 @@ const res = await fetch('/api/asset', {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      await loadAssets(); // 重新加载资产列表
+      // 直接追加到本地状态，避免重新加载
+      setAssets(prev => [...prev, newAsset]);
+      // 清除缓存，保证下次从其他页面返回时获取最新数据
+      if (userId) assetCache.delete(userId);
+      // 通知其他组件（如饼图、摘要）更新
+      eventBus.emit('assetsUpdated');
       // 重置表单
       setRealEstateName('');
       setRealEstateIncludeInChart(true);
@@ -917,6 +931,7 @@ const res = await fetch('/api/asset', {
     console.error('添加房产资产失败', err);
   }
 };
+
 
 const handleAddCashAsset = async () => {
   const name = cashName.trim() || '现金';
@@ -956,7 +971,9 @@ const handleAddCashAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      await loadAssets();
+      setAssets(prev => [...prev, newAsset]);
+      if (userId) assetCache.delete(userId);
+      eventBus.emit('assetsUpdated');
       // 重置状态
       setCashName('');
       setSelectedIcon('');
@@ -1022,7 +1039,9 @@ const handleAddCustomAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      await loadAssets();
+      setAssets(prev => [...prev, newAsset]);
+      if (userId) assetCache.delete(userId);
+      eventBus.emit('assetsUpdated');
       // 重置状态
       setCustomAssetType('');
       setCustomAssetName('');
@@ -1041,6 +1060,7 @@ const handleAddCustomAsset = async () => {
     console.error('添加自定义资产失败', err);
   }
 };
+
 
 const handleAddAsset = async () => {
   if (!foundAsset || !holdings) return;
@@ -1084,7 +1104,9 @@ const handleAddAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      await loadAssets();
+      setAssets(prev => [...prev, newAsset]);
+      if (userId) assetCache.delete(userId);
+      eventBus.emit('assetsUpdated');
       // 重置表单
       setFoundAsset(null);
       setSearchQuery('');
