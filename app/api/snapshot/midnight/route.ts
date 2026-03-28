@@ -1,3 +1,4 @@
+// app/api/midnight/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 

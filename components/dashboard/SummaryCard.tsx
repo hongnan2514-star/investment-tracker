@@ -1,4 +1,5 @@
 // components/dashboard/SummaryCard.tsx
+// components/dashboard/SummaryCard.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
@@ -11,6 +12,15 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 
 type Period = '1W' | '1M' | '6M';
+
+// ---------- 缓存机制 ----------
+// 按用户ID缓存资产数据，有效期15分钟
+type CacheEntry = {
+  assets: Asset[];
+  timestamp: number;
+};
+const assetCache = new Map<string, CacheEntry>();
+const CACHE_DURATION = 15 * 60 * 1000; // 15分钟
 
 export default function SummaryCard() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -31,16 +41,27 @@ export default function SummaryCard() {
   const [midnightSnapshotCNY, setMidnightSnapshotCNY] = useState<number | null>(null);
   const [netWorthCNY, setNetWorthCNY] = useState<number>(0);
 
-  // 加载资产
+  // 加载资产（带缓存）
   const loadAssets = useCallback(async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setAssets([]);
+      setLoadingAssets(false);
+      return;
+    }
+
+    // 检查缓存是否有效
+    const cached = assetCache.get(userId);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log('[SummaryCard] 使用缓存的资产数据，userId:', userId);
+      setAssets(cached.assets);
+      setLoadingAssets(false);
+      return;
+    }
+
+    // 缓存无效，重新请求
     setLoadingAssets(true);
     try {
-      const userId = getCurrentUserId();
-      if (!userId) {
-        setAssets([]);
-        setLoadingAssets(false);
-        return;
-      }
       const res = await fetch('/api/asset', {
         headers: { 'x-user-id': userId },
       });
@@ -54,6 +75,11 @@ export default function SummaryCard() {
         costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
         changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
       }));
+      // 存入缓存
+      assetCache.set(userId, {
+        assets: normalizedData,
+        timestamp: Date.now(),
+      });
       setAssets(normalizedData);
     } catch (err) {
       console.error('加载资产失败', err);
@@ -143,12 +169,15 @@ export default function SummaryCard() {
     return () => { isActive = false; };
   }, [todayProfitConverted]);
 
-  // 监听资产变化事件
+  // 监听资产变化事件（清除缓存并重新加载）
   useEffect(() => {
     const handleAssetsUpdate = () => {
+      const userId = getCurrentUserId();
+      if (userId) assetCache.delete(userId); // 清除当前用户的缓存
       loadAssets();
     };
     const handleUserChange = () => {
+      assetCache.clear(); // 用户切换时清除所有缓存
       loadAssets();
     };
     const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
@@ -208,12 +237,12 @@ export default function SummaryCard() {
     return num.toFixed(2);
   };
 
-  // 骨架屏组件（使用稳定的脉冲动画）
+  // 骨架屏组件
   const SkeletonLine = ({ className = "w-24 h-6" }: { className?: string }) => (
     <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${className}`} />
   );
 
-  // 加载状态下的骨架屏版本（无迷你走势图占位）
+  // 加载状态下的骨架屏版本
   if (loadingAssets) {
     return (
       <div className="mb-6 px-2">
@@ -233,7 +262,6 @@ export default function SummaryCard() {
               <SkeletonLine className="w-32 h-4" />
             </div>
           </div>
-          {/* 迷你走势图区域不显示任何占位 */}
         </div>
 
         <div className="grid grid-cols-2 gap-4 mt-4">

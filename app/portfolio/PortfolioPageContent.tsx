@@ -22,6 +22,14 @@ import BrandSelector from './BrandSelector';
 import IconSelector from './IconSelector';
 import { useAssetRefresh } from '@/src/hooks/useAssetRefresh';
 
+// ---------- 缓存机制 ----------
+// 按用户ID缓存资产数据，有效期15分钟
+type CacheEntry = {
+  assets: Asset[];
+  timestamp: number;
+};
+const assetCache = new Map<string, CacheEntry>();
+const CACHE_DURATION = 15 * 60 * 1000; // 15分钟
 
 interface CarBrand {
   id: string;
@@ -100,6 +108,7 @@ export default function PortfolioPage() {
   const [customAssetOrderDate, setCustomAssetOrderDate] = useState<string>('');
   const [customAssetNotes, setCustomAssetNotes] = useState<string>('');
   const [customAssetIncludeInChart, setCustomAssetIncludeInChart] = useState<boolean>(true);
+  const [convertingAssets, setConvertingAssets] = useState(false);
   
   // 使用前过滤
   const slugify = (name: string): string => {
@@ -218,51 +227,63 @@ const carBrands: CarBrand[] = [
   const [convertedAssets, setConvertedAssets] = useState<Asset[]>([]);
 
   // 加载资产
-const loadAssets = useCallback(async () => {
-  setLoadingAssets(true);
-  try {
+  const loadAssets = useCallback(async () => {
     const userId = getCurrentUserId();
     if (!userId) {
       setAssets([]);
       setLoadingAssets(false);
       return;
     }
-    const res = await fetch('/api/asset', {
-      headers: { 'x-user-id': userId },
-    });
-    if (!res.ok) throw new Error('加载资产失败');
-    const data = await res.json();
-    console.log('[loadAssets] 原始数据:', data);
-    // 将数字字段转换为数字类型
-    const normalizedData = (data as any[]).map((asset: any) => ({
-      ...asset,
-      price: Number(asset.price),
-      holdings: Number(asset.holdings),
-      marketValue: Number(asset.marketValue),
-      costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
-      changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
-    }));
-    console.log('[loadAssets] 转换后数据:', normalizedData);
-    setAssets(normalizedData);
-  } catch (err) {
-    console.error('加载资产失败', err);
-  } finally {
-    setLoadingAssets(false);
-  }
-}, []);
+
+    // 检查缓存是否有效
+    const cached = assetCache.get(userId);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log('[PortfolioPage] 使用缓存的资产数据，userId:', userId);
+      setAssets(cached.assets);
+      setLoadingAssets(false);
+      return;
+    }
+
+    // 缓存无效，重新请求
+    setLoadingAssets(true);
+    try {
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) throw new Error('加载资产失败');
+      const data = await res.json();
+      const normalizedData = data.map((asset: any) => ({
+        ...asset,
+        price: Number(asset.price),
+        holdings: Number(asset.holdings),
+        marketValue: Number(asset.marketValue),
+        costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
+        changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
+      }));
+      // 存入缓存
+      assetCache.set(userId, {
+        assets: normalizedData,
+        timestamp: Date.now(),
+      });
+      setAssets(normalizedData);
+    } catch (err) {
+      console.error('加载资产失败', err);
+      setAssets([]);
+    } finally {
+      setLoadingAssets(false);
+    }
+  }, []);
 
 // 组件首次挂载时加载资产
 useEffect(() => {
   loadAssets();
 }, [loadAssets]); // 依赖 loadAssets，确保只在函数稳定时执行一次
 
-useEffect(() => {
-  const handleUpdate = () => {
+  // 初始加载（仅一次，useEffect 依赖为空）
+  useEffect(() => {
     loadAssets();
-  };
-  const unsubscribe = eventBus.subscribe('assetsUpdated', handleUpdate); // ✅ 保存返回的取消函数
-  return () => unsubscribe();  // ✅ 直接调用取消函数
-}, [loadAssets]);
+  }, [loadAssets]);
+
 
   useEffect(() => {
   console.log('当前资产类型:', assets.map(a => ({ symbol: a.symbol, type: a.type })));
@@ -284,32 +305,40 @@ useEffect(() => {
   const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
   // 定义转换函数
   const convertAll = useCallback(async () => {
-  if (assets.length === 0) {
-    return;
-  }
+  setConvertingAssets(true); // 开始转换，显示骨架屏
+  try {
+    if (assets.length === 0) {
+      setConvertedAssets([]);
+      return;
+    }
 
-  console.log(`[货币转换] 开始转换，目标货币: ${currency}`);
-  const converted = await Promise.all(
-      assets.map(async (asset)  => {
-      const fromCurrency = asset.currency || 'USD';
-      try {
-        const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
-        if (newMarketValue == null || isNaN(newMarketValue) || !isFinite(newMarketValue)) {
+    console.log(`[货币转换] 开始转换，目标货币: ${currency}`);
+    const converted = await Promise.all(
+      assets.map(async (asset) => {
+        const fromCurrency = asset.currency || 'USD';
+        try {
+          const newMarketValue = await convert(asset.marketValue, fromCurrency as any, currency);
+          if (newMarketValue == null || isNaN(newMarketValue) || !isFinite(newMarketValue)) {
+            return asset;
+          }
+          return {
+            ...asset,
+            marketValue: newMarketValue,
+            price: await convert(asset.price, fromCurrency as any, currency).catch(() => asset.price),
+            costPrice: asset.costPrice ? await convert(asset.costPrice, fromCurrency as any, currency).catch(() => asset.costPrice) : undefined,
+          };
+        } catch (e) {
+          console.error(`转换失败 ${asset.symbol}:`, e);
           return asset;
         }
-        return {
-          ...asset,
-          marketValue: newMarketValue,
-          price: await convert(asset.price, fromCurrency as any, currency).catch(() => asset.price),
-          costPrice: asset.costPrice ? await convert(asset.costPrice, fromCurrency as any, currency).catch(() => asset.costPrice) : undefined,
-        };
-      } catch (e) {
-        console.error(`转换失败 ${asset.symbol}:`, e);
-        return asset;
-      }
-    })
-  );
-  setConvertedAssets(converted);
+      })
+    );
+    setConvertedAssets(converted);
+  } catch (error) {
+    console.error('货币转换整体失败:', error);
+  } finally {
+    setConvertingAssets(false); // 无论成功或失败，结束转换
+  }
 }, [currency, convert, assets]); 
 
 // 货币切换时自动转换
@@ -2325,8 +2354,31 @@ if (selectedAssetType === 'custom_asset') {
 
       {/* 资产卡片列表 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {filteredAndSortedAssets.length > 0 ? (
-  filteredAndSortedAssets.map(asset => {
+        {(loadingAssets || convertingAssets) ? (
+           // 骨架屏：5个占位卡片
+            Array(5).fill(0).map((_, i) => (
+             <div key={i} className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden">
+               <div className="flex justify-between items-start gap-1.5">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                 <div className="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                  <div className="flex-1">
+                   <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse mb-1" />
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse" />
+                  </div>
+                </div>
+                 <div className="text-right flex-shrink-0">
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse mb-1" />
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-pulse" />
+                 </div>
+                </div>
+               <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse" />
+             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-pulse" />
+            </div>
+            </div>
+         ))
+        ) : filteredAndSortedAssets.length > 0 ? (
+         filteredAndSortedAssets.map(asset => {
   console.log(`渲染 ${asset.symbol} 价格: ${asset.price}`);
   const profitLossColor = getProfitLossColor(asset);
   const profitLossSmallColor = getProfitLossSmallColor(asset);

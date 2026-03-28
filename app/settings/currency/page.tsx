@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { currencyNames, useCurrency, CurrencyCode } from '@/src/services/currency';
 import { useUser } from '@/src/hooks/useUser';
+import { eventBus } from '@/src/utils/eventBus'; // 新增导入
 
 export default function CurrencyPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function CurrencyPage() {
     if (user) {
       await updateUser({ preferredCurrency: code });
     }
+    eventBus.emit('currencyChanged', code); // 新增：发送货币变化事件
     router.back();
   };
 
