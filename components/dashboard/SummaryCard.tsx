@@ -9,11 +9,11 @@ import ExpandedChart from './ExpandedChart';
 import MiniChart from './MiniChart';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
+import { usePathname } from 'next/navigation';
 
 type Period = '1W' | '1M' | '6M';
 
 // ---------- 缓存机制 ----------
-// 按用户ID缓存资产数据，有效期15分钟
 type CacheEntry = {
   assets: Asset[];
   timestamp: number;
@@ -22,6 +22,7 @@ const assetCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 15 * 60 * 1000; // 15分钟
 
 export default function SummaryCard() {
+  const pathname = usePathname(); // 获取当前路径
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(true);
   const [convertedTotalAssets, setConvertedTotalAssets] = useState<number>(0);
@@ -40,57 +41,10 @@ export default function SummaryCard() {
   const [midnightSnapshotCNY, setMidnightSnapshotCNY] = useState<number | null>(null);
   const [netWorthCNY, setNetWorthCNY] = useState<number>(0);
 
-  // 加载资产（带缓存）
-  const loadAssets = useCallback(async () => {
-    const userId = getCurrentUserId();
-    if (!userId) {
-      setAssets([]);
-      setLoadingAssets(false);
-      return;
-    }
-
-    // 检查缓存是否有效
-    const cached = assetCache.get(userId);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log('[SummaryCard] 使用缓存的资产数据，userId:', userId);
-      setAssets(cached.assets);
-      setLoadingAssets(false);
-      return;
-    }
-
-    // 缓存无效，重新请求
-    setLoadingAssets(true);
-    try {
-      const res = await fetch('/api/asset', {
-        headers: { 'x-user-id': userId },
-      });
-      if (!res.ok) throw new Error('加载资产失败');
-      const data = await res.json();
-      const normalizedData = data.map((asset: any) => ({
-        ...asset,
-        price: Number(asset.price),
-        holdings: Number(asset.holdings),
-        marketValue: Number(asset.marketValue),
-        costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
-        changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
-      }));
-      // 存入缓存
-      assetCache.set(userId, {
-        assets: normalizedData,
-        timestamp: Date.now(),
-      });
-      setAssets(normalizedData);
-    } catch (err) {
-      console.error('加载资产失败', err);
-      setAssets([]);
-    } finally {
-      setLoadingAssets(false);
-    }
-  }, []);
-
-  // 计算总资产、负债、净值、利润（使用当前货币和 CNY）
-  const refreshData = useCallback(async () => {
-    if (assets.length === 0) {
+  // 计算总资产、负债、净值、利润（支持传入资产列表，避免依赖状态）
+  const refreshData = useCallback(async (assetsParam?: Asset[]) => {
+    const targetAssets = assetsParam !== undefined ? assetsParam : assets;
+    if (targetAssets.length === 0) {
       setConvertedTotalAssets(0);
       setConvertedTotalLiabilities(0);
       setConvertedNetWorth(0);
@@ -106,7 +60,7 @@ export default function SummaryCard() {
     let liabilitiesSumCNY = 0;
 
     await Promise.all(
-      assets.map(async (asset) => {
+      targetAssets.map(async (asset) => {
         const fromCurrency = asset.currency || 'USD';
         const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
         if (asset.type === 'liability') {
@@ -133,7 +87,56 @@ export default function SummaryCard() {
     setConvertedNetWorth(assetsSum - liabilitiesSum);
     setConvertedProfit(profitSum);
     setNetWorthCNY(assetsSumCNY - liabilitiesSumCNY);
-  }, [assets, currency, convert]);
+  }, [currency, convert]);
+
+  // 加载资产（带缓存）
+  const loadAssets = useCallback(async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setAssets([]);
+      setLoadingAssets(false);
+      await refreshData([]);
+      return;
+    }
+
+    const cached = assetCache.get(userId);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      console.log('[SummaryCard] 使用缓存的资产数据,userId:', userId);
+      setAssets(cached.assets);
+      setLoadingAssets(false);
+      await refreshData(cached.assets);
+      return;
+    }
+
+    setLoadingAssets(true);
+    try {
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) throw new Error('加载资产失败');
+      const data = await res.json();
+      const normalizedData = data.map((asset: any) => ({
+        ...asset,
+        price: Number(asset.price),
+        holdings: Number(asset.holdings),
+        marketValue: Number(asset.marketValue),
+        costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
+        changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
+      }));
+      assetCache.set(userId, {
+        assets: normalizedData,
+        timestamp: Date.now(),
+      });
+      setAssets(normalizedData);
+      await refreshData(normalizedData);
+    } catch (err) {
+      console.error('加载资产失败', err);
+      setAssets([]);
+      await refreshData([]);
+    } finally {
+      setLoadingAssets(false);
+    }
+  }, [refreshData]);
 
   // 获取今日0点快照
   useEffect(() => {
@@ -158,7 +161,7 @@ export default function SummaryCard() {
     return await convert(todayProfitCNY, 'CNY', currency);
   }, [todayProfitCNY, currency, convert]);
 
-  // 更新今日收益显示
+  // 更新今日收益显示（仅在 netWorthCNY 或货币变化时）
   useEffect(() => {
     let isActive = true;
     (async () => {
@@ -168,40 +171,43 @@ export default function SummaryCard() {
     return () => { isActive = false; };
   }, [todayProfitConverted]);
 
-  // 监听资产变化事件（清除缓存并重新加载）
+  // 监听资产变化事件（直接使用传入的最新资产列表）
   useEffect(() => {
-  const handleAssetsUpdate = (updatedAssets?: Asset[]) => {
-    if (updatedAssets) {
-      // 直接使用传入的最新资产列表，无需重新加载
-      setAssets(updatedAssets);
-      // 更新缓存，保持一致性
-      const userId = getCurrentUserId();
-      if (userId) {
-        assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+    const handleAssetsUpdate = async (updatedAssets?: Asset[]) => {
+      if (updatedAssets && Array.isArray(updatedAssets)) {
+        console.log('[SummaryCard] 收到资产列表更新，长度:', updatedAssets.length);
+        setAssets(updatedAssets);
+        await refreshData(updatedAssets);
+        // 更新缓存
+        const userId = getCurrentUserId();
+        if (userId) {
+          assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+        }
+      } else {
+        console.log('[SummaryCard] 收到无参数资产更新事件，重新加载');
+        const userId = getCurrentUserId();
+        if (userId) assetCache.delete(userId);
+        await loadAssets();
       }
-    } else {
-      // 兼容旧事件，重新加载（清理缓存）
-      const userId = getCurrentUserId();
-      if (userId) assetCache.delete(userId);
+    };
+    const handleUserChange = () => {
+      assetCache.clear();
       loadAssets();
-    }
-  };
-  const handleUserChange = () => {
-    assetCache.clear();
-    loadAssets();
-  };
-  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
-  const unsubscribeUser = eventBus.subscribe('userChanged', handleUserChange);
-  return () => {
-    unsubscribeAssets();
-    unsubscribeUser();
-  };
-}, [loadAssets]);
+    };
+    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
+    const unsubscribeUser = eventBus.subscribe('userChanged', handleUserChange);
+    return () => {
+      unsubscribeAssets();
+      unsubscribeUser();
+    };
+  }, [loadAssets, refreshData]);
 
-  // 资产变化时重新计算
+  // 货币切换时重新计算（依赖 assets 和 currency）
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    if (assets.length > 0) {
+      refreshData(assets);
+    }
+  }, [currency, assets, refreshData]);
 
   // 初始加载
   useEffect(() => {
@@ -214,6 +220,40 @@ export default function SummaryCard() {
       recordSnapshot();
     }
   }, [assets]);
+
+  // 监听自定义事件（确保跨组件通信）
+  useEffect(() => {
+    const handleAssetsChanged = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const updatedAssets = customEvent.detail;
+      if (updatedAssets && Array.isArray(updatedAssets)) {
+        console.log('[SummaryCard] 收到自定义事件资产列表，长度:', updatedAssets.length);
+        setAssets(updatedAssets);
+        await refreshData(updatedAssets);
+        const userId = getCurrentUserId();
+        if (userId) {
+          assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+        }
+      } else {
+        // 无数据时强制重新加载
+        const userId = getCurrentUserId();
+        if (userId) assetCache.delete(userId);
+        await loadAssets();
+      }
+    };
+    window.addEventListener('assets-changed', handleAssetsChanged);
+    return () => window.removeEventListener('assets-changed', handleAssetsChanged);
+  }, [refreshData, loadAssets]);
+
+  // 监听路由变化，回到首页时强制刷新资产
+  useEffect(() => {
+    if (pathname === '/') {
+      console.log('[SummaryCard] 回到首页，强制刷新资产');
+      const userId = getCurrentUserId();
+      if (userId) assetCache.delete(userId);
+      loadAssets();
+    }
+  }, [pathname]);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -247,12 +287,10 @@ export default function SummaryCard() {
     return num.toFixed(2);
   };
 
-  // 骨架屏组件
   const SkeletonLine = ({ className = "w-24 h-6" }: { className?: string }) => (
     <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${className}`} />
   );
 
-  // 加载状态下的骨架屏版本
   if (loadingAssets) {
     return (
       <div className="mb-6 px-2">
@@ -273,7 +311,6 @@ export default function SummaryCard() {
             </div>
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-4 mt-4">
           <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
             <span className="text-xs font-medium text-white">资产</span>
@@ -288,7 +325,6 @@ export default function SummaryCard() {
     );
   }
 
-  // 正常渲染
   return (
     <div className="mb-6 px-2">
       <div className="flex justify-between items-start">
@@ -333,14 +369,14 @@ export default function SummaryCard() {
         </div>
 
         {!isExpanded && !isClosing && (
-        <div className="-ml-2 mt-2">
-          <MiniChart
-            period={selectedPeriod}
-            totalValue={convertedNetWorth}
-            currencySymbol={symbol}
-            profit={convertedProfit}
-            onClick={() => setIsExpanded(true)}
-          />
+          <div className="-ml-2 mt-2">
+            <MiniChart
+              period={selectedPeriod}
+              totalValue={convertedNetWorth}
+              currencySymbol={symbol}
+              profit={convertedProfit}
+              onClick={() => setIsExpanded(true)}
+            />
           </div>
         )}
       </div>

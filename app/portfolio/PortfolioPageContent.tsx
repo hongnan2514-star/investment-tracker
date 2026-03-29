@@ -838,12 +838,15 @@ const handleAddCarAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => {
-        const newAssets = [...prev, newAsset];
-        if (userId) assetCache.delete(userId);
-        eventBus.emit('assetsUpdated', newAssets);
-        return newAssets;
-      });
+  setAssets(prev => {
+    const newAssets = [...prev, newAsset];
+    if (userId) assetCache.delete(userId);
+    // 原有事件总线
+    eventBus.emit('assetsUpdated', newAssets);
+    // 新增自定义事件，确保首页组件能收到
+    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+    return newAssets;
+  });
       // 重置表单和菜单状态...
     } else {
       console.error('添加失败');
@@ -904,12 +907,15 @@ const handleAddRealEstateAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => {
-        const newAssets = [...prev, newAsset];
-        if (userId) assetCache.delete(userId);
-        eventBus.emit('assetsUpdated', newAssets);
-        return newAssets;
-      });
+  setAssets(prev => {
+    const newAssets = [...prev, newAsset];
+    if (userId) assetCache.delete(userId);
+    // 原有事件总线
+    eventBus.emit('assetsUpdated', newAssets);
+    // 新增自定义事件，确保首页组件能收到
+    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+    return newAssets;
+  });
       // 重置表单
       setRealEstateName('');
       setRealEstateIncludeInChart(true);
@@ -968,12 +974,15 @@ const handleAddCashAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => {
-        const newAssets = [...prev, newAsset];
-        if (userId) assetCache.delete(userId);
-        eventBus.emit('assetsUpdated', newAssets);
-        return newAssets;
-      });
+  setAssets(prev => {
+    const newAssets = [...prev, newAsset];
+    if (userId) assetCache.delete(userId);
+    // 原有事件总线
+    eventBus.emit('assetsUpdated', newAssets);
+    // 新增自定义事件，确保首页组件能收到
+    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+    return newAssets;
+  });
       // 重置状态
       setCashName('');
       setSelectedIcon('');
@@ -1039,12 +1048,15 @@ const handleAddCustomAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => {
-        const newAssets = [...prev, newAsset];
-        if (userId) assetCache.delete(userId);
-        eventBus.emit('assetsUpdated', newAssets);
-        return newAssets;
-      });
+  setAssets(prev => {
+    const newAssets = [...prev, newAsset];
+    if (userId) assetCache.delete(userId);
+    // 原有事件总线
+    eventBus.emit('assetsUpdated', newAssets);
+    // 新增自定义事件，确保首页组件能收到
+    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+    return newAssets;
+  });
       // 重置状态
       setCustomAssetType('');
       setCustomAssetName('');
@@ -1106,12 +1118,15 @@ const handleAddAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => {
-        const newAssets = [...prev, newAsset];
-        if (userId) assetCache.delete(userId);
-        eventBus.emit('assetsUpdated', newAssets);
-        return newAssets;
-      });
+  setAssets(prev => {
+    const newAssets = [...prev, newAsset];
+    if (userId) assetCache.delete(userId);
+    // 原有事件总线
+    eventBus.emit('assetsUpdated', newAssets);
+    // 新增自定义事件，确保首页组件能收到
+    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+    return newAssets;
+  });
       // 重置表单
       setFoundAsset(null);
       setSearchQuery('');

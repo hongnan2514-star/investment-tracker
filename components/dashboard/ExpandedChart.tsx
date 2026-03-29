@@ -132,6 +132,31 @@ export default function ExpandedChart({
         };
       });
 
+      // 新增：对于 1W 周期，追加当前净资产点
+let finalFormatted = formatted;
+if (period === '1W') {
+  const nowTs = Date.now();
+  const lastTimestamp = finalData[finalData.length - 1]?.timestamp;
+  // 如果最后一个点不是当前时刻（间隔超过1小时），则追加
+  if (!lastTimestamp || (nowTs - lastTimestamp) > 60 * 60 * 1000) {
+    const nowDate = new Date(nowTs);
+    const nowTimeStr = nowDate.toLocaleString('zh-CN', {
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).replace(/\//g, '/');
+    finalFormatted = [...formatted, { time: nowTimeStr, value: totalValue }];
+  }
+}
+
+// 将 finalFormatted 存入状态和缓存
+if (currentRequestId === requestIdRef.current && !signal.aborted) {
+  setChartData(finalFormatted);
+  cache.set(cacheKey, { data: finalFormatted, timestamp: now });
+}
+
       if (currentRequestId === requestIdRef.current && !signal.aborted) {
         setChartData(formatted);
         cache.set(cacheKey, { data: formatted, timestamp: now });

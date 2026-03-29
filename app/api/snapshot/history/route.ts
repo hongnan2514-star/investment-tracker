@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { convertAmount } from '@/src/services/forex';
 import { CurrencyCode } from '@/src/services/currency';
+import { fetchStockMinuteData } from '@/app/api/data-sources/yahoo-finance';
 
 const sql = neon(process.env.POSTGRES_URL!);
 
@@ -77,6 +78,75 @@ async function getCryptoHourlyHistoryFromDB(
   }
 }
 
+// 获取股票/ETF 的小时级历史价格（从数据库读取，不足时从雅虎财经拉取并存储）
+async function getStockHourlyHistoryFromDB(
+  symbol: string,
+  startTime: number,
+  endTime: number,
+  fromCurrency: CurrencyCode,
+  toCurrency: CurrencyCode
+): Promise<Map<number, number>> {
+  const startSec = Math.floor(startTime / 1000);
+  const endSec = Math.floor(endTime / 1000);
+  try {
+    // 从数据库查询已有数据
+    let rows = await sql`
+      SELECT timestamp, close
+      FROM stock_minute_history
+      WHERE symbol = ${symbol}
+        AND resolution = '1h'
+        AND timestamp >= ${startSec}
+        AND timestamp <= ${endSec}
+      ORDER BY timestamp ASC
+    `;
+
+    // 如果数据量不足（少于期望值的80%），则从雅虎财经拉取
+    const expectedHours = (endSec - startSec) / 3600;
+    if (rows.length < expectedHours * 0.8) {
+      console.log(`[StockHourly] 数据不足，从雅虎财经拉取 ${symbol}`);
+      const ohlcv = await fetchStockMinuteData(symbol, '1h', 168, startTime);
+      if (ohlcv && ohlcv.length > 0) {
+        // 存入数据库
+        for (const bar of ohlcv) {
+          await sql`
+            INSERT INTO stock_minute_history (symbol, resolution, timestamp, open, high, low, close, volume)
+            VALUES (${symbol}, '1h', ${bar.timestamp}, ${bar.open}, ${bar.high}, ${bar.low}, ${bar.close}, ${bar.volume})
+            ON CONFLICT (symbol, resolution, timestamp) DO UPDATE SET
+              open = EXCLUDED.open,
+              high = EXCLUDED.high,
+              low = EXCLUDED.low,
+              close = EXCLUDED.close,
+              volume = EXCLUDED.volume
+          `;
+        }
+        // 重新查询
+        rows = await sql`
+          SELECT timestamp, close
+          FROM stock_minute_history
+          WHERE symbol = ${symbol}
+            AND resolution = '1h'
+            AND timestamp >= ${startSec}
+            AND timestamp <= ${endSec}
+          ORDER BY timestamp ASC
+        `;
+      }
+    }
+
+    const map = new Map<number, number>();
+    for (const row of rows) {
+      let price = parseFloat(row.close);
+      try {
+        price = await convertAmount(price, fromCurrency, toCurrency);
+      } catch (err) {}
+      map.set(row.timestamp * 1000, price);
+    }
+    return map;
+  } catch (error) {
+    console.error(`获取股票小时数据失败 ${symbol}:`, error);
+    return new Map();
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { userId, period, targetCurrency, assets } = await request.json();
@@ -106,7 +176,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: results });
     }
 
-    // 1W：小时级净值（基于资产真实历史价格，加密货币从数据库取小时数据，其他用日线填充当天所有小时）
+    // 1W：小时级净值（基于资产真实历史价格）
     if (period === '1W') {
       const hoursAgo = 168;
       const now = new Date();
@@ -119,34 +189,88 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ data: [] });
       }
 
-      // 预处理每个资产，获取其价格数据
+      // 预处理每个资产
       const assetData = await Promise.all(assets.map(async (asset: any) => {
         const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
         const toCurrency = targetCurrency as CurrencyCode;
         const holdings = asset.holdings;
+        const type = asset.type;
 
-        // 获取日线数据（所有资产都需要，用于非加密货币或加密货币缺失小时数据时填充）
-        const dailyMap = await getAssetDailyHistory(
-          asset.symbol, asset.type,
-          startTime.toISOString().split('T')[0],
-          fromCurrency, toCurrency, baseUrl
-        );
+        // 购买日期时间戳（毫秒），若无则设为 -Infinity（始终有效）
+        let buyTimestamp = -Infinity;
+        if (asset.purchaseDate) {
+          buyTimestamp = new Date(asset.purchaseDate).getTime();
+        }
 
-        // 加密货币额外从数据库获取小时数据
-        let hourlyMap: Map<number, number> = new Map();
-        if (asset.type === 'crypto') {
+        // 获取当前价格（转换后），作为回退值
+        let currentPrice = asset.price;
+        try {
+          currentPrice = await convertAmount(currentPrice, fromCurrency, toCurrency);
+        } catch (err) {}
+
+        let dailyMap = new Map<string, number>();
+        let hourlyMap = new Map<number, number>();
+        const isCrypto = type === 'crypto';
+        const isStockOrEtf = type === 'stock' || type === 'etf';
+
+        if (isCrypto) {
+          // 加密货币：从数据库获取小时数据
           hourlyMap = await getCryptoHourlyHistoryFromDB(
             asset.symbol, startTime.getTime(), endTime.getTime(),
             fromCurrency, toCurrency
+          );
+          // 同时获取日线数据，用于小时数据缺失时的回退
+          const daily = await getAssetDailyHistory(
+            asset.symbol, type,
+            startTime.toISOString().split('T')[0],
+            fromCurrency, toCurrency, baseUrl
+          );
+          dailyMap = daily;
+        } else if (isStockOrEtf) {
+          // 股票/ETF：从数据库获取小时数据（不足则从雅虎财经拉取）
+          hourlyMap = await getStockHourlyHistoryFromDB(
+            asset.symbol, startTime.getTime(), endTime.getTime(),
+            fromCurrency, toCurrency
+          );
+          // 同时获取日线数据，作为回退（以防小时数据缺失）
+          const daily = await getAssetDailyHistory(
+            asset.symbol, type,
+            startTime.toISOString().split('T')[0],
+            fromCurrency, toCurrency, baseUrl
+          );
+          dailyMap = daily;
+        } else if (['car', 'real_estate', 'custom', 'custom_asset', 'receivable', 'liability'].includes(type)
+            || asset.symbol.startsWith('CUSTOM-')
+            || asset.symbol.startsWith('CASH-')
+            || asset.symbol.startsWith('REAL_ESTATE-')
+            || asset.symbol.startsWith('CAR-')) {
+          // 自定义资产：没有历史价格，使用当前价格填充每天
+          const startDate = new Date(startTime);
+          const endDate = new Date(endTime);
+          let current = new Date(startDate);
+          while (current <= endDate) {
+            const dateStr = current.toISOString().split('T')[0];
+            dailyMap.set(dateStr, currentPrice);
+            current.setDate(current.getDate() + 1);
+          }
+        } else {
+          // 其他资产（基金、贵金属等）：获取日线历史价格
+          dailyMap = await getAssetDailyHistory(
+            asset.symbol, type,
+            startTime.toISOString().split('T')[0],
+            fromCurrency, toCurrency, baseUrl
           );
         }
 
         return {
           holdings,
-          type: asset.type,
+          type,
+          isCrypto,
+          isStockOrEtf,
           dailyMap,
           hourlyMap,
-          isCrypto: asset.type === 'crypto',
+          buyTimestamp,
+          currentPrice,
         };
       }));
 
@@ -164,26 +288,18 @@ export async function POST(request: NextRequest) {
         let netWorth = 0;
 
         for (const asset of assetData) {
+          // 跳过购买日之前的时刻
+          if (ts < asset.buyTimestamp) continue;
+
           let price: number | null = null;
 
-          // 优先使用小时数据（仅加密货币可能有）
-          if (asset.isCrypto && asset.hourlyMap.has(ts)) {
+          // 优先使用小时数据（仅对加密货币和股票/ETF）
+          if ((asset.isCrypto || asset.isStockOrEtf) && asset.hourlyMap.has(ts)) {
             price = asset.hourlyMap.get(ts)!;
+          } else if (asset.dailyMap.has(dateStr)) {
+            price = asset.dailyMap.get(dateStr)!;
           } else {
-            // 否则使用当天日线价格
-            if (asset.dailyMap.has(dateStr)) {
-              price = asset.dailyMap.get(dateStr)!;
-            } else {
-              // 日线也没有，可能是自定义资产或新资产，使用当前价格
-              const originalAsset = assets.find((a: any) => a.symbol === asset.symbol);
-              if (originalAsset) {
-                let fallbackPrice = originalAsset.price;
-                try {
-                  fallbackPrice = await convertAmount(fallbackPrice, (originalAsset.currency || 'USD') as CurrencyCode, targetCurrency as CurrencyCode);
-                } catch (err) {}
-                price = fallbackPrice;
-              }
-            }
+            price = asset.currentPrice;
           }
 
           if (price !== null) {
