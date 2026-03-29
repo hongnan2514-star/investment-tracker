@@ -491,12 +491,13 @@ const handleDeleteAsset = async (symbol: string) => {
       body: JSON.stringify({ symbol }),
     });
     if (res.ok) {
-      // 直接从本地状态中移除该资产
-      setAssets(prevAssets => prevAssets.filter(asset => asset.symbol !== symbol));
-      // 清除缓存，保证下次从其他页面回来时重新加载最新数据
+      // 构造新资产列表（过滤掉被删除的资产）
+      const newAssets = assets.filter(asset => asset.symbol !== symbol);
+      setAssets(newAssets);
+      // 清除缓存
       if (userId) assetCache.delete(userId);
-      // 通知其他组件资产已更新（如饼图、摘要等）
-      eventBus.emit('assetsUpdated');
+      // 通知其他组件（传递完整资产列表）
+      eventBus.emit('assetsUpdated', newAssets);
     } else {
       console.error('删除失败');
     }
@@ -785,48 +786,45 @@ if (type === 'custom') {
 
   // 汽车添加处理（纯手动输入）
   const handleAddCarAsset = async () => {
-    if (!selectedBrandId) {
-      alert('请选择品牌');
-      return;
-    }
-    // 获取手动输入的车系和车型
-    const seriesInput = (document.getElementById('car-series') as HTMLInputElement)?.value || '';
-    const modelInput = (document.getElementById('car-model') as HTMLInputElement)?.value || '';
-    if (!seriesInput.trim() || !modelInput.trim()) {
-      alert('请完整填写车系和车型');
-      return;
-    }
-    if (!holdings) {
-      alert('请填写持有数量');
-      return;
-    }
+  if (!selectedBrandId) {
+    alert('请选择品牌');
+    return;
+  }
+  const seriesInput = (document.getElementById('car-series') as HTMLInputElement)?.value || '';
+  const modelInput = (document.getElementById('car-model') as HTMLInputElement)?.value || '';
+  if (!seriesInput.trim() || !modelInput.trim()) {
+    alert('请完整填写车系和车型');
+    return;
+  }
+  if (!holdings) {
+    alert('请填写持有数量');
+    return;
+  }
 
-    const holdingsNum = parseFloat(holdings);
-    const price = costPrice ? parseFloat(costPrice) : 0;
-    const finalMarketValue = price * holdingsNum;
+  const holdingsNum = parseFloat(holdings);
+  const price = costPrice ? parseFloat(costPrice) : 0;
+  const finalMarketValue = price * holdingsNum;
 
-    // 组合车名：品牌名 + 车系 + 车型
-    const carName = `${selectedBrandName} ${seriesInput} ${modelInput}`.trim();
-    // 从 brandsList 获取品牌 Logo
-    const brand = brandsList.find(b => b.id === selectedBrandId);
-    const logoUrl = brand?.logoUrl;
+  const carName = `${selectedBrandName} ${seriesInput} ${modelInput}`.trim();
+  const brand = brandsList.find(b => b.id === selectedBrandId);
+  const logoUrl = brand?.logoUrl;
 
-    const newAsset: Asset = {
-      symbol: `CAR-${selectedBrandId}-${Date.now()}`,
-      name: carName,
-      price: price,
-      holdings: holdingsNum,
-      marketValue: finalMarketValue,
-      currency: currency,
-      lastUpdated: new Date().toISOString(),
-      type: 'car',
-      changePercent: 0,
-      logoUrl: logoUrl,
-      purchaseDate: purchaseDate || undefined,
-      costPrice: price,
-    };
+  const newAsset: Asset = {
+    symbol: `CAR-${selectedBrandId}-${Date.now()}`,
+    name: carName,
+    price: price,
+    holdings: holdingsNum,
+    marketValue: finalMarketValue,
+    currency: currency,
+    lastUpdated: new Date().toISOString(),
+    type: 'car',
+    changePercent: 0,
+    logoUrl: logoUrl,
+    purchaseDate: purchaseDate || undefined,
+    costPrice: price,
+  };
 
-try {
+  try {
     const userId = getCurrentUserId();
     if (!userId) {
       alert('请先登录');
@@ -841,12 +839,13 @@ try {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      // 将新资产追加到本地状态
-      setAssets(prevAssets => [...prevAssets, newAsset]);
+      // 构造新资产列表并更新本地状态
+      const newAssets = [...assets, newAsset];
+      setAssets(newAssets);
       // 清除缓存
       if (userId) assetCache.delete(userId);
-      // 通知其他组件
-      eventBus.emit('assetsUpdated');
+      // 通知其他组件（传递完整资产列表）
+      eventBus.emit('assetsUpdated', newAssets);
       // 重置表单和菜单状态...
     } else {
       console.error('添加失败');
@@ -855,7 +854,7 @@ try {
     console.error('添加汽车资产失败', err);
   }
 
-  // 重置状态并关闭菜单（原有逻辑）
+  // 重置状态并关闭菜单
   setSelectedBrandId('');
   setSelectedBrandName('');
   setHoldings("");
@@ -907,12 +906,10 @@ const handleAddRealEstateAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      // 直接追加到本地状态，避免重新加载
-      setAssets(prev => [...prev, newAsset]);
-      // 清除缓存，保证下次从其他页面返回时获取最新数据
+      const newAssets = [...assets, newAsset];
+      setAssets(newAssets);
       if (userId) assetCache.delete(userId);
-      // 通知其他组件（如饼图、摘要）更新
-      eventBus.emit('assetsUpdated');
+      eventBus.emit('assetsUpdated', newAssets);
       // 重置表单
       setRealEstateName('');
       setRealEstateIncludeInChart(true);
@@ -971,9 +968,10 @@ const handleAddCashAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => [...prev, newAsset]);
+      const newAssets = [...assets, newAsset];
+      setAssets(newAssets);
       if (userId) assetCache.delete(userId);
-      eventBus.emit('assetsUpdated');
+      eventBus.emit('assetsUpdated', newAssets);
       // 重置状态
       setCashName('');
       setSelectedIcon('');
@@ -1039,9 +1037,10 @@ const handleAddCustomAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => [...prev, newAsset]);
+      const newAssets = [...assets, newAsset];
+      setAssets(newAssets);
       if (userId) assetCache.delete(userId);
-      eventBus.emit('assetsUpdated');
+      eventBus.emit('assetsUpdated', newAssets);
       // 重置状态
       setCustomAssetType('');
       setCustomAssetName('');
@@ -1065,7 +1064,6 @@ const handleAddCustomAsset = async () => {
 const handleAddAsset = async () => {
   if (!foundAsset || !holdings) return;
 
-  // 确保价格有效
   if (foundAsset.price == null || isNaN(foundAsset.price)) {
     alert('获取价格失败，请稍后重试');
     return;
@@ -1104,9 +1102,10 @@ const handleAddAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-      setAssets(prev => [...prev, newAsset]);
+      const newAssets = [...assets, newAsset];
+      setAssets(newAssets);
       if (userId) assetCache.delete(userId);
-      eventBus.emit('assetsUpdated');
+      eventBus.emit('assetsUpdated', newAssets);
       // 重置表单
       setFoundAsset(null);
       setSearchQuery('');
@@ -1128,7 +1127,6 @@ const handleAddAsset = async () => {
     cacheLogo(foundAsset.symbol, foundAsset.logoUrl).catch(console.warn);
   }
 
-  // 如果是股票或ETF，异步拉取历史数据
   if (newAsset.type === 'stock' || newAsset.type === 'etf') {
     fetch('/api/history/update', {
       method: 'POST',

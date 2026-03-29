@@ -1,5 +1,4 @@
 // components/dashboard/SummaryCard.tsx
-// components/dashboard/SummaryCard.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
@@ -171,22 +170,33 @@ export default function SummaryCard() {
 
   // 监听资产变化事件（清除缓存并重新加载）
   useEffect(() => {
-    const handleAssetsUpdate = () => {
+  const handleAssetsUpdate = (updatedAssets?: Asset[]) => {
+    if (updatedAssets) {
+      // 直接使用传入的最新资产列表，无需重新加载
+      setAssets(updatedAssets);
+      // 更新缓存，保持一致性
       const userId = getCurrentUserId();
-      if (userId) assetCache.delete(userId); // 清除当前用户的缓存
+      if (userId) {
+        assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+      }
+    } else {
+      // 兼容旧事件，重新加载（清理缓存）
+      const userId = getCurrentUserId();
+      if (userId) assetCache.delete(userId);
       loadAssets();
-    };
-    const handleUserChange = () => {
-      assetCache.clear(); // 用户切换时清除所有缓存
-      loadAssets();
-    };
-    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
-    const unsubscribeUser = eventBus.subscribe('userChanged', handleUserChange);
-    return () => {
-      unsubscribeAssets();
-      unsubscribeUser();
-    };
-  }, [loadAssets]);
+    }
+  };
+  const handleUserChange = () => {
+    assetCache.clear();
+    loadAssets();
+  };
+  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
+  const unsubscribeUser = eventBus.subscribe('userChanged', handleUserChange);
+  return () => {
+    unsubscribeAssets();
+    unsubscribeUser();
+  };
+}, [loadAssets]);
 
   // 资产变化时重新计算
   useEffect(() => {

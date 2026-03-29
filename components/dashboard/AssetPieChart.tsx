@@ -1,5 +1,4 @@
 // components/dashboard/AssetPieChart.tsx
-// components/dashboard/AssetPieChart.tsx
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -217,24 +216,39 @@ export default function AssetPieChart() {
   }, [currency, rawAssets, updatePieData, loadAssets]);
 
   // 初始化加载 + 监听资产更新/用户切换
-  useEffect(() => {
-    loadAssets();
-    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', () => {
-      // 资产更新时清除当前用户的缓存
+useEffect(() => {
+  loadAssets();
+
+  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', (updatedAssets?: Asset[]) => {
+    if (updatedAssets) {
+      // 直接使用传入的最新资产列表，无需重新请求
+      console.log('[PieChart] 收到资产列表更新，长度:', updatedAssets.length);
+      setRawAssets(updatedAssets);
+      updatePieData(updatedAssets);
+      // 同时更新缓存，保持一致性
+      const userId = getCurrentUserId();
+      if (userId) {
+        assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+      }
+    } else {
+      // 兼容旧事件：清除缓存并重新加载
       const userId = getCurrentUserId();
       if (userId) assetCache.delete(userId);
       loadAssets();
-    });
-    const unsubscribeUser = eventBus.subscribe('userChanged', () => {
-      // 用户切换时清除所有缓存
-      assetCache.clear();
-      loadAssets();
-    });
-    return () => {
-      unsubscribeAssets();
-      unsubscribeUser();
-    };
-  }, [loadAssets]);
+    }
+  });
+
+  const unsubscribeUser = eventBus.subscribe('userChanged', () => {
+    // 用户切换时清除所有缓存
+    assetCache.clear();
+    loadAssets();
+  });
+
+  return () => {
+    unsubscribeAssets();
+    unsubscribeUser();
+  };
+}, [loadAssets, updatePieData]);
 
   // 骨架屏加载状态
   if (loading) {
