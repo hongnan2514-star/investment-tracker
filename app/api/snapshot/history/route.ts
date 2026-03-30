@@ -190,92 +190,103 @@ if (period === '1W') {
       }
 
       // 预处理每个资产
-      const assetData = await Promise.all(assets.map(async (asset: any) => {
-        const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
-        const toCurrency = targetCurrency as CurrencyCode;
-        const holdings = asset.holdings;
-        const type = asset.type;
+const assetData = await Promise.all(assets.map(async (asset: any) => {
+  const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
+  const toCurrency = targetCurrency as CurrencyCode;
+  const holdings = asset.holdings;
+  const type = asset.type;
 
-        // 购买日期时间戳（毫秒），若无则设为 -Infinity（始终有效）
-        let buyTimestamp = -Infinity;
-        if (asset.purchaseDate) {
-          buyTimestamp = new Date(asset.purchaseDate).getTime();
-        }
+  // 购买日期时间戳（毫秒），若无则设为 -Infinity（始终有效）
+  let buyTimestamp = -Infinity;
+  if (asset.purchaseDate) {
+    buyTimestamp = new Date(asset.purchaseDate).getTime();
+  }
 
-        // 获取当前价格（转换后），作为回退值
-        let currentPrice = asset.price;
-        try {
-          currentPrice = await convertAmount(currentPrice, fromCurrency, toCurrency);
-        } catch (err) {}
+  // 获取当前价格（转换后），作为回退值
+  let currentPrice = asset.price;
+  try {
+    currentPrice = await convertAmount(currentPrice, fromCurrency, toCurrency);
+  } catch (err) {}
 
-        let dailyMap = new Map<string, number>();
-        let hourlyMap = new Map<number, number>();
-        const isCrypto = type === 'crypto';
-        const isStockOrEtf = type === 'stock' || type === 'etf';
+  let dailyMap = new Map<string, number>();
+  let hourlyMap = new Map<number, number>();
+  const isCrypto = type === 'crypto';
+  const isStockOrEtf = type === 'stock' || type === 'etf';
 
-        if (isCrypto) {
-          // 加密货币：从数据库获取小时数据
-          hourlyMap = await getCryptoHourlyHistoryFromDB(
-            asset.symbol, startTime.getTime(), endTime.getTime(),
-            fromCurrency, toCurrency
-          );
-          // 同时获取日线数据，用于小时数据缺失时的回退
-          const daily = await getAssetDailyHistory(
-            asset.symbol, type,
-            startTime.toISOString().split('T')[0],
-            fromCurrency, toCurrency, baseUrl
-          );
-          dailyMap = daily;
-        } else if (isStockOrEtf) {
-          // 股票/ETF：从数据库获取小时数据（不足则从雅虎财经拉取）
-          hourlyMap = await getStockHourlyHistoryFromDB(
-            asset.symbol, startTime.getTime(), endTime.getTime(),
-            fromCurrency, toCurrency
-          );
-          // 同时获取日线数据，作为回退（以防小时数据缺失）
-          const daily = await getAssetDailyHistory(
-            asset.symbol, type,
-            startTime.toISOString().split('T')[0],
-            fromCurrency, toCurrency, baseUrl
-          );
-          dailyMap = daily;
-        } else if (['car', 'real_estate', 'custom', 'custom_asset', 'receivable', 'liability'].includes(type)
-            || asset.symbol.startsWith('CUSTOM-')
-            || asset.symbol.startsWith('CASH-')
-            || asset.symbol.startsWith('REAL_ESTATE-')
-            || asset.symbol.startsWith('CAR-')) {
-          // 自定义资产：没有历史价格，使用当前价格填充每天
-          const startDate = new Date(startTime);
-          const endDate = new Date(endTime);
-          let current = new Date(startDate);
-          while (current <= endDate) {
-            const dateStr = current.toISOString().split('T')[0];
-            dailyMap.set(dateStr, currentPrice);
-            current.setDate(current.getDate() + 1);
-          }
-        } else {
-          // 其他资产（基金、贵金属等）：获取日线历史价格
-          dailyMap = await getAssetDailyHistory(
-            asset.symbol, type,
-            startTime.toISOString().split('T')[0],
-            fromCurrency, toCurrency, baseUrl
-          );
-        }
+  if (isCrypto) {
+    // 加密货币：从数据库获取小时数据
+    hourlyMap = await getCryptoHourlyHistoryFromDB(
+      asset.symbol, startTime.getTime(), endTime.getTime(),
+      fromCurrency, toCurrency
+    );
+    // 同时获取日线数据，用于小时数据缺失时的回退
+    const daily = await getAssetDailyHistory(
+      asset.symbol, type,
+      startTime.toISOString().split('T')[0],
+      fromCurrency, toCurrency, baseUrl
+    );
+    dailyMap = daily;
+  } else if (isStockOrEtf) {
+    // 股票/ETF：从数据库获取小时数据（不足则从雅虎财经拉取）
+    hourlyMap = await getStockHourlyHistoryFromDB(
+      asset.symbol, startTime.getTime(), endTime.getTime(),
+      fromCurrency, toCurrency
+    );
+    // 同时获取日线数据，作为回退（以防小时数据缺失）
+    const daily = await getAssetDailyHistory(
+      asset.symbol, type,
+      startTime.toISOString().split('T')[0],
+      fromCurrency, toCurrency, baseUrl
+    );
+    dailyMap = daily;
+  } else if (type === 'liability') {
+    // 负债资产：价格应为正数，净值中减去其价值
+    currentPrice = Math.abs(currentPrice);
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      const dateStr = current.toISOString().split('T')[0];
+      dailyMap.set(dateStr, currentPrice);
+      current.setDate(current.getDate() + 1);
+    }
+  } else if (['car', 'real_estate', 'custom', 'custom_asset', 'receivable'].includes(type)
+              || asset.symbol.startsWith('CUSTOM-')
+              || asset.symbol.startsWith('CASH-')
+              || asset.symbol.startsWith('REAL_ESTATE-')
+              || asset.symbol.startsWith('CAR-')) {
+    // 其他自定义资产：没有历史价格，使用当前价格填充每天
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      const dateStr = current.toISOString().split('T')[0];
+      dailyMap.set(dateStr, currentPrice);
+      current.setDate(current.getDate() + 1);
+    }
+  } else {
+    // 其他资产（基金、贵金属等）：获取日线历史价格
+    dailyMap = await getAssetDailyHistory(
+      asset.symbol, type,
+      startTime.toISOString().split('T')[0],
+      fromCurrency, toCurrency, baseUrl
+    );
+  }
 
-        // 返回时增加 symbol 和 name，便于调试
-        return {
-          holdings,
-          type,
-          isCrypto,
-          isStockOrEtf,
-          dailyMap,
-          hourlyMap,
-          buyTimestamp,
-          currentPrice,
-          symbol: asset.symbol,
-          name: asset.name,
-        };
-      }));
+  // 返回时增加 symbol 和 name，便于调试
+  return {
+    holdings,
+    type,
+    isCrypto,
+    isStockOrEtf,
+    dailyMap,
+    hourlyMap,
+    buyTimestamp,
+    currentPrice,
+    symbol: asset.symbol,
+    name: asset.name,
+  };
+}));
 
       // 生成 168 个小时的时间戳（整点）
       const timestamps: number[] = [];
@@ -338,7 +349,7 @@ if (period === '1W') {
     }
 
     // 其他周期（1M, 6M）保持原有日线逻辑
-    let daysAgo: number;
+ let daysAgo: number;
     switch (period) {
       case '1M': daysAgo = 30; break;
       case '6M': daysAgo = 180; break;
@@ -415,16 +426,39 @@ if (period === '1W') {
     while (currentDate <= today) {
       const dateStr = currentDate.toISOString().split('T')[0];
       let netWorth = 0;
+      const isLastDay = currentDate.toDateString() === today.toDateString();
+
+      if (isLastDay) {
+        console.log(`\n=== 走势图最后一天净值明细 (${period}) ===`);
+        console.log(`日期: ${dateStr}`);
+      }
+
       for (const asset of assetHistories) {
         const price = asset.priceMap.get(dateStr);
         if (price !== undefined) {
+          let contribution = 0;
           if (asset.type === 'liability') {
-            netWorth -= asset.holdings * price;
+            contribution = -(asset.holdings * price);
           } else {
-            netWorth += asset.holdings * price;
+            contribution = asset.holdings * price;
+          }
+          netWorth += contribution;
+
+          if (isLastDay) {
+            console.log(
+              `[${asset.symbol || asset.type}] ` +
+              `holdings=${asset.holdings.toFixed(2)} price=${price.toFixed(2)} ` +
+              `contribution=${contribution.toFixed(2)}`
+            );
           }
         }
       }
+
+      if (isLastDay) {
+        console.log(`总和: ${netWorth.toFixed(2)}`);
+        console.log('===================================\n');
+      }
+
       results.push({
         timestamp: currentDate.getTime(),
         value: netWorth,

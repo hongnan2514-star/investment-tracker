@@ -1,8 +1,8 @@
 // components/dashboard/ExpandedChart.tsx
 "use client";
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, ChevronUp } from 'lucide-react';
-import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
+import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { useCurrency } from '@/src/services/currency';
 import { eventBus } from '@/src/utils/eventBus';
 
@@ -18,9 +18,8 @@ interface Props {
   onHoverValueChange: (value: number | null, timeStr?: string) => void;
 }
 
-// ---------- 缓存机制 ----------
 const cache = new Map<string, { data: { time: string; value: number }[]; timestamp: number }>();
-const CACHE_TTL = 15 * 60 * 1000; // 15分钟
+const CACHE_TTL = 15 * 60 * 1000;
 
 export default function ExpandedChart({
   totalValue,
@@ -43,7 +42,7 @@ export default function ExpandedChart({
   const mounted = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const rafRef = useRef<number | null>(null);
-  const requestIdRef = useRef(0); // 用于标记当前请求的ID
+  const requestIdRef = useRef(0);
 
   const { currency } = useCurrency();
   const lineColor = todayProfit >= 0 ? '#22c55e' : '#ef4444';
@@ -54,17 +53,12 @@ export default function ExpandedChart({
   const fetchData = useCallback(async (force = false) => {
     if (!mounted.current) return;
 
-    // 中止之前的请求
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     const currentRequestId = ++requestIdRef.current;
     const controller = new AbortController();
     abortControllerRef.current = controller;
     const signal = controller.signal;
 
-    // 检查缓存
     const cached = cache.get(cacheKey);
     const now = Date.now();
     if (!force && cached && now - cached.timestamp < CACHE_TTL) {
@@ -84,9 +78,9 @@ export default function ExpandedChart({
       const userId = getCurrentUserId();
       if (!userId) throw new Error('用户未登录');
 
-      // 从 API 获取最新资产列表（绕过本地存储）
+      // 强制获取最新资产列表（绕过本地存储）
       const assetsRes = await fetch('/api/asset', {
-      headers: { 'x-user-id': userId }
+        headers: { 'x-user-id': userId },
       });
       if (!assetsRes.ok) throw new Error('获取资产列表失败');
       const freshAssets = await assetsRes.json();
@@ -103,7 +97,6 @@ export default function ExpandedChart({
         body: JSON.stringify({ userId, period, targetCurrency: currency, assets: normalizedAssets }),
         signal,
       });
-
       if (signal.aborted) return;
 
       const json = await res.json();
@@ -112,11 +105,10 @@ export default function ExpandedChart({
 
       let rawData: { timestamp: number; value: number }[] = json.data || [];
 
-      // 去重（防止相同时间戳重复）
+      // 去重
       const uniqueData = rawData.filter((p, i, arr) => i === 0 || p.timestamp !== arr[i - 1].timestamp);
 
       let finalData = uniqueData;
-      // 如果历史数据不足2个点，用当前净值补充一个点
       if (finalData.length < 2) {
         const nowTs = Date.now();
         finalData.push({ timestamp: nowTs, value: totalValue });
@@ -138,20 +130,19 @@ export default function ExpandedChart({
         } else {
           timeStr = date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
         }
-        return {
-          time: timeStr,
-          value: p.value,
-        };
+        return { time: timeStr, value: p.value };
       });
 
-      // 新增：对于 1W 周期，追加当前净资产点
+      // ---------- 强制对齐当前净资产 ----------
       let finalFormatted = formatted;
+      const nowTs = Date.now();
+      const lastTimestamp = finalData[finalData.length - 1]?.timestamp;
+      const lastDate = lastTimestamp ? new Date(lastTimestamp) : null;
+      const nowDate = new Date(nowTs);
+
       if (period === '1W') {
-        const nowTs = Date.now();
-        const lastTimestamp = finalData[finalData.length - 1]?.timestamp;
-        // 如果最后一个点不是当前时刻（间隔超过1小时），则追加
+        // 周视图：若最后一个点与当前时间间隔超过1小时，则追加当前点
         if (!lastTimestamp || (nowTs - lastTimestamp) > 60 * 60 * 1000) {
-          const nowDate = new Date(nowTs);
           const nowTimeStr = nowDate.toLocaleString('zh-CN', {
             month: 'numeric',
             day: 'numeric',
@@ -161,9 +152,14 @@ export default function ExpandedChart({
           }).replace(/\//g, '/');
           finalFormatted = [...formatted, { time: nowTimeStr, value: totalValue }];
         }
+      } else {
+        // 月/6月视图：若最后一个点的日期不是今天，则追加今天点
+        if (!lastDate || lastDate.toDateString() !== nowDate.toDateString()) {
+          const nowDateStr = nowDate.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+          finalFormatted = [...formatted, { time: nowDateStr, value: totalValue }];
+        }
       }
 
-      // 将 finalFormatted 存入状态和缓存
       if (currentRequestId === requestIdRef.current && !signal.aborted) {
         setChartData(finalFormatted);
         cache.set(cacheKey, { data: finalFormatted, timestamp: now });
@@ -179,9 +175,9 @@ export default function ExpandedChart({
         setLoading(false);
       }
     }
-  }, [period, currency, totalValue, cacheKey]); // 注意 totalValue 也在依赖中，但只用于补充点，不会频繁触发
+  }, [period, currency, totalValue, cacheKey]);
 
-  // ---------- 绘图逻辑（与原代码相同） ----------
+  // ---------- 绘图逻辑（保持不变） ----------
   const drawChart = useCallback(() => {
     if (!canvasRef.current || !containerRef.current || chartData.length === 0) return;
     const canvas = canvasRef.current;
@@ -223,11 +219,7 @@ export default function ExpandedChart({
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
-      if (isRight) {
-        ctx.globalAlpha = 0.06;
-      } else {
-        ctx.globalAlpha = 1;
-      }
+      ctx.globalAlpha = isRight ? 0.06 : 1;
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = 2;
       ctx.stroke();
@@ -286,12 +278,10 @@ export default function ExpandedChart({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // 数据或尺寸变化时重绘
   useEffect(() => {
     drawChart();
   }, [drawChart]);
 
-  // 窗口 resize 辅助
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
@@ -303,7 +293,7 @@ export default function ExpandedChart({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 交互逻辑（与原代码相同）
+  // 交互逻辑
   const handleInteraction = useCallback((clientX: number) => {
     if (!containerRef.current || chartData.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -354,7 +344,7 @@ export default function ExpandedChart({
   useEffect(() => {
     const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
       cache.clear();
-      fetchData(true); // 强制刷新
+      fetchData(true);
     });
     return () => unsubscribe();
   }, [fetchData]);
