@@ -7,6 +7,165 @@ import { fetchStockMinuteData } from '@/app/api/data-sources/yahoo-finance';
 
 const sql = neon(process.env.POSTGRES_URL!);
 
+// 新增：从雅虎财经获取股票日线数据
+async function fetchYahooDailyHistory(
+  symbol: string,
+  startDate: string,
+  endDate: string
+): Promise<{ date: string; open: number; high: number; low: number; close: number; volume: number }[] | null> {
+  try {
+    const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
+    const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&period1=${startTimestamp}&period2=${endTimestamp}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data.chart?.result?.[0]) return null;
+    const result = data.chart.result[0];
+    const timestamps = result.timestamp;
+    const quote = result.indicators?.quote?.[0];
+    if (!timestamps || !quote) return null;
+    const ohlcv = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const open = quote.open?.[i];
+      const high = quote.high?.[i];
+      const low = quote.low?.[i];
+      const close = quote.close?.[i];
+      const volume = quote.volume?.[i];
+      if (open == null || high == null || low == null || close == null || volume == null) continue;
+      const date = new Date(timestamps[i] * 1000).toISOString().split('T')[0];
+      ohlcv.push({ date, open, high, low, close, volume });
+    }
+    return ohlcv;
+  } catch (error) {
+    console.error(`雅虎财经日线拉取失败 ${symbol}:`, error);
+    return null;
+  }
+}
+
+// 新增：从数据库获取股票日线历史价格，不足则从雅虎财经拉取并存储
+async function getStockDailyHistoryFromDB(
+  symbol: string,
+  startDate: string,
+  endDate: string,
+  fromCurrency: CurrencyCode,
+  toCurrency: CurrencyCode
+): Promise<Map<string, number>> {
+  try {
+    // 从数据库查询已有数据
+    let rows = await sql`
+      SELECT date, close
+      FROM stock_price_history
+      WHERE symbol = ${symbol}
+        AND date >= ${startDate}
+        AND date <= ${endDate}
+      ORDER BY date ASC
+    `;
+
+    // 如果数据量不足（少于期望值的80%），则从雅虎财经拉取
+    const startTime = new Date(startDate).getTime();
+    const endTime = new Date(endDate).getTime();
+    const expectedDays = Math.ceil((endTime - startTime) / (1000 * 3600 * 24)) + 1;
+    if (rows.length < expectedDays * 0.8) {
+      console.log(`[StockDaily] 数据不足，从雅虎财经拉取 ${symbol}`);
+      const ohlcv = await fetchYahooDailyHistory(symbol, startDate, endDate);
+      if (ohlcv && ohlcv.length > 0) {
+        // 存入数据库
+        for (const bar of ohlcv) {
+          await sql`
+            INSERT INTO stock_price_history (symbol, date, open, high, low, close, volume)
+            VALUES (${symbol}, ${bar.date}, ${bar.open}, ${bar.high}, ${bar.low}, ${bar.close}, ${bar.volume})
+            ON CONFLICT (symbol, date) DO UPDATE SET
+              open = EXCLUDED.open,
+              high = EXCLUDED.high,
+              low = EXCLUDED.low,
+              close = EXCLUDED.close,
+              volume = EXCLUDED.volume
+          `;
+        }
+        // 重新查询
+        rows = await sql`
+          SELECT date, close
+          FROM stock_price_history
+          WHERE symbol = ${symbol}
+            AND date >= ${startDate}
+            AND date <= ${endDate}
+          ORDER BY date ASC
+        `;
+      }
+    }
+
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      let price = parseFloat(row.close);
+      try {
+        price = await convertAmount(price, fromCurrency, toCurrency);
+      } catch (err) {}
+      let dateKey: string;
+      if (typeof row.date === 'string') {
+        dateKey = row.date.split('T')[0];
+      } else if (row.date instanceof Date) {
+        dateKey = row.date.toISOString().split('T')[0];
+      } else {
+        dateKey = String(row.date);
+      }
+      map.set(dateKey, price);
+    }
+    console.log(`[${symbol}] 数据库返回 ${rows.length} 条，日期范围: ${map.keys().next().value} 至 ${Array.from(map.keys()).pop()}`);
+    return map;
+  } catch (error) {
+    console.error(`获取股票日线数据失败 ${symbol}:`, error);
+    return new Map();
+  }
+}
+
+// 从数据库获取加密货币的日线历史价格（返回 Map<日期字符串, 价格>）
+async function getCryptoDailyHistoryFromDB(
+  symbol: string,
+  startDate: string,
+  endDate: string,
+  fromCurrency: CurrencyCode,
+  toCurrency: CurrencyCode
+): Promise<Map<string, number>> {
+  try {
+    const rows = await sql`
+      SELECT date, close
+      FROM crypto_price_history
+      WHERE symbol = ${symbol}
+        AND date >= ${startDate}
+        AND date <= ${endDate}
+      ORDER BY date ASC
+    `;
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      let price = parseFloat(row.close);
+      try {
+        price = await convertAmount(price, fromCurrency, toCurrency);
+      } catch (err) {}
+      // 关键修复：确保日期格式为 YYYY-MM-DD
+      let dateKey: string;
+      if (typeof row.date === 'string') {
+        dateKey = row.date.split('T')[0]; // 处理可能的时间部分
+      } else if (row.date instanceof Date) {
+        dateKey = row.date.toISOString().split('T')[0];
+      } else {
+        dateKey = String(row.date);
+      }
+      map.set(dateKey, price);
+    }
+    // 添加调试日志
+    console.log(`[${symbol}] 数据库返回 ${rows.length} 条，日期范围: ${map.keys().next().value} 至 ${Array.from(map.keys()).pop()}`);
+    return map;
+  } catch (error) {
+    console.error(`从数据库获取加密货币日线数据失败 ${symbol}:`, error);
+    return new Map();
+  }
+}
+
 // 获取资产的日线历史价格（返回 Map<日期字符串, 价格>）
 async function getAssetDailyHistory(
   symbol: string,
@@ -348,7 +507,7 @@ const assetData = await Promise.all(assets.map(async (asset: any) => {
       return NextResponse.json({ data: results });
     }
 
-    // 其他周期（1M, 6M）保持原有日线逻辑
+// 其他周期（1M, 6M）统一使用日线逻辑，复用 1W 的资产预处理方式
  let daysAgo: number;
     switch (period) {
       case '1M': daysAgo = 30; break;
@@ -357,116 +516,194 @@ const assetData = await Promise.all(assets.map(async (asset: any) => {
     }
     const startDateObj = new Date();
     startDateObj.setDate(startDateObj.getDate() - daysAgo);
-    const startStr = startDateObj.toISOString().split('T')[0];
+    startDateObj.setHours(0, 0, 0, 0);
+    const endDateObj = new Date();
+    endDateObj.setHours(0, 0, 0, 0);
 
     if (!assets || assets.length === 0) {
       return NextResponse.json({ data: [] });
     }
 
-    const assetHistories = await Promise.all(assets.map(async (asset: any) => {
-      const buyDate = asset.purchaseDate || startStr;
-      const start = new Date(Math.max(new Date(buyDate).getTime(), startDateObj.getTime()));
-      const end = new Date();
+    // 预处理每个资产（复用 1W 的逻辑，但只使用 dailyMap）
+    const assetData = await Promise.all(assets.map(async (asset: any) => {
       const fromCurrency = (asset.currency || 'USD') as CurrencyCode;
       const toCurrency = targetCurrency as CurrencyCode;
+      const holdings = asset.holdings;
+      const type = asset.type;
 
-      if (['car', 'real_estate', 'custom', 'custom_asset', 'receivable'].includes(asset.type)
-          || asset.symbol.startsWith('CUSTOM-')
-          || asset.symbol.startsWith('CASH-')
-          || asset.symbol.startsWith('REAL_ESTATE-')
-          || asset.symbol.startsWith('CAR-')) {
-        const priceMap = new Map<string, number>();
-        let current = new Date(start);
-        let price = asset.price;
-        try {
-          price = await convertAmount(price, fromCurrency, toCurrency);
-        } catch (err) {}
-        while (current <= end) {
-          const dateStr = current.toISOString().split('T')[0];
-          priceMap.set(dateStr, price);
-          current.setDate(current.getDate() + 1);
-        }
-        return { holdings: asset.holdings, type: asset.type, priceMap, symbol: asset.symbol };
+      // 购买日期时间戳（毫秒），用于过滤
+      let buyTimestamp = -Infinity;
+      if (asset.purchaseDate) {
+        buyTimestamp = new Date(asset.purchaseDate).getTime();
       }
 
-      if (asset.type === 'liability') {
-        const priceMap = new Map<string, number>();
-        let current = new Date(start);
-        while (current <= end) {
-          const dateStr = current.toISOString().split('T')[0];
-          priceMap.set(dateStr, 1);
-          current.setDate(current.getDate() + 1);
+      // 当前价格（转换后）
+      let currentPrice = asset.price;
+      try {
+        currentPrice = await convertAmount(currentPrice, fromCurrency, toCurrency);
+      } catch (err) {}
+
+      let dailyMap = new Map<string, number>();
+
+      // 根据资产类型构建 dailyMap
+      if (type === 'crypto') {
+        // 加密货币：从数据库获取日线数据
+        const startStr = startDateObj.toISOString().split('T')[0];
+        const endStr = endDateObj.toISOString().split('T')[0];
+        console.log(`[${period}] 请求 ${asset.symbol} 日线: ${startStr} -> ${endStr}`);
+        const historyMap = await getCryptoDailyHistoryFromDB(
+          asset.symbol,
+          startStr,
+          endStr,
+          fromCurrency,
+          toCurrency
+        );
+        console.log(`[${period}] ${asset.symbol} 数据库返回 ${historyMap.size} 条数据`);
+        
+        // 填充 dailyMap
+        let lastPrice: number | null = null;
+        let curDate = new Date(startDateObj);
+        let filledCount = 0;
+        while (curDate <= endDateObj) {
+          const dateStr = curDate.toISOString().split('T')[0];
+          const price = historyMap.get(dateStr);
+          if (price !== undefined) {
+            lastPrice = price;
+            dailyMap.set(dateStr, price);
+            filledCount++;
+          } else if (lastPrice !== null) {
+            dailyMap.set(dateStr, lastPrice);
+          }
+          curDate.setDate(curDate.getDate() + 1);
         }
-        const holdings = Math.abs(asset.marketValue);
-        return { holdings, type: asset.type, priceMap, symbol: asset.symbol };
+        console.log(`[${period}] ${asset.symbol} 最终 dailyMap 大小: ${dailyMap.size}, 直接匹配数: ${filledCount}`);
+        if (dailyMap.size === 0) {
+          console.warn(`[${period}] 加密货币 ${asset.symbol} 无历史数据，使用当前价格填充`);
+          let curDate = new Date(startDateObj);
+          while (curDate <= endDateObj) {
+            const dateStr = curDate.toISOString().split('T')[0];
+            dailyMap.set(dateStr, currentPrice);
+            curDate.setDate(curDate.getDate() + 1);
+          }
+        }
+      } else if (type === 'liability') {
+        // 负债：价格取绝对值，用当前价格填充所有日期
+        const absPrice = Math.abs(currentPrice);
+        let curDate = new Date(startDateObj);
+        while (curDate <= endDateObj) {
+          const dateStr = curDate.toISOString().split('T')[0];
+          dailyMap.set(dateStr, absPrice);
+          curDate.setDate(curDate.getDate() + 1);
+        }
+      } else if (['car', 'real_estate', 'custom', 'custom_asset', 'receivable'].includes(type)
+                 || asset.symbol.startsWith('CUSTOM-')
+                 || asset.symbol.startsWith('CASH-')
+                 || asset.symbol.startsWith('REAL_ESTATE-')
+                 || asset.symbol.startsWith('CAR-')) {
+        // 自定义资产：使用当前价格填充每天
+        let curDate = new Date(startDateObj);
+        while (curDate <= endDateObj) {
+          const dateStr = curDate.toISOString().split('T')[0];
+          dailyMap.set(dateStr, currentPrice);
+          curDate.setDate(curDate.getDate() + 1);
+        }
+      } else {
+        // 股票、基金、贵金属等：从数据库获取日线数据（优先数据库，不足则拉取）
+        const startStr = startDateObj.toISOString().split('T')[0];
+        const endStr = endDateObj.toISOString().split('T')[0];
+        const historyMap = await getStockDailyHistoryFromDB(
+          asset.symbol,
+          startStr,
+          endStr,
+          fromCurrency,
+          toCurrency
+        );
+        // 填充 dailyMap，缺失时用最近价格
+        let lastPrice: number | null = null;
+        let curDate = new Date(startDateObj);
+        let filledCount = 0;
+        while (curDate <= endDateObj) {
+          const dateStr = curDate.toISOString().split('T')[0];
+          const price = historyMap.get(dateStr);
+          if (price !== undefined) {
+            lastPrice = price;
+            dailyMap.set(dateStr, price);
+            filledCount++;
+          } else if (lastPrice !== null) {
+            dailyMap.set(dateStr, lastPrice);
+          }
+          curDate.setDate(curDate.getDate() + 1);
+        }
+        console.log(`[${period}] 股票 ${asset.symbol} 最终 dailyMap 大小: ${dailyMap.size}, 直接匹配数: ${filledCount}`);
+        if (dailyMap.size === 0) {
+          console.warn(`[${period}] 资产 ${asset.symbol} 无历史数据，使用当前价格填充`);
+          let curDate = new Date(startDateObj);
+          while (curDate <= endDateObj) {
+            const dateStr = curDate.toISOString().split('T')[0];
+            dailyMap.set(dateStr, currentPrice);
+            curDate.setDate(curDate.getDate() + 1);
+          }
+        }
       }
 
-      const historyMap = await getAssetDailyHistory(asset.symbol, asset.type, buyDate, fromCurrency, toCurrency, baseUrl);
-      const filledMap = new Map<string, number>();
-      let lastPrice: number | null = null;
-      let current = new Date(start);
-      while (current <= end) {
-        const dateStr = current.toISOString().split('T')[0];
-        const price = historyMap.get(dateStr);
-        if (price !== undefined) {
-          lastPrice = price;
-          filledMap.set(dateStr, price);
-        } else if (lastPrice !== null) {
-          filledMap.set(dateStr, lastPrice);
-        }
-        current.setDate(current.getDate() + 1);
-      }
-      return { holdings: asset.holdings, type: asset.type, priceMap: filledMap, symbol: asset.symbol };
+      return {
+        holdings,
+        type,
+        dailyMap,
+        buyTimestamp,
+        symbol: asset.symbol,
+        name: asset.name,
+      };
     }));
 
-    const results: { timestamp: number; value: number }[] = [];
-    const currentDate = new Date(startDateObj);
-    const today = new Date();
 
-    while (currentDate <= today) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      let netWorth = 0;
-      const isLastDay = currentDate.toDateString() === today.toDateString();
+// 生成日期序列
+const timestamps: number[] = [];
+let curDate = new Date(startDateObj);
+while (curDate <= endDateObj) {
+  timestamps.push(curDate.getTime());
+  curDate.setDate(curDate.getDate() + 1);
+}
 
-      if (isLastDay) {
-        console.log(`\n=== 走势图最后一天净值明细 (${period}) ===`);
-        console.log(`日期: ${dateStr}`);
+const results: { timestamp: number; value: number }[] = [];
+for (let idx = 0; idx < timestamps.length; idx++) {
+  const ts = timestamps[idx];
+  const date = new Date(ts);
+  const dateStr = date.toISOString().split('T')[0];
+  let netWorth = 0;
+
+  const isLast = (idx === timestamps.length - 1);
+  if (isLast) {
+    console.log(`\n=== 走势图最后一天净值明细 (${period}) ===`);
+    console.log(`日期: ${dateStr}`);
+  }
+
+  for (const asset of assetData) {
+    // 跳过购买日之后的资产（如果购买日晚于当前日期）
+    if (ts < asset.buyTimestamp) continue;
+    const price = asset.dailyMap.get(dateStr);
+    if (price !== undefined) {
+      const contribution = asset.type === 'liability' ? -(asset.holdings * price) : (asset.holdings * price);
+      netWorth += contribution;
+      if (isLast) {
+        console.log(
+          `[${asset.symbol || asset.name || asset.type}] ` +
+          `holdings=${asset.holdings.toFixed(2)} price=${price.toFixed(2)} ` +
+          `contribution=${contribution.toFixed(2)}`
+        );
       }
-
-      for (const asset of assetHistories) {
-        const price = asset.priceMap.get(dateStr);
-        if (price !== undefined) {
-          let contribution = 0;
-          if (asset.type === 'liability') {
-            contribution = -(asset.holdings * price);
-          } else {
-            contribution = asset.holdings * price;
-          }
-          netWorth += contribution;
-
-          if (isLastDay) {
-            console.log(
-              `[${asset.symbol || asset.type}] ` +
-              `holdings=${asset.holdings.toFixed(2)} price=${price.toFixed(2)} ` +
-              `contribution=${contribution.toFixed(2)}`
-            );
-          }
-        }
-      }
-
-      if (isLastDay) {
-        console.log(`总和: ${netWorth.toFixed(2)}`);
-        console.log('===================================\n');
-      }
-
-      results.push({
-        timestamp: currentDate.getTime(),
-        value: netWorth,
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
     }
+  }
 
-    return NextResponse.json({ data: results });
+  if (isLast) {
+    console.log(`总和: ${netWorth.toFixed(2)}`);
+    console.log('===================================\n');
+  }
+
+  results.push({ timestamp: ts, value: netWorth });
+}
+
+return NextResponse.json({ data: results });
   } catch (error) {
     console.error('Snapshot history error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';

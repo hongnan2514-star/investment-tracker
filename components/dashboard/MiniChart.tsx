@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
-import { getCurrentUserId, getAssets } from '@/src/utils/assetStorage';
+import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { useCurrency } from '@/src/services/currency';
 import { eventBus } from '@/src/utils/eventBus';
 
@@ -25,11 +25,22 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
   const { currency } = useCurrency();
   const lineColor = profit >= 0 ? '#22c55e' : '#ef4444';
   const cacheKey = `${period}_${currency}`;
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
 
   const fetchData = async (force = false) => {
+    if (!mounted.current) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const signal = controller.signal;
+
     const cached = cache.get(cacheKey);
     const now = Date.now();
-    if (!force && cached && (now - cached.timestamp) < CACHE_TTL) {
+    if (!force && cached && now - cached.timestamp < CACHE_TTL) {
       setChartData(cached.data);
       setLoading(false);
       return;
@@ -39,48 +50,90 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
     try {
       const userId = getCurrentUserId();
       if (!userId) throw new Error('用户未登录');
-      const assets = getAssets();
+
+      // 强制获取最新资产列表（与 ExpandedChart 保持一致）
+      const assetsRes = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+        cache: 'no-store',
+      });
+      if (!assetsRes.ok) throw new Error('获取资产列表失败');
+      const freshAssets = await assetsRes.json();
+      const normalizedAssets = freshAssets.map((asset: any) => ({
+        ...asset,
+        price: Number(asset.price),
+        holdings: Number(asset.holdings),
+        marketValue: Number(asset.marketValue),
+      }));
+
       const res = await fetch('/api/snapshot/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, period, targetCurrency: currency, assets }),
+        body: JSON.stringify({ userId, period, targetCurrency: currency, assets: normalizedAssets }),
+        signal,
       });
+      if (signal.aborted) return;
+
       const json = await res.json();
+      if (signal.aborted) return;
       if (json.error) throw new Error(json.error);
+
       let rawData: { timestamp: number; value: number }[] = json.data || [];
 
-      const uniqueData = rawData.filter((point, index, self) =>
-        index === 0 || point.timestamp !== self[index-1].timestamp
-      );
+      // 去重
+      const uniqueData = rawData.filter((p, i, arr) => i === 0 || p.timestamp !== arr[i-1].timestamp);
 
-      let finalData = uniqueData; // 无需切片
-
+      let finalData = uniqueData;
       if (finalData.length < 2) {
         const nowTs = Date.now();
-        const currentValue = totalValue;
-        finalData.push({ timestamp: nowTs, value: currentValue });
+        finalData.push({ timestamp: nowTs, value: totalValue });
         finalData.sort((a, b) => a.timestamp - b.timestamp);
       }
 
-      const values = finalData.map(p => ({ value: p.value }));
-      setChartData(values);
-      cache.set(cacheKey, { data: values, timestamp: now });
-    } catch (err) {
+      // 追加当前点（与 ExpandedChart 保持一致）
+      let finalFormatted = finalData.map(p => ({ value: p.value }));
+      if (period === '1W') {
+        const nowTs = Date.now();
+        const lastTimestamp = finalData[finalData.length - 1]?.timestamp;
+        if (!lastTimestamp || (nowTs - lastTimestamp) > 60 * 60 * 1000) {
+          finalFormatted = [...finalFormatted, { value: totalValue }];
+        }
+      } else {
+        // 1M/6M：如果最后一天不是今天，追加今天点
+        const lastDate = finalData.length > 0 ? new Date(finalData[finalData.length - 1].timestamp) : null;
+        const nowDate = new Date();
+        if (!lastDate || lastDate.toDateString() !== nowDate.toDateString()) {
+          finalFormatted = [...finalFormatted, { value: totalValue }];
+        }
+      }
+
+      setChartData(finalFormatted);
+      cache.set(cacheKey, { data: finalFormatted, timestamp: now });
+    } catch (err: any) {
+      if (signal.aborted) return;
       console.error('迷你图加载错误:', err);
       setChartData([]);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
+    mounted.current = true;
+    fetchData();
+    return () => {
+      mounted.current = false;
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, [period, currency, totalValue]);
+
+  useEffect(() => {
+    const handleAssetsUpdate = () => {
       cache.clear();
       fetchData(true);
-    });
-    fetchData();
+    };
+    const unsubscribe = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
     return () => unsubscribe();
-  }, [period, currency, totalValue]);
+  }, []);
 
   const getYAxisDomain = (): [number, number] => {
     if (chartData.length === 0) return [0, totalValue || 100];
@@ -91,7 +144,6 @@ export default function MiniChart({ period, totalValue, currencySymbol, profit, 
     return [min, max];
   };
 
-  // 定义光晕滤镜
   const glowFilter = (
     <filter id="miniGlow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="2" result="blur" />

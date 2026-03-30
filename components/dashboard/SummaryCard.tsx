@@ -1,5 +1,4 @@
 // components/dashboard/SummaryCard.tsx
-// components/dashboard/SummaryCard.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
