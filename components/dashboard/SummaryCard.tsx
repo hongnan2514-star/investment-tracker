@@ -1,5 +1,4 @@
 // components/dashboard/SummaryCard.tsx
-// components/dashboard/SummaryCard.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
@@ -41,21 +40,19 @@ export default function SummaryCard() {
   const [midnightSnapshotCNY, setMidnightSnapshotCNY] = useState<number | null>(null);
   const [netWorthCNY, setNetWorthCNY] = useState<number>(0);
 
-  // 计算总资产、负债、净值、利润（支持传入资产列表，避免依赖状态）
+  // 计算总资产、负债、净值（支持传入资产列表）
   const refreshData = useCallback(async (assetsParam?: Asset[]) => {
     const targetAssets = assetsParam !== undefined ? assetsParam : assets;
     if (targetAssets.length === 0) {
       setConvertedTotalAssets(0);
       setConvertedTotalLiabilities(0);
       setConvertedNetWorth(0);
-      setConvertedProfit(0);
       setNetWorthCNY(0);
       return;
     }
 
     let assetsSum = 0;
     let liabilitiesSum = 0;
-    let profitSum = 0;
     let assetsSumCNY = 0;
     let liabilitiesSumCNY = 0;
 
@@ -63,11 +60,7 @@ export default function SummaryCard() {
       targetAssets.map(async (asset) => {
         const fromCurrency = asset.currency || 'USD';
         
-        console.log(`[汇率调试] 资产: ${asset.symbol || asset.name}, 类型: ${asset.type}, 原始值: ${asset.marketValue} ${fromCurrency}`);
-        
         const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
-        console.log(`[汇率调试] 转换后 (${fromCurrency} -> ${currency}): ${convertedValue}`);
-        
         if (asset.type === 'liability') {
           liabilitiesSum += Math.abs(convertedValue);
         } else {
@@ -75,26 +68,17 @@ export default function SummaryCard() {
         }
 
         const convertedValueCNY = await convert(asset.marketValue, fromCurrency as any, 'CNY');
-        console.log(`[汇率调试] 转换为 CNY: ${convertedValueCNY}`);
-        
         if (asset.type === 'liability') {
           liabilitiesSumCNY += Math.abs(convertedValueCNY);
         } else {
           assetsSumCNY += convertedValueCNY;
         }
-
-        const assetProfit = asset.price * asset.holdings * (asset.changePercent || 0) / 100;
-        const convertedProfitValue = await convert(assetProfit, fromCurrency as any, currency);
-        profitSum += convertedProfitValue;
       })
     );
-
-    console.log(`[汇率调试] 最终汇总: 总资产=${assetsSum}, 总负债=${liabilitiesSum}, 净资产=${assetsSum - liabilitiesSum}, 今日收益=${profitSum}`);
 
     setConvertedTotalAssets(assetsSum);
     setConvertedTotalLiabilities(liabilitiesSum);
     setConvertedNetWorth(assetsSum - liabilitiesSum);
-    setConvertedProfit(profitSum);
     setNetWorthCNY(assetsSumCNY - liabilitiesSumCNY);
   }, [currency, convert]);
 
@@ -147,7 +131,7 @@ export default function SummaryCard() {
     }
   }, [refreshData]);
 
-  // 获取今日0点快照
+  // 获取今日0点快照（北京时间0点对应的UTC 16:00）
   useEffect(() => {
     const fetchMidnightSnapshot = async () => {
       const userId: string | null = getCurrentUserId();
@@ -163,22 +147,23 @@ export default function SummaryCard() {
     fetchMidnightSnapshot();
   }, []);
 
-  // 今日收益（CNY）
-  const todayProfitCNY = midnightSnapshotCNY !== null ? netWorthCNY - midnightSnapshotCNY : 0;
-  const todayProfitConverted = useCallback(async () => {
-    if (todayProfitCNY === 0) return 0;
-    return await convert(todayProfitCNY, 'CNY', currency);
-  }, [todayProfitCNY, currency, convert]);
-
-  // 更新今日收益显示
+  // 计算今日盈亏：当前净值（CNY） - 今日0点快照（CNY），然后转换为当前货币
   useEffect(() => {
-    let isActive = true;
-    (async () => {
-      const profit = await todayProfitConverted();
-      if (isActive) setConvertedProfit(profit);
-    })();
-    return () => { isActive = false; };
-  }, [todayProfitConverted]);
+    const computeTodayProfit = async () => {
+      if (midnightSnapshotCNY === null) {
+        setConvertedProfit(0);
+        return;
+      }
+      const profitCNY = netWorthCNY - midnightSnapshotCNY;
+      if (profitCNY === 0) {
+        setConvertedProfit(0);
+        return;
+      }
+      const profit = await convert(profitCNY, 'CNY', currency);
+      setConvertedProfit(profit);
+    };
+    computeTodayProfit();
+  }, [midnightSnapshotCNY, netWorthCNY, currency, convert]);
 
   // 监听资产变化事件
   useEffect(() => {
@@ -210,7 +195,7 @@ export default function SummaryCard() {
     };
   }, [loadAssets, refreshData]);
 
-  // 货币切换时重新计算
+  // 货币切换时重新计算净值（不需要重新请求资产）
   useEffect(() => {
     if (assets.length > 0) {
       refreshData(assets);
@@ -365,7 +350,7 @@ export default function SummaryCard() {
             </h2>
           </div>
           <p className="text-sm font-bold mt-2">
-            <span className="text-gray-400 dark:text-gray-400">今日收益</span>{' '}
+            <span className="text-gray-400 dark:text-gray-400">今日盈亏</span>{' '}
             {isAmountHidden ? (
               <span className="text-gray-400 dark:text-gray-400">****</span>
             ) : (
@@ -376,7 +361,7 @@ export default function SummaryCard() {
                 )}
               </span>
             )}
-          </p>
+          </p >
         </div>
 
         {/* 迷你走势图 */}
