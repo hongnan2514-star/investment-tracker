@@ -2303,9 +2303,9 @@ if (selectedAssetType === 'custom_asset') {
         className="cursor-pointer p-0 focus:outline-none"
       >
         {sortBy === 'marketValue' && sortOrder === 'asc' ? (
-          <ChevronUp size={16} className="text-blue-500" />
+          <ChevronUp size={16} className="text-[#ff8800]" />
         ) : sortBy === 'marketValue' && sortOrder === 'desc' ? (
-          <ChevronDown size={16} className="text-blue-500" />
+          <ChevronDown size={16} className="text-[#ff8800]" />
         ) : (
           <ChevronDown size={16} className="text-gray-400 hover:text-gray-600" />
         )}
@@ -2339,9 +2339,9 @@ if (selectedAssetType === 'custom_asset') {
         className="cursor-pointer p-0 focus:outline-none"
       >
         {sortBy === 'changePercent' && sortOrder === 'asc' ? (
-          <ChevronUp size={16} className="text-blue-500" />
+          <ChevronUp size={16} className="text-[#ff8800]" />
         ) : sortBy === 'changePercent' && sortOrder === 'desc' ? (
-          <ChevronDown size={16} className="text-blue-500" />
+          <ChevronDown size={16} className="text-[#ff8800]" />
         ) : (
           <ChevronDown size={16} className="text-gray-400 hover:text-gray-600" />
         )}
@@ -2379,7 +2379,7 @@ if (selectedAssetType === 'custom_asset') {
                         className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
                           hiddenAssetTypes.has(type)
                             ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                            : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
+                            : 'bg-[#ff8800] text-white hover:bg-[#e07a00] dark:bg-[#ff8800] dark:hover:bg-[#e07a00]'
                         }`}
                       >
                         {config.name}
