@@ -84,11 +84,23 @@ export default function ExpandedChart({
       const userId = getCurrentUserId();
       if (!userId) throw new Error('用户未登录');
 
-      const assets = getAssets();
+      // 从 API 获取最新资产列表（绕过本地存储）
+      const assetsRes = await fetch('/api/asset', {
+      headers: { 'x-user-id': userId }
+      });
+      if (!assetsRes.ok) throw new Error('获取资产列表失败');
+      const freshAssets = await assetsRes.json();
+      const normalizedAssets = freshAssets.map((asset: any) => ({
+        ...asset,
+        price: Number(asset.price),
+        holdings: Number(asset.holdings),
+        marketValue: Number(asset.marketValue),
+      }));
+
       const res = await fetch('/api/snapshot/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, period, targetCurrency: currency, assets }),
+        body: JSON.stringify({ userId, period, targetCurrency: currency, assets: normalizedAssets }),
         signal,
       });
 
@@ -133,33 +145,28 @@ export default function ExpandedChart({
       });
 
       // 新增：对于 1W 周期，追加当前净资产点
-let finalFormatted = formatted;
-if (period === '1W') {
-  const nowTs = Date.now();
-  const lastTimestamp = finalData[finalData.length - 1]?.timestamp;
-  // 如果最后一个点不是当前时刻（间隔超过1小时），则追加
-  if (!lastTimestamp || (nowTs - lastTimestamp) > 60 * 60 * 1000) {
-    const nowDate = new Date(nowTs);
-    const nowTimeStr = nowDate.toLocaleString('zh-CN', {
-      month: 'numeric',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).replace(/\//g, '/');
-    finalFormatted = [...formatted, { time: nowTimeStr, value: totalValue }];
-  }
-}
+      let finalFormatted = formatted;
+      if (period === '1W') {
+        const nowTs = Date.now();
+        const lastTimestamp = finalData[finalData.length - 1]?.timestamp;
+        // 如果最后一个点不是当前时刻（间隔超过1小时），则追加
+        if (!lastTimestamp || (nowTs - lastTimestamp) > 60 * 60 * 1000) {
+          const nowDate = new Date(nowTs);
+          const nowTimeStr = nowDate.toLocaleString('zh-CN', {
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }).replace(/\//g, '/');
+          finalFormatted = [...formatted, { time: nowTimeStr, value: totalValue }];
+        }
+      }
 
-// 将 finalFormatted 存入状态和缓存
-if (currentRequestId === requestIdRef.current && !signal.aborted) {
-  setChartData(finalFormatted);
-  cache.set(cacheKey, { data: finalFormatted, timestamp: now });
-}
-
+      // 将 finalFormatted 存入状态和缓存
       if (currentRequestId === requestIdRef.current && !signal.aborted) {
-        setChartData(formatted);
-        cache.set(cacheKey, { data: formatted, timestamp: now });
+        setChartData(finalFormatted);
+        cache.set(cacheKey, { data: finalFormatted, timestamp: now });
       }
     } catch (err: any) {
       if (signal.aborted) return;

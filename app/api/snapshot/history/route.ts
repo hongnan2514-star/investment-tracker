@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1W：小时级净值（基于资产真实历史价格）
-    if (period === '1W') {
+if (period === '1W') {
       const hoursAgo = 168;
       const now = new Date();
       const startTime = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
@@ -262,6 +262,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // 返回时增加 symbol 和 name，便于调试
         return {
           holdings,
           type,
@@ -271,6 +272,8 @@ export async function POST(request: NextRequest) {
           hourlyMap,
           buyTimestamp,
           currentPrice,
+          symbol: asset.symbol,
+          name: asset.name,
         };
       }));
 
@@ -282,10 +285,17 @@ export async function POST(request: NextRequest) {
       }
 
       const results: { timestamp: number; value: number }[] = [];
-      for (const ts of timestamps) {
+      for (let idx = 0; idx < timestamps.length; idx++) {
+        const ts = timestamps[idx];
         const date = new Date(ts);
         const dateStr = date.toISOString().split('T')[0];
         let netWorth = 0;
+
+        const isLast = (idx === timestamps.length - 1); // 判断是否是最后一个时间戳
+        if (isLast) {
+          console.log('\n=== 走势图最后一个小时净值明细 ===');
+          console.log(`时间戳: ${ts} (${new Date(ts).toLocaleString()})`);
+        }
 
         for (const asset of assetData) {
           // 跳过购买日之前的时刻
@@ -303,13 +313,24 @@ export async function POST(request: NextRequest) {
           }
 
           if (price !== null) {
-            if (asset.type === 'liability') {
-              netWorth -= asset.holdings * price;
-            } else {
-              netWorth += asset.holdings * price;
+            const contribution = asset.type === 'liability' ? -(asset.holdings * price) : (asset.holdings * price);
+            netWorth += contribution;
+
+            if (isLast) {
+              console.log(
+                `[${asset.symbol || asset.name || asset.type}] ` +
+                `holdings=${asset.holdings.toFixed(2)} price=${price.toFixed(2)} ` +
+                `contribution=${contribution.toFixed(2)}`
+              );
             }
           }
         }
+
+        if (isLast) {
+          console.log(`总和: ${netWorth.toFixed(2)}`);
+          console.log('===================================\n');
+        }
+
         results.push({ timestamp: ts, value: netWorth });
       }
 

@@ -1,4 +1,5 @@
 // components/dashboard/SummaryCard.tsx
+// components/dashboard/SummaryCard.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
@@ -62,7 +63,13 @@ export default function SummaryCard() {
     await Promise.all(
       targetAssets.map(async (asset) => {
         const fromCurrency = asset.currency || 'USD';
+        
+        // 临时调试：打印原始市场价值
+        console.log(`[汇率调试] 资产: ${asset.symbol || asset.name}, 类型: ${asset.type}, 原始值: ${asset.marketValue} ${fromCurrency}`);
+        
         const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
+        console.log(`[汇率调试] 转换后 (${fromCurrency} -> ${currency}): ${convertedValue}`);
+        
         if (asset.type === 'liability') {
           liabilitiesSum += Math.abs(convertedValue);
         } else {
@@ -70,6 +77,8 @@ export default function SummaryCard() {
         }
 
         const convertedValueCNY = await convert(asset.marketValue, fromCurrency as any, 'CNY');
+        console.log(`[汇率调试] 转换为 CNY: ${convertedValueCNY}`);
+        
         if (asset.type === 'liability') {
           liabilitiesSumCNY += Math.abs(convertedValueCNY);
         } else {
@@ -82,6 +91,8 @@ export default function SummaryCard() {
       })
     );
 
+    console.log(`[汇率调试] 最终汇总: 总资产=${assetsSum}, 总负债=${liabilitiesSum}, 净资产=${assetsSum - liabilitiesSum}, 今日收益=${profitSum}`);
+
     setConvertedTotalAssets(assetsSum);
     setConvertedTotalLiabilities(liabilitiesSum);
     setConvertedNetWorth(assetsSum - liabilitiesSum);
@@ -91,7 +102,7 @@ export default function SummaryCard() {
 
   // 加载资产（带缓存）
   const loadAssets = useCallback(async () => {
-    const userId = getCurrentUserId();
+    const userId: string | null = getCurrentUserId();
     if (!userId) {
       setAssets([]);
       setLoadingAssets(false);
@@ -141,7 +152,7 @@ export default function SummaryCard() {
   // 获取今日0点快照
   useEffect(() => {
     const fetchMidnightSnapshot = async () => {
-      const userId = getCurrentUserId();
+      const userId: string | null = getCurrentUserId();
       if (!userId) return;
       try {
         const res = await fetch(`/api/snapshot/midnight?userId=${userId}`);
@@ -179,13 +190,13 @@ export default function SummaryCard() {
         setAssets(updatedAssets);
         await refreshData(updatedAssets);
         // 更新缓存
-        const userId = getCurrentUserId();
+        const userId: string | null = getCurrentUserId();
         if (userId) {
           assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
         }
       } else {
         console.log('[SummaryCard] 收到无参数资产更新事件，重新加载');
-        const userId = getCurrentUserId();
+        const userId: string | null = getCurrentUserId();
         if (userId) assetCache.delete(userId);
         await loadAssets();
       }
@@ -230,13 +241,13 @@ export default function SummaryCard() {
         console.log('[SummaryCard] 收到自定义事件资产列表，长度:', updatedAssets.length);
         setAssets(updatedAssets);
         await refreshData(updatedAssets);
-        const userId = getCurrentUserId();
+        const userId: string | null = getCurrentUserId();
         if (userId) {
           assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
         }
       } else {
         // 无数据时强制重新加载
-        const userId = getCurrentUserId();
+        const userId: string | null = getCurrentUserId();
         if (userId) assetCache.delete(userId);
         await loadAssets();
       }
@@ -249,7 +260,7 @@ export default function SummaryCard() {
   useEffect(() => {
     if (pathname === '/') {
       console.log('[SummaryCard] 回到首页，强制刷新资产');
-      const userId = getCurrentUserId();
+      const userId: string | null = getCurrentUserId();
       if (userId) assetCache.delete(userId);
       loadAssets();
     }
@@ -286,6 +297,10 @@ export default function SummaryCard() {
     if (num >= 1_000) return (num / 1_000).toFixed(2) + 'K';
     return num.toFixed(2);
   };
+
+  useEffect(() => {
+    (window as any).__summaryAssets = assets;
+  }, [assets]);
 
   const SkeletonLine = ({ className = "w-24 h-6" }: { className?: string }) => (
     <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${className}`} />
@@ -365,7 +380,7 @@ export default function SummaryCard() {
                 )}
               </span>
             )}
-          </p >
+          </p>
         </div>
 
         {!isExpanded && !isClosing && (
@@ -429,4 +444,4 @@ export default function SummaryCard() {
       )}
     </div>
   );
-}
+} 

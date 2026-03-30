@@ -166,7 +166,6 @@ const carBrands: CarBrand[] = [
   { id: 'Porsche', name: 'Porsche', firstLetter:'P', logoUrl:'/images/car_logos/Porsche.png' },
   { id: 'Bentley', name: 'Bentley', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
   { id: 'Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
-  { id: 'Rolls Royce', name: 'Rolls Royce', firstLetter:' L', logoUrl:'/images/car_logos/劳斯莱斯.png' },
 
   // H
   { id: 'HONDA', name: 'HONDA', firstLetter: 'H', logoUrl: '/images/car_logos/HONDA.png'},
@@ -184,6 +183,9 @@ const carBrands: CarBrand[] = [
   // L
   { id: '理想', name: '理想', firstLetter:'L', logoUrl:'/images/car_logos/理想.png'},
   { id: 'Land Rover', name: 'Land Rover', firstLetter:'L', logoUrl:'/images/car_logos/路虎.png'},
+  
+  // R
+  { id: 'Rolls Royce', name: 'Rolls Royce', firstLetter:'R', logoUrl:'/images/car_logos/劳斯莱斯.png' },
 
   // X
   { id: '小米', name: '小米', firstLetter:'X', logoUrl:'/images/car_logos/小米.png' },
