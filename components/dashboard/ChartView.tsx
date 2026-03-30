@@ -1,35 +1,36 @@
-// components/dashboard/ExpandedChart.tsx
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, ChevronUp } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { useCurrency } from '@/src/services/currency';
 import { eventBus } from '@/src/utils/eventBus';
+import { chartCache, CHART_CACHE_TTL } from '@/src/utils/chartCache';
 
 type Period = '1W' | '1M' | '6M';
+type Mode = 'mini' | 'expanded';
 
 interface Props {
+  mode: Mode;
   totalValue: number;
   currencySymbol: string;
-  todayProfit: number;
-  onClose: () => void;
+  todayProfit?: number;          // 仅扩展模式需要，用于线条颜色
+  onClose?: () => void;          // 仅扩展模式需要
   period: Period;
   onPeriodChange: (period: Period) => void;
-  onHoverValueChange: (value: number | null, timeStr?: string) => void;
+  onHoverValueChange?: (value: number | null, timeStr?: string) => void; // 扩展模式需要
 }
 
-const cache = new Map<string, { data: { time: string; value: number }[]; timestamp: number }>();
-const CACHE_TTL = 15 * 60 * 1000;
-
-export default function ExpandedChart({
+export default function ChartView({
+  mode,
   totalValue,
   currencySymbol,
-  todayProfit,
+  todayProfit = 0,
   onClose,
   period,
   onPeriodChange,
   onHoverValueChange,
-}: Props): React.ReactElement {
+}: Props) {
   const [chartData, setChartData] = useState<{ time: string; value: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -49,7 +50,7 @@ export default function ExpandedChart({
   const cacheKey = `${period}_${currency}`;
   const margin = { top: 20, right: 20, left: 20, bottom: 20 };
 
-  // ---------- 数据获取 ----------
+  // ---------- 数据获取（统一逻辑） ----------
   const fetchData = useCallback(async (force = false) => {
     if (!mounted.current) return;
 
@@ -59,10 +60,10 @@ export default function ExpandedChart({
     abortControllerRef.current = controller;
     const signal = controller.signal;
 
-    const cached = cache.get(cacheKey);
+    const cached = chartCache.get(cacheKey);
     const now = Date.now();
-    if (!force && cached && now - cached.timestamp < CACHE_TTL) {
-      console.log(`[ExpandedChart] 使用缓存，数据长度: ${cached.data.length}`);
+    if (!force && cached && now - cached.timestamp < CHART_CACHE_TTL) {
+      console.log(`[ChartView] 使用缓存，数据长度: ${cached.data.length}`);
       if (currentRequestId === requestIdRef.current) {
         setChartData(cached.data);
         setLoading(false);
@@ -70,7 +71,7 @@ export default function ExpandedChart({
       return;
     }
 
-    console.log(`[ExpandedChart] 无缓存或已过期，开始请求`);
+    console.log(`[ChartView] 无缓存或已过期，开始请求`);
     setLoading(true);
     setError('');
 
@@ -78,7 +79,7 @@ export default function ExpandedChart({
       const userId = getCurrentUserId();
       if (!userId) throw new Error('用户未登录');
 
-      // 强制获取最新资产列表（绕过本地存储）
+      // 强制获取最新资产列表
       const assetsRes = await fetch('/api/asset', {
         headers: { 'x-user-id': userId },
       });
@@ -141,7 +142,6 @@ export default function ExpandedChart({
       const nowDate = new Date(nowTs);
 
       if (period === '1W') {
-        // 周视图：若最后一个点与当前时间间隔超过1小时，则追加当前点
         if (!lastTimestamp || (nowTs - lastTimestamp) > 60 * 60 * 1000) {
           const nowTimeStr = nowDate.toLocaleString('zh-CN', {
             month: 'numeric',
@@ -153,7 +153,6 @@ export default function ExpandedChart({
           finalFormatted = [...formatted, { time: nowTimeStr, value: totalValue }];
         }
       } else {
-        // 月/6月视图：若最后一个点的日期不是今天，则追加今天点
         if (!lastDate || lastDate.toDateString() !== nowDate.toDateString()) {
           const nowDateStr = nowDate.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
           finalFormatted = [...formatted, { time: nowDateStr, value: totalValue }];
@@ -162,14 +161,14 @@ export default function ExpandedChart({
 
       if (currentRequestId === requestIdRef.current && !signal.aborted) {
         setChartData(finalFormatted);
-        cache.set(cacheKey, { data: finalFormatted, timestamp: now });
+        chartCache.set(cacheKey, { data: finalFormatted, timestamp: now });
       }
     } catch (err: any) {
       if (signal.aborted) return;
       if (currentRequestId === requestIdRef.current) {
         setError(err.message || '加载失败');
       }
-      console.error('[ExpandedChart] 错误:', err);
+      console.error('[ChartView] 错误:', err);
     } finally {
       if (currentRequestId === requestIdRef.current && !signal.aborted) {
         setLoading(false);
@@ -177,8 +176,9 @@ export default function ExpandedChart({
     }
   }, [period, currency, totalValue, cacheKey]);
 
-  // ---------- 绘图逻辑（保持不变） ----------
+  // ---------- 扩展图绘制逻辑 ----------
   const drawChart = useCallback(() => {
+    if (mode !== 'expanded') return;
     if (!canvasRef.current || !containerRef.current || chartData.length === 0) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -263,10 +263,11 @@ export default function ExpandedChart({
       ctx.fillRect(splitX, 0, width - splitX, height);
       ctx.restore();
     }
-  }, [chartData, dimensions, lineColor, maskLeftPercent, activePoint, margin]);
+  }, [chartData, dimensions, lineColor, maskLeftPercent, activePoint, margin, mode]);
 
-  // 监听容器尺寸变化
+  // 监听容器尺寸变化（仅扩展模式）
   useEffect(() => {
+    if (mode !== 'expanded') return;
     if (!containerRef.current) return;
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
@@ -276,13 +277,14 @@ export default function ExpandedChart({
     });
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
-    drawChart();
-  }, [drawChart]);
+    if (mode === 'expanded') drawChart();
+  }, [drawChart, mode]);
 
   useEffect(() => {
+    if (mode !== 'expanded') return;
     const handleResize = () => {
       if (containerRef.current) {
         const { width, height } = containerRef.current.getBoundingClientRect();
@@ -291,10 +293,11 @@ export default function ExpandedChart({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [mode]);
 
-  // 交互逻辑
+  // 扩展图交互逻辑
   const handleInteraction = useCallback((clientX: number) => {
+    if (mode !== 'expanded') return;
     if (!containerRef.current || chartData.length === 0) return;
     const rect = containerRef.current.getBoundingClientRect();
     let relativeX = (clientX - rect.left) / rect.width;
@@ -306,31 +309,34 @@ export default function ExpandedChart({
 
     setMaskLeftPercent(newMaskPercent);
     setActivePoint(newActivePoint);
-    onHoverValueChange(point.value, point.time);
+    onHoverValueChange?.(point.value, point.time);
 
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       drawChart();
       rafRef.current = null;
     });
-  }, [chartData, onHoverValueChange, drawChart]);
+  }, [chartData, onHoverValueChange, drawChart, mode]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => handleInteraction(e.clientX);
   const handleMouseLeave = () => {
+    if (mode !== 'expanded') return;
     setActivePoint(null);
     setMaskLeftPercent(null);
-    onHoverValueChange(null);
+    onHoverValueChange?.(null);
     drawChart();
   };
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (mode !== 'expanded') return;
     e.preventDefault();
     const touch = e.touches[0];
     if (touch) handleInteraction(touch.clientX);
   };
   const handleTouchEnd = () => {
+    if (mode !== 'expanded') return;
     setActivePoint(null);
     setMaskLeftPercent(null);
-    onHoverValueChange(null);
+    onHoverValueChange?.(null);
     drawChart();
   };
 
@@ -343,7 +349,7 @@ export default function ExpandedChart({
   // 监听资产更新，清除缓存并重新获取
   useEffect(() => {
     const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
-      cache.clear();
+      chartCache.clear();
       fetchData(true);
     });
     return () => unsubscribe();
@@ -365,6 +371,63 @@ export default function ExpandedChart({
     '6M': '6月',
   };
 
+  // 迷你图渲染
+  if (mode === 'mini') {
+    const miniData = chartData.map(item => ({ value: item.value }));
+    const getYAxisDomain = () => {
+      if (miniData.length === 0) return [0, totalValue || 100];
+      const values = miniData.map(p => p.value);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      if (min === max) return [min - 1, min + 1];
+      return [min, max];
+    };
+    const glowFilter = (
+      <filter id="miniGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    );
+    return (
+      <div
+        className="w-24 h-12 mb-2 cursor-pointer hover:opacity-80 transition active:scale-95"
+        onClick={() => onPeriodChange(period)} // 实际上迷你图点击应该展开，这里需要父组件处理
+        tabIndex={-1}
+        style={{
+          outline: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+        }}
+      >
+        {loading || miniData.length < 2 ? (
+          <div className="w-full h-full" />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={miniData}>
+              <defs>{glowFilter}</defs>
+              <YAxis domain={getYAxisDomain()} hide={true} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={lineColor}
+                strokeWidth={2}
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+                filter="url(#miniGlow)"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    );
+  }
+
+  // 扩展图渲染
   return (
     <div className="w-full relative">
       <div
@@ -416,15 +479,17 @@ export default function ExpandedChart({
         ))}
       </div>
 
-      <div className="flex justify-center mt-4">
-        <button
-          onClick={onClose}
-          className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-          aria-label="收起"
-        >
-          <ChevronUp size={20} />
-        </button>
-      </div>
+      {onClose && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            aria-label="收起"
+          >
+            <ChevronUp size={20} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

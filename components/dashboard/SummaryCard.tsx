@@ -1,15 +1,15 @@
 // components/dashboard/SummaryCard.tsx
+// components/dashboard/SummaryCard.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
 import { eventBus } from '@/src/utils/eventBus';
 import { recordSnapshot } from '@/src/services/historyService';
-import ExpandedChart from './ExpandedChart';
-import MiniChart from './MiniChart';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { usePathname } from 'next/navigation';
+import ChartView from './ChartView';
 
 type Period = '1W' | '1M' | '6M';
 
@@ -22,7 +22,7 @@ const assetCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 15 * 60 * 1000; // 15分钟
 
 export default function SummaryCard() {
-  const pathname = usePathname(); // 获取当前路径
+  const pathname = usePathname();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(true);
   const [convertedTotalAssets, setConvertedTotalAssets] = useState<number>(0);
@@ -63,7 +63,6 @@ export default function SummaryCard() {
       targetAssets.map(async (asset) => {
         const fromCurrency = asset.currency || 'USD';
         
-        // 临时调试：打印原始市场价值
         console.log(`[汇率调试] 资产: ${asset.symbol || asset.name}, 类型: ${asset.type}, 原始值: ${asset.marketValue} ${fromCurrency}`);
         
         const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
@@ -171,7 +170,7 @@ export default function SummaryCard() {
     return await convert(todayProfitCNY, 'CNY', currency);
   }, [todayProfitCNY, currency, convert]);
 
-  // 更新今日收益显示（仅在 netWorthCNY 或货币变化时）
+  // 更新今日收益显示
   useEffect(() => {
     let isActive = true;
     (async () => {
@@ -181,14 +180,13 @@ export default function SummaryCard() {
     return () => { isActive = false; };
   }, [todayProfitConverted]);
 
-  // 监听资产变化事件（直接使用传入的最新资产列表）
+  // 监听资产变化事件
   useEffect(() => {
     const handleAssetsUpdate = async (updatedAssets?: Asset[]) => {
       if (updatedAssets && Array.isArray(updatedAssets)) {
         console.log('[SummaryCard] 收到资产列表更新，长度:', updatedAssets.length);
         setAssets(updatedAssets);
         await refreshData(updatedAssets);
-        // 更新缓存
         const userId: string | null = getCurrentUserId();
         if (userId) {
           assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
@@ -212,7 +210,7 @@ export default function SummaryCard() {
     };
   }, [loadAssets, refreshData]);
 
-  // 货币切换时重新计算（依赖 assets 和 currency）
+  // 货币切换时重新计算
   useEffect(() => {
     if (assets.length > 0) {
       refreshData(assets);
@@ -224,14 +222,14 @@ export default function SummaryCard() {
     loadAssets();
   }, [loadAssets]);
 
-  // 记录快照（当资产变化时）
+  // 记录快照
   useEffect(() => {
     if (assets.length > 0) {
       recordSnapshot();
     }
   }, [assets]);
 
-  // 监听自定义事件（确保跨组件通信）
+  // 监听自定义事件
   useEffect(() => {
     const handleAssetsChanged = async (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -245,7 +243,6 @@ export default function SummaryCard() {
           assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
         }
       } else {
-        // 无数据时强制重新加载
         const userId: string | null = getCurrentUserId();
         if (userId) assetCache.delete(userId);
         await loadAssets();
@@ -382,14 +379,19 @@ export default function SummaryCard() {
           </p>
         </div>
 
+        {/* 迷你走势图 */}
         {!isExpanded && !isClosing && (
-          <div className="-ml-2 mt-2">
-            <MiniChart
+          <div
+            className="-ml-2 mt-2 cursor-pointer hover:opacity-80 transition active:scale-95"
+            onClick={() => setIsExpanded(true)}
+          >
+            <ChartView
+              mode="mini"
               period={selectedPeriod}
               totalValue={convertedNetWorth}
               currencySymbol={symbol}
-              profit={convertedProfit}
-              onClick={() => setIsExpanded(true)}
+              todayProfit={convertedProfit}
+              onPeriodChange={setSelectedPeriod}
             />
           </div>
         )}
@@ -418,6 +420,7 @@ export default function SummaryCard() {
         </div>
       </div>
 
+      {/* 扩展走势图 */}
       {(isExpanded || isClosing) && (
         <div
           className={`mt-6 pt-6 transition-all duration-300 ease-in-out transform ${
@@ -430,17 +433,18 @@ export default function SummaryCard() {
             }
           }}
         >
-          <ExpandedChart
+          <ChartView
+            mode="expanded"
+            period={selectedPeriod}
             totalValue={convertedNetWorth}
             currencySymbol={symbol}
             todayProfit={convertedProfit}
-            onClose={handleClose}
-            period={selectedPeriod}
             onPeriodChange={setSelectedPeriod}
             onHoverValueChange={handleHoverValue}
+            onClose={handleClose}
           />
         </div>
       )}
     </div>
   );
-} 
+}
