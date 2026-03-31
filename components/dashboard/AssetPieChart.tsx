@@ -9,7 +9,6 @@ import { useCurrency, useCurrencyConverter, CurrencyCode } from '@/src/services/
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { usePathname } from 'next/navigation';
 
-// 资产类型显示名称和颜色映射
 const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   stock: { name: '股票', color: '#1e67f7' },
   fund: { name: '基金', color: '#320bcd' },
@@ -18,9 +17,9 @@ const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
   car: { name: '车辆', color: '#06b6d4' },
   real_estate: { name: '不动产', color: '#f97316' },
   custom: { name: '现金', color: '#1db81f' },
-  receivable: { name: '应收款', color: 'rgb(13, 16, 226)'},
-  liability: { name: '负债', color: 'rgb(223, 11, 11)'},
-  custom_asset: { name: '自定义', color: 'rgb(114, 116, 127)'}
+  receivable: { name: '应收款', color: 'rgb(13, 16, 226)' },
+  liability: { name: '负债', color: 'rgb(223, 11, 11)' },
+  custom_asset: { name: '自定义', color: 'rgb(114, 116, 127)' }
 };
 
 const getColorForUnknownType = (type: string): string => {
@@ -33,32 +32,23 @@ const getColorForUnknownType = (type: string): string => {
   return fallbackColors[Math.abs(hash) % fallbackColors.length];
 };
 
-// 骨架屏组件
 const SkeletonLine = ({ className = "w-24 h-6" }: { className?: string }) => (
   <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${className}`} />
 );
 
-// ---------- 缓存机制 ----------
-// 按用户ID缓存资产数据，有效期15分钟
 type CacheEntry = {
   assets: Asset[];
   timestamp: number;
 };
 const assetCache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 15 * 60 * 1000; // 15分钟
+const CACHE_DURATION = 15 * 60 * 1000;
 
 export default function AssetPieChart() {
   const { theme } = useTheme();
   const { currency, symbol } = useCurrency();
   const { convert, loading: converting } = useCurrencyConverter();
 
-  const [pieData, setPieData] = useState<{
-    type: string;
-    name: string;
-    value: number;
-    percent: string;
-    color: string;
-  }[]>([]);
+  const [pieData, setPieData] = useState<{ type: string; name: string; value: number; percent: string; color: string }[]>([]);
   const [totalConverted, setTotalConverted] = useState<number>(0);
   const [isAmountHidden, setIsAmountHidden] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -67,14 +57,18 @@ export default function AssetPieChart() {
   const [outerRadius, setOuterRadius] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedRef = useRef(false);
 
-  // 不依赖 loadAssets/updatePieData 的副作用
+  // 稳定函数的 ref
+  const updatePieDataRef = useRef<(assets: Asset[]) => Promise<void>>(async () => {});
+  const loadAssetsRef = useRef<() => Promise<void>>(async () => {});
+
+  // 窗口大小适配
   useEffect(() => {
     const handleResize = () => {
       if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
       resizeTimerRef.current = setTimeout(() => {
-        const width = window.innerWidth;
-        const mobile = width < 768;
+        const mobile = window.innerWidth < 768;
         setIsMobile(mobile);
         setOuterRadius(mobile ? 75 : 100);
       }, 150);
@@ -96,13 +90,13 @@ export default function AssetPieChart() {
 
   // 更新饼图数据（转换货币、分组）
   const updatePieData = useCallback(async (assets: Asset[]) => {
-    console.log('[PieChart] updatePieData 被调用，当前货币:', currency, '资产数量:', assets.length);
+    console.log('[PieChart] updatePieData 被调用，货币:', currency, '资产数:', assets.length);
     if (assets.length === 0) {
       setPieData([]);
       setTotalConverted(0);
       return;
     }
-    const validAssets = assets.filter(asset => 
+    const validAssets = assets.filter(asset =>
       asset.marketValue != null && Number.isFinite(asset.marketValue) && asset.marketValue > 0
     );
     if (validAssets.length === 0) {
@@ -140,6 +134,10 @@ export default function AssetPieChart() {
     setPieData(newData);
   }, [currency, convert]);
 
+  useEffect(() => {
+    updatePieDataRef.current = updatePieData;
+  }, [updatePieData]);
+
   // 加载资产（带缓存）
   const loadAssets = useCallback(async () => {
     const userId = getCurrentUserId();
@@ -151,17 +149,15 @@ export default function AssetPieChart() {
       return;
     }
 
-    // 检查缓存是否有效
     const cached = assetCache.get(userId);
     if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log('[PieChart] 使用缓存的资产数据，userId:', userId);
+      console.log('[PieChart] 使用缓存，userId:', userId);
       setRawAssets(cached.assets);
-      await updatePieData(cached.assets);
+      await updatePieDataRef.current(cached.assets);
       setLoading(false);
       return;
     }
 
-    // 缓存无效，重新请求
     setLoading(true);
     try {
       const res = await fetch('/api/asset', {
@@ -177,14 +173,12 @@ export default function AssetPieChart() {
         costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
         changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
       }));
-      console.log('[PieChart] 原始资产加载完成，前3条:', normalizedData.slice(0,3));
-      // 存入缓存
       assetCache.set(userId, {
         assets: normalizedData,
         timestamp: Date.now(),
       });
       setRawAssets(normalizedData);
-      await updatePieData(normalizedData);
+      await updatePieDataRef.current(normalizedData);
     } catch (err) {
       console.error('加载资产失败', err);
       setPieData([]);
@@ -192,97 +186,95 @@ export default function AssetPieChart() {
     } finally {
       setLoading(false);
     }
-  }, [updatePieData]);
+  }, []);
 
-  // 货币切换时重新转换
+  useEffect(() => {
+    loadAssetsRef.current = loadAssets;
+  }, [loadAssets]);
+
+  // 货币切换时：有数据则重新转换，无数据且正在加载则加载
   useEffect(() => {
     if (rawAssets.length > 0) {
-      updatePieData(rawAssets);
-    } else {
-      loadAssets();
+      updatePieDataRef.current(rawAssets);
+    } else if (loading) {
+      // 只在 loading 为 true 时尝试加载，避免 userId 不存在时的无限循环
+      loadAssetsRef.current();
     }
-  }, [currency, rawAssets, updatePieData, loadAssets]);
+  }, [currency, rawAssets, loading]);
 
   // 监听 currencyChanged 事件
   useEffect(() => {
     const handleCurrencyChange = (newCurrency: CurrencyCode) => {
       if (rawAssets.length > 0) {
-        updatePieData(rawAssets);
-      } else {
-        loadAssets();
+        updatePieDataRef.current(rawAssets);
+      } else if (loading) {
+        loadAssetsRef.current();
       }
     };
     const unsubscribe = eventBus.subscribe('currencyChanged', handleCurrencyChange);
     return unsubscribe;
-  }, [currency, rawAssets, updatePieData, loadAssets]);
+  }, [currency, rawAssets, loading]);
 
-// 初始化加载 + 监听资产更新/用户切换
-useEffect(() => {
-  loadAssets();
+  // 初始化加载 + 资产更新/用户切换事件
+  useEffect(() => {
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      loadAssetsRef.current();
+    }
 
-  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', async (updatedAssets?: Asset[]) => {
-    if (updatedAssets && Array.isArray(updatedAssets)) {
-      console.log('[PieChart] 收到资产列表更新，直接更新');
-      // 直接使用新列表更新状态和图表
-      setRawAssets(updatedAssets);
-      await updatePieData(updatedAssets);
-      // 更新缓存
-      const userId = getCurrentUserId();
-      if (userId) {
-        assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', async (updatedAssets?: Asset[]) => {
+      if (updatedAssets && Array.isArray(updatedAssets)) {
+        setRawAssets(updatedAssets);
+        await updatePieDataRef.current(updatedAssets);
+        const userId = getCurrentUserId();
+        if (userId) assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+      } else {
+        const userId = getCurrentUserId();
+        if (userId) assetCache.delete(userId);
+        await loadAssetsRef.current();
       }
-    } else {
-      // 兼容旧事件：清除缓存并重新加载
+    });
+
+    const unsubscribeUser = eventBus.subscribe('userChanged', () => {
+      assetCache.clear();
+      loadAssetsRef.current();
+    });
+
+    return () => {
+      unsubscribeAssets();
+      unsubscribeUser();
+    };
+  }, []);
+
+  // 监听自定义 assets-changed 事件
+  useEffect(() => {
+    const handleAssetsChanged = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const updatedAssets = customEvent.detail;
+      if (updatedAssets && Array.isArray(updatedAssets)) {
+        setRawAssets(updatedAssets);
+        await updatePieDataRef.current(updatedAssets);
+        const userId = getCurrentUserId();
+        if (userId) assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+      } else {
+        const userId = getCurrentUserId();
+        if (userId) assetCache.delete(userId);
+        await loadAssetsRef.current();
+      }
+    };
+    window.addEventListener('assets-changed', handleAssetsChanged);
+    return () => window.removeEventListener('assets-changed', handleAssetsChanged);
+  }, []);
+
+  const pathname = usePathname();
+  useEffect(() => {
+    if (pathname === '/') {
+      console.log('[PieChart] 回到首页，强制刷新资产');
       const userId = getCurrentUserId();
       if (userId) assetCache.delete(userId);
-      await loadAssets();
+      loadAssetsRef.current();
     }
-  });
-
-  const unsubscribeUser = eventBus.subscribe('userChanged', () => {
-    assetCache.clear();
-    loadAssets();
-  });
-
-  return () => {
-    unsubscribeAssets();
-    unsubscribeUser();
-  };
-}, [loadAssets, updatePieData]);
-
-useEffect(() => {
-  const handleAssetsChanged = async (e: Event) => {
-    const customEvent = e as CustomEvent;
-    const updatedAssets = customEvent.detail;
-    if (updatedAssets && Array.isArray(updatedAssets)) {
-      console.log('[PieChart] 收到自定义事件资产列表，长度:', updatedAssets.length);
-      setRawAssets(updatedAssets);
-      await updatePieData(updatedAssets);
-      const userId = getCurrentUserId();
-      if (userId) {
-        assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
-      }
-    } else {
-      const userId = getCurrentUserId();
-      if (userId) assetCache.delete(userId);
-      await loadAssets();
-    }
-  };
-  window.addEventListener('assets-changed', handleAssetsChanged);
-  return () => window.removeEventListener('assets-changed', handleAssetsChanged);
-}, [updatePieData, loadAssets]);
-
-const pathname = usePathname();
-
-// 监听路由变化，回到首页时强制刷新资产
-useEffect(() => {
-  if (pathname === '/') {
-    console.log('[PieChart] 回到首页，强制刷新资产');
-    const userId = getCurrentUserId();
-    if (userId) assetCache.delete(userId);
-    loadAssets();
-  }
-}, [pathname]);
+  }, [pathname]);
 
   // 骨架屏加载状态
   if (loading) {
@@ -336,14 +328,14 @@ useEffect(() => {
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">资产类型分布</h3>
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          总市值: 
+          总市值:
           {converting && <span className="ml-1 text-blue-500 animate-pulse">汇率更新中...</span>}
           <span className="font-bold text-gray-900 dark:text-gray-100 ml-1">
             {isAmountHidden ? '****' : `${symbol}${totalConverted.toFixed(2)}`}
           </span>
         </div>
       </div>
-      
+
       <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
         <div className="w-full md:w-1/2 h-72 flex items-center justify-center">
           <ResponsiveContainer width="100%" height="100%">
