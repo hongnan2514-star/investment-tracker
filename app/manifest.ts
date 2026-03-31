@@ -12,12 +12,12 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#000000',      // 工具栏主题色 [citation:6]
     icons: [
       {
-        src: '/icon-192x192.png', // 需要你准备一个 192x192 的图标
+        src: '/icon-192x192.png?v=2', // 需要你准备一个 192x192 的图标
         sizes: '192x192',
         type: 'image/png',
       },
       {
-        src: '/icon-512x512.png', // 需要你准备一个 512x512 的图标
+        src: '/icon-512x512.png?v=2', // 需要你准备一个 512x512 的图标
         sizes: '512x512',
         type: 'image/png',
       },
