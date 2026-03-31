@@ -203,7 +203,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         </button>
 
         <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
-          <div className="flex justify-between items-start gap-4 max-w-full overflow-hidden">
+          <div className="flex justify-between items-start gap-4 max-w-full">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {(() => {
                 const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
@@ -246,7 +246,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
               </div>
             </div>
 
-            <div className="flex flex-col gap-0 ml-auto ml-10 min-w-[130px]">
+            <div className="flex flex-col gap-0 ml-auto ml-10">
               <div className="leading-4">
                 <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">当前市价</span>
                 <span className="text-xs font-bold text-gray-900 dark:text-gray-100">

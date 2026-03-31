@@ -1,6 +1,6 @@
 // components/dashboard/SummaryCard.tsx
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Eye, EyeClosed } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
 import { eventBus } from '@/src/utils/eventBus';
@@ -12,13 +12,12 @@ import ChartView from './ChartView';
 
 type Period = '1W' | '1M' | '6M';
 
-// ---------- 缓存机制 ----------
 type CacheEntry = {
   assets: Asset[];
   timestamp: number;
 };
 const assetCache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 15 * 60 * 1000; // 15分钟
+const CACHE_DURATION = 15 * 60 * 1000;
 
 export default function SummaryCard() {
   const pathname = usePathname();
@@ -39,48 +38,77 @@ export default function SummaryCard() {
 
   const [midnightSnapshotCNY, setMidnightSnapshotCNY] = useState<number | null>(null);
   const [netWorthCNY, setNetWorthCNY] = useState<number>(0);
+  const [isConverting, setIsConverting] = useState(false); // 本地转换状态
+
+  // 动态省略号动画
+  const [dots, setDots] = useState(1);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isConverting) {
+      intervalRef.current = setInterval(() => {
+        setDots(prev => (prev % 4) + 1);
+      }, 300);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setDots(0);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isConverting]);
+
+  const dotsText = '.'.repeat(dots);
 
   // 计算总资产、负债、净值（支持传入资产列表）
+  // 重要：依赖中移除了 assets，避免循环
   const refreshData = useCallback(async (assetsParam?: Asset[]) => {
-    const targetAssets = assetsParam !== undefined ? assetsParam : assets;
-    if (targetAssets.length === 0) {
-      setConvertedTotalAssets(0);
-      setConvertedTotalLiabilities(0);
-      setConvertedNetWorth(0);
-      setNetWorthCNY(0);
-      return;
+    setIsConverting(true);
+    try {
+      const targetAssets = assetsParam !== undefined ? assetsParam : assets;
+      if (targetAssets.length === 0) {
+        setConvertedTotalAssets(0);
+        setConvertedTotalLiabilities(0);
+        setConvertedNetWorth(0);
+        setNetWorthCNY(0);
+        return;
+      }
+
+      let assetsSum = 0;
+      let liabilitiesSum = 0;
+      let assetsSumCNY = 0;
+      let liabilitiesSumCNY = 0;
+
+      await Promise.all(
+        targetAssets.map(async (asset) => {
+          const fromCurrency = asset.currency || 'USD';
+          const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
+          if (asset.type === 'liability') {
+            liabilitiesSum += Math.abs(convertedValue);
+          } else {
+            assetsSum += convertedValue;
+          }
+
+          const convertedValueCNY = await convert(asset.marketValue, fromCurrency as any, 'CNY');
+          if (asset.type === 'liability') {
+            liabilitiesSumCNY += Math.abs(convertedValueCNY);
+          } else {
+            assetsSumCNY += convertedValueCNY;
+          }
+        })
+      );
+
+      setConvertedTotalAssets(assetsSum);
+      setConvertedTotalLiabilities(liabilitiesSum);
+      setConvertedNetWorth(assetsSum - liabilitiesSum);
+      setNetWorthCNY(assetsSumCNY - liabilitiesSumCNY);
+    } finally {
+      setIsConverting(false);
     }
-
-    let assetsSum = 0;
-    let liabilitiesSum = 0;
-    let assetsSumCNY = 0;
-    let liabilitiesSumCNY = 0;
-
-    await Promise.all(
-      targetAssets.map(async (asset) => {
-        const fromCurrency = asset.currency || 'USD';
-        
-        const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
-        if (asset.type === 'liability') {
-          liabilitiesSum += Math.abs(convertedValue);
-        } else {
-          assetsSum += convertedValue;
-        }
-
-        const convertedValueCNY = await convert(asset.marketValue, fromCurrency as any, 'CNY');
-        if (asset.type === 'liability') {
-          liabilitiesSumCNY += Math.abs(convertedValueCNY);
-        } else {
-          assetsSumCNY += convertedValueCNY;
-        }
-      })
-    );
-
-    setConvertedTotalAssets(assetsSum);
-    setConvertedTotalLiabilities(liabilitiesSum);
-    setConvertedNetWorth(assetsSum - liabilitiesSum);
-    setNetWorthCNY(assetsSumCNY - liabilitiesSumCNY);
-  }, [currency, convert]);
+  }, [currency, convert]); // 注意：不依赖 assets
 
   // 加载资产（带缓存）
   const loadAssets = useCallback(async () => {
@@ -287,6 +315,8 @@ export default function SummaryCard() {
     <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${className}`} />
   );
 
+  console.log('converting:', isConverting, 'dots:', dots);
+
   if (loadingAssets) {
     return (
       <div className="mb-6 px-2">
@@ -327,7 +357,6 @@ export default function SummaryCard() {
         <div className="flex flex-col flex-1">
           <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mb-1">
             <span className="text-xs font-semibold">净资产估值</span>
-            {converting && <span className="text-xs text-blue-500 animate-pulse">汇率更新中...</span>}
             <button
               onClick={toggleAmountHidden}
               className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors focus:outline-none focus:ring-0"
@@ -336,6 +365,7 @@ export default function SummaryCard() {
             >
               {isAmountHidden ? <EyeClosed size={14} /> : <Eye size={14} />}
             </button>
+            {isConverting && <span className="text-xs text-blue-500 animate-pulse">{dotsText}</span>}
           </div>
           <div className="flex items-baseline gap-1">
             <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-gray-100 inline-flex items-baseline gap-1">
@@ -361,7 +391,7 @@ export default function SummaryCard() {
                 )}
               </span>
             )}
-          </p >
+          </p>
         </div>
 
         {/* 迷你走势图 */}

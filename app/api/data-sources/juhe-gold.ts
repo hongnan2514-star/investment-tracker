@@ -1,4 +1,4 @@
-// /app/api/data-sources/juhe-gold.ts
+// app/api/data-sources/juhe-gold.ts
 import { DataSourceResult, UnifiedAsset } from "./types";
 
 const JUHE_GOLD_KEY = process.env.JUHE_GOLD_KEY;

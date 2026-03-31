@@ -11,7 +11,7 @@ interface CryptoChartProps {
   symbol: string;
   changePercent: number | null;
   purchaseDate?: string;
-  costPrice?: number; // 新增：成本价，用于持有以来走势的第一个点
+  costPrice?: number; // 成本价，用于持有以来走势的第一个点
 }
 
 export default function CryptoChart({ symbol, changePercent, purchaseDate, costPrice }: CryptoChartProps) {
@@ -60,11 +60,6 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate, costP
         if (isCurrent && json.success && json.data?.length > 0) {
           let newData = json.data.map((item: any) => ({ date: item.date, value: item.value }));
 
-          /** 分钟数据需反转（数据库返回降序）
-          if (!isSinceHolding) {
-            newData.reverse();
-          } **/
-
           // 如果是持有以来且有成本价，插入第一个点
           if (isSinceHolding && costPrice !== undefined && purchaseDate) {
             const firstDate = newData.length > 0 ? newData[0].date : null;
@@ -102,22 +97,6 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate, costP
     ? changePercent >= 0 ? '#22c55e' : '#ef4444'
     : '#6b7280';
 
-  if (loading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
-      </div>
-    );
-  }
-
-  if (data.length < 2) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-        暂无走势数据
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full">
       {/* 按钮组 */}
@@ -136,31 +115,42 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate, costP
           </button>
         ))}
       </div>
-      {/* 走势图 */}
+
+      {/* 图表区域 */}
       <div className="flex-1 w-full min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <defs>
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            <YAxis domain={['auto', 'auto']} hide={true} />
-            <Line
-              type="monotone"
-              dataKey="value"
-              stroke={strokeColor}
-              strokeWidth={2}
-              dot={false}
-              filter="url(#glow)"
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        {loading ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
+          </div>
+        ) : data.length < 2 ? (
+          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+            暂无走势数据
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data}>
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <YAxis domain={['auto', 'auto']} hide={true} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={strokeColor}
+                strokeWidth={2}
+                dot={false}
+                filter="url(#glow)"
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

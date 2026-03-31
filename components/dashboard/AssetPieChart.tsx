@@ -329,7 +329,6 @@ export default function AssetPieChart() {
         <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">资产类型分布</h3>
         <div className="text-sm text-gray-600 dark:text-gray-400">
           总市值:
-          {converting && <span className="ml-1 text-blue-500 animate-pulse">汇率更新中...</span>}
           <span className="font-bold text-gray-900 dark:text-gray-100 ml-1">
             {isAmountHidden ? '****' : `${symbol}${totalConverted.toFixed(2)}`}
           </span>

@@ -11,7 +11,6 @@ import {  // 图标
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { Asset } from '@/src/constants/types';
 import { getCurrentUserId, setCurrentUserId } from '@/src/utils/assetStorage';
-import { refreshAllAssets } from '@/src/services/marketService';
 import { eventBus } from '@/src/utils/eventBus';
 import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCache';
 import { useTheme } from '../ThemeProvider';
@@ -228,6 +227,35 @@ const carBrands: CarBrand[] = [
   const [loadingAssets, setLoadingAssets] = useState(true);
   const [convertedAssets, setConvertedAssets] = useState<Asset[]>([]);
 
+  const mountedRef = useRef(true);
+useEffect(() => {
+  mountedRef.current = true;
+  return () => { mountedRef.current = false; };
+}, []);
+
+
+  // 动态省略号动画
+const [isConverting, setIsConverting] = useState(false);
+const [dots, setDots] = useState(1);
+const intervalRef = useRef<NodeJS.Timeout | null>(null);
+const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+useEffect(() => {
+  if (isConverting) {
+    intervalRef.current = setInterval(() => {
+      setDots(prev => (prev % 4) + 1);
+    }, 300);
+  } else {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setDots(0);
+  }
+  return () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+}, [isConverting]);
+
+const dotsText = '.'.repeat(dots);
+
   // 加载资产
   const loadAssets = useCallback(async () => {
     const userId = getCurrentUserId();
@@ -306,14 +334,15 @@ useEffect(() => {
   const { currency } = useCurrency(); // 获取当前货币代码
   const { convert, loading: converting } = useCurrencyConverter(); // 转换函数和加载状态
   // 定义转换函数
-  const convertAll = useCallback(async () => {
-  setConvertingAssets(true); // 开始转换，显示骨架屏
+const convertAll = useCallback(async () => {
+  if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  setIsConverting(true);
+  setConvertingAssets(true);
   try {
     if (assets.length === 0) {
       setConvertedAssets([]);
       return;
     }
-
     console.log(`[货币转换] 开始转换，目标货币: ${currency}`);
     const converted = await Promise.all(
       assets.map(async (asset) => {
@@ -339,14 +368,18 @@ useEffect(() => {
   } catch (error) {
     console.error('货币转换整体失败:', error);
   } finally {
-    setConvertingAssets(false); // 无论成功或失败，结束转换
+    setConvertingAssets(false);
+    timeoutRef.current = setTimeout(() => {
+      if (mountedRef.current) setIsConverting(false);
+      timeoutRef.current = null;
+    }, 300);
   }
-}, [currency, convert, assets]); 
+}, [currency, convert, assets]);// 只在货币变化时执行
 
-// 货币切换时自动转换
+// 监听 currency 和 assets 变化，触发转换
 useEffect(() => {
   convertAll();
-}, [currency, convertAll]); // 只在货币变化时执行
+}, [currency, convertAll]);
 
 // ==================== 资产更新事件处理 ====================
 useEffect(() => {
@@ -2246,20 +2279,21 @@ if (selectedAssetType === 'custom_asset') {
   return (
   <>
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
-      <header className="flex justify-between items-center mb-6 px-2">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">资产管理</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的各类投资项目</p>
-        </div>
-        <button
-          onClick={() => setShowSortMenu(!showSortMenu)}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-        >
-          <ListFilterPlus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-        </button>
-      </header>
-
-      {converting && <div className="text-xs text-blue-500 text-center py-1">汇率更新中...</div>}
+<header className="flex justify-between items-center mb-6 px-2">
+  <div>
+    <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">资产管理</h1>
+    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的各类投资项目</p >
+  </div>
+  <div className="flex items-center gap-2">
+    {isConverting && <span className="text-xs text-blue-500 animate-pulse">{dotsText}</span>}
+    <button
+      onClick={() => setShowSortMenu(!showSortMenu)}
+      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+    >
+      <ListFilterPlus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+    </button>
+  </div>
+</header>
 
       {/* 排序菜单 */}
       {showSortMenu && (
@@ -2741,7 +2775,7 @@ filteredAndSortedAssets.map(asset => {
           setSelectedBrandId('');
           setSelectedBrandName('');
         }}
-        className="fixed bottom-24 right-6 w-16 h-16 bg-blue-600 rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-[45] active:scale-90 transition-transform"
+        className="fixed bottom-24 right-6 w-16 h-16 bg-[#ff8800] rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-[45] active:scale-90 transition-transform"
       >
         <Plus size={36} strokeWidth={3} />
       </button>

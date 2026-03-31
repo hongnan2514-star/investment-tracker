@@ -123,6 +123,87 @@ async function getStockDailyHistoryFromDB(
   }
 }
 
+// 从数据库获取贵金属的日线历史价格（返回 Map<日期字符串, 价格>）
+async function getMetalDailyHistoryFromDB(
+  symbol: string,
+  startDate: string,
+  endDate: string,
+  fromCurrency: CurrencyCode,
+  toCurrency: CurrencyCode
+): Promise<Map<string, number>> {
+  try {
+    const rows = await sql`
+      SELECT date, price
+      FROM metal_price_history
+      WHERE symbol = ${symbol}
+        AND date >= ${startDate}
+        AND date <= ${endDate}
+      ORDER BY date ASC
+    `;
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      let price = parseFloat(row.price);
+      try {
+        price = await convertAmount(price, fromCurrency, toCurrency);
+      } catch (err) {}
+      let dateKey: string;
+      if (typeof row.date === 'string') {
+        dateKey = row.date.split('T')[0];
+      } else if (row.date instanceof Date) {
+        dateKey = row.date.toISOString().split('T')[0];
+      } else {
+        dateKey = String(row.date);
+      }
+      map.set(dateKey, price);
+    }
+    console.log(`[贵金属] ${symbol} 数据库返回 ${rows.length} 条，日期范围: ${map.keys().next().value} 至 ${Array.from(map.keys()).pop()}`);
+    return map;
+  } catch (error) {
+    console.error(`从数据库获取贵金属日线数据失败 ${symbol}:`, error);
+    return new Map();
+  }
+}
+
+async function getFundDailyHistoryFromDB(
+  code: string,
+  startDate: string,
+  endDate: string,
+  fromCurrency: CurrencyCode,
+  toCurrency: CurrencyCode
+): Promise<Map<string, number>> {
+  try {
+    const rows = await sql`
+      SELECT date, nav
+      FROM fund_nav_history
+      WHERE code = ${code}
+        AND date >= ${startDate}
+        AND date <= ${endDate}
+      ORDER BY date ASC
+    `;
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      let price = parseFloat(row.nav);
+      try {
+        price = await convertAmount(price, fromCurrency, toCurrency);
+      } catch (err) {}
+      let dateKey: string;
+      if (typeof row.date === 'string') {
+        dateKey = row.date.split('T')[0];
+      } else if (row.date instanceof Date) {
+        dateKey = row.date.toISOString().split('T')[0];
+      } else {
+        dateKey = String(row.date);
+      }
+      map.set(dateKey, price);
+    }
+    console.log(`[基金] ${code} 数据库返回 ${rows.length} 条，日期范围: ${map.keys().next().value} 至 ${Array.from(map.keys()).pop()}`);
+    return map;
+  } catch (error) {
+    console.error(`从数据库获取基金日线数据失败 ${code}:`, error);
+    return new Map();
+  }
+}
+
 // 从数据库获取加密货币的日线历史价格（返回 Map<日期字符串, 价格>）
 async function getCryptoDailyHistoryFromDB(
   symbol: string,
@@ -398,7 +479,51 @@ const assetData = await Promise.all(assets.map(async (asset: any) => {
       fromCurrency, toCurrency, baseUrl
     );
     dailyMap = daily;
-  } else if (type === 'liability') {
+  } else if (type === 'metal') {
+  // 贵金属：没有小时数据，使用日线数据填充每天的所有小时
+  const startStr = startTime.toISOString().split('T')[0];
+  const endStr = endTime.toISOString().split('T')[0];
+  const historyMap = await getMetalDailyHistoryFromDB(
+    asset.symbol, startStr, endStr, fromCurrency, toCurrency
+  );
+  // 填充 dailyMap
+  let lastPrice: number | null = null;
+  let curDate = new Date(startTime);
+  while (curDate <= endTime) {
+    const dateStr = curDate.toISOString().split('T')[0];
+    const price = historyMap.get(dateStr);
+    if (price !== undefined) {
+      lastPrice = price;
+      dailyMap.set(dateStr, price);
+    } else if (lastPrice !== null) {
+      dailyMap.set(dateStr, lastPrice);
+    }
+    curDate.setDate(curDate.getDate() + 1);
+  }
+  // 注意：贵金属没有小时数据，hourlyMap 保持为空，后续净值计算会使用 dailyMap
+  } else if (type === 'fund') {
+  // 基金：没有小时数据，使用日线数据填充每天的所有小时
+  const startStr = startTime.toISOString().split('T')[0];
+  const endStr = endTime.toISOString().split('T')[0];
+  const historyMap = await getFundDailyHistoryFromDB(
+    asset.symbol, startStr, endStr, fromCurrency, toCurrency
+  );
+  // 填充 dailyMap
+  let lastPrice: number | null = null;
+  let curDate = new Date(startTime);
+  while (curDate <= endTime) {
+    const dateStr = curDate.toISOString().split('T')[0];
+    const price = historyMap.get(dateStr);
+    if (price !== undefined) {
+      lastPrice = price;
+      dailyMap.set(dateStr, price);
+    } else if (lastPrice !== null) {
+      dailyMap.set(dateStr, lastPrice);
+    }
+    curDate.setDate(curDate.getDate() + 1);
+  }
+  // 注意：基金没有小时数据，hourlyMap 保持为空
+}else if (type === 'liability') {
     // 负债资产：价格应为正数，净值中减去其价值
     currentPrice = Math.abs(currentPrice);
     const startDate = new Date(startTime);
@@ -586,7 +711,73 @@ const assetData = await Promise.all(assets.map(async (asset: any) => {
             curDate.setDate(curDate.getDate() + 1);
           }
         }
-      } else if (type === 'liability') {
+      } else if (type === 'metal') {
+  // 贵金属：从数据库获取日线数据
+  const startStr = startDateObj.toISOString().split('T')[0];
+  const endStr = endDateObj.toISOString().split('T')[0];
+  const historyMap = await getMetalDailyHistoryFromDB(
+    asset.symbol, startStr, endStr, fromCurrency, toCurrency
+  );
+  // 填充 dailyMap，缺失时用最近价格
+  let lastPrice: number | null = null;
+  let curDate = new Date(startDateObj);
+  let filledCount = 0;
+  while (curDate <= endDateObj) {
+    const dateStr = curDate.toISOString().split('T')[0];
+    const price = historyMap.get(dateStr);
+    if (price !== undefined) {
+      lastPrice = price;
+      dailyMap.set(dateStr, price);
+      filledCount++;
+    } else if (lastPrice !== null) {
+      dailyMap.set(dateStr, lastPrice);
+    }
+    curDate.setDate(curDate.getDate() + 1);
+  }
+  console.log(`[${period}] 贵金属 ${asset.symbol} 最终 dailyMap 大小: ${dailyMap.size}, 直接匹配数: ${filledCount}`);
+  if (dailyMap.size === 0) {
+    console.warn(`[${period}] 贵金属 ${asset.symbol} 无历史数据，使用当前价格填充`);
+    let curDate = new Date(startDateObj);
+    while (curDate <= endDateObj) {
+      const dateStr = curDate.toISOString().split('T')[0];
+      dailyMap.set(dateStr, currentPrice);
+      curDate.setDate(curDate.getDate() + 1);
+    }
+  }
+} else if (type === 'fund') {
+  // 基金：从数据库获取日线数据
+  const startStr = startDateObj.toISOString().split('T')[0];
+  const endStr = endDateObj.toISOString().split('T')[0];
+  const historyMap = await getFundDailyHistoryFromDB(
+    asset.symbol, startStr, endStr, fromCurrency, toCurrency
+  );
+  // 填充 dailyMap，缺失时用最近价格
+  let lastPrice: number | null = null;
+  let curDate = new Date(startDateObj);
+  let filledCount = 0;
+  while (curDate <= endDateObj) {
+    const dateStr = curDate.toISOString().split('T')[0];
+    const price = historyMap.get(dateStr);
+    if (price !== undefined) {
+      lastPrice = price;
+      dailyMap.set(dateStr, price);
+      filledCount++;
+    } else if (lastPrice !== null) {
+      dailyMap.set(dateStr, lastPrice);
+    }
+    curDate.setDate(curDate.getDate() + 1);
+  }
+  console.log(`[${period}] 基金 ${asset.symbol} 最终 dailyMap 大小: ${dailyMap.size}, 直接匹配数: ${filledCount}`);
+  if (dailyMap.size === 0) {
+    console.warn(`[${period}] 基金 ${asset.symbol} 无历史数据，使用当前价格填充`);
+    let curDate = new Date(startDateObj);
+    while (curDate <= endDateObj) {
+      const dateStr = curDate.toISOString().split('T')[0];
+      dailyMap.set(dateStr, currentPrice);
+      curDate.setDate(curDate.getDate() + 1);
+    }
+  }
+}else if (type === 'liability') {
         // 负债：价格取绝对值，用当前价格填充所有日期
         const absPrice = Math.abs(currentPrice);
         let curDate = new Date(startDateObj);
