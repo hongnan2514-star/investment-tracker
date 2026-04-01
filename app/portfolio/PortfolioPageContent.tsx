@@ -873,33 +873,50 @@ const handleAddCarAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-  setAssets(prev => {
-    const newAssets = [...prev, newAsset];
-    if (userId) assetCache.delete(userId);
-    // 原有事件总线
-    eventBus.emit('assetsUpdated', newAssets);
-    // 新增自定义事件，确保首页组件能收到
-    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
-    return newAssets;
-  });
-      // 重置表单和菜单状态...
+      setAssets(prev => {
+        const newAssets = [...prev, newAsset];
+        if (userId) assetCache.delete(userId);
+        eventBus.emit('assetsUpdated', newAssets);
+        window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+        return newAssets;
+      });
+      // 重置表单和菜单
+      setSelectedBrandId('');
+      setSelectedBrandName('');
+      setHoldings("");
+      setPurchaseDate("");
+      setCostPrice("");
+      setView('categories');
+      setSelectedMainCategory(null);
+      setSelectedAssetType(null);
+      setShowMenu(false);
+
+      // 保存加仓记录
+      const buyDateToUse = purchaseDate || new Date().toISOString().slice(0, 10);
+      const buyPrice = price;
+      const buyQuantity = holdingsNum;
+      try {
+        await fetch('/api/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetSymbol: newAsset.symbol,
+            transactionType: 'buy',
+            quantity: buyQuantity,
+            price: buyPrice,
+            transactionDate: buyDateToUse,
+            currency: newAsset.currency,
+          }),
+        });
+      } catch (err) {
+        console.error('保存汽车初始加仓记录失败', err);
+      }
     } else {
       console.error('添加失败');
     }
   } catch (err) {
     console.error('添加汽车资产失败', err);
   }
-
-  // 重置状态并关闭菜单
-  setSelectedBrandId('');
-  setSelectedBrandName('');
-  setHoldings("");
-  setPurchaseDate("");
-  setCostPrice("");
-  setView('categories');
-  setSelectedMainCategory(null);
-  setSelectedAssetType(null);
-  setShowMenu(false);
 };
 
 // 添加不动产
@@ -942,15 +959,13 @@ const handleAddRealEstateAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-  setAssets(prev => {
-    const newAssets = [...prev, newAsset];
-    if (userId) assetCache.delete(userId);
-    // 原有事件总线
-    eventBus.emit('assetsUpdated', newAssets);
-    // 新增自定义事件，确保首页组件能收到
-    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
-    return newAssets;
-  });
+      setAssets(prev => {
+        const newAssets = [...prev, newAsset];
+        if (userId) assetCache.delete(userId);
+        eventBus.emit('assetsUpdated', newAssets);
+        window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+        return newAssets;
+      });
       // 重置表单
       setRealEstateName('');
       setRealEstateIncludeInChart(true);
@@ -962,6 +977,27 @@ const handleAddRealEstateAsset = async () => {
       setSelectedMainCategory(null);
       setSelectedAssetType(null);
       setShowMenu(false);
+
+      // 保存加仓记录
+      const buyDateToUse = purchaseDate || new Date().toISOString().slice(0, 10);
+      const buyPrice = pricePerUnit;
+      const buyQuantity = quantity;
+      try {
+        await fetch('/api/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetSymbol: newAsset.symbol,
+            transactionType: 'buy',
+            quantity: buyQuantity,
+            price: buyPrice,
+            transactionDate: buyDateToUse,
+            currency: newAsset.currency,
+          }),
+        });
+      } catch (err) {
+        console.error('保存不动产初始加仓记录失败', err);
+      }
     } else {
       console.error('添加失败');
     }
@@ -1009,15 +1045,13 @@ const handleAddCashAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-  setAssets(prev => {
-    const newAssets = [...prev, newAsset];
-    if (userId) assetCache.delete(userId);
-    // 原有事件总线
-    eventBus.emit('assetsUpdated', newAssets);
-    // 新增自定义事件，确保首页组件能收到
-    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
-    return newAssets;
-  });
+      setAssets(prev => {
+        const newAssets = [...prev, newAsset];
+        if (userId) assetCache.delete(userId);
+        eventBus.emit('assetsUpdated', newAssets);
+        window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+        return newAssets;
+      });
       // 重置状态
       setCashName('');
       setSelectedIcon('');
@@ -1028,6 +1062,27 @@ const handleAddCashAsset = async () => {
       setSelectedMainCategory(null);
       setSelectedAssetType(null);
       setShowMenu(false);
+
+      // 保存加仓记录
+      const buyDateToUse = purchaseDate || new Date().toISOString().slice(0, 10);
+      const buyPrice = amount;
+      const buyQuantity = 1;
+      try {
+        await fetch('/api/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetSymbol: newAsset.symbol,
+            transactionType: 'buy',
+            quantity: buyQuantity,
+            price: buyPrice,
+            transactionDate: buyDateToUse,
+            currency: newAsset.currency,
+          }),
+        });
+      } catch (err) {
+        console.error('保存现金初始加仓记录失败', err);
+      }
     } else {
       console.error('添加失败');
     }
@@ -1083,15 +1138,13 @@ const handleAddCustomAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-  setAssets(prev => {
-    const newAssets = [...prev, newAsset];
-    if (userId) assetCache.delete(userId);
-    // 原有事件总线
-    eventBus.emit('assetsUpdated', newAssets);
-    // 新增自定义事件，确保首页组件能收到
-    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
-    return newAssets;
-  });
+      setAssets(prev => {
+        const newAssets = [...prev, newAsset];
+        if (userId) assetCache.delete(userId);
+        eventBus.emit('assetsUpdated', newAssets);
+        window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+        return newAssets;
+      });
       // 重置状态
       setCustomAssetType('');
       setCustomAssetName('');
@@ -1103,6 +1156,27 @@ const handleAddCustomAsset = async () => {
       setSelectedMainCategory(null);
       setSelectedAssetType(null);
       setShowMenu(false);
+
+      // 保存加仓记录
+      const buyDateToUse = customAssetOrderDate || new Date().toISOString().slice(0, 10);
+      const buyPrice = amount;
+      const buyQuantity = 1;
+      try {
+        await fetch('/api/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assetSymbol: newAsset.symbol,
+            transactionType: 'buy',
+            quantity: buyQuantity,
+            price: buyPrice,
+            transactionDate: buyDateToUse,
+            currency: newAsset.currency,
+          }),
+        });
+      } catch (err) {
+        console.error('保存自定义资产初始加仓记录失败', err);
+      }
     } else {
       console.error('添加失败');
     }
@@ -1153,15 +1227,13 @@ const handleAddAsset = async () => {
       body: JSON.stringify(newAsset),
     });
     if (res.ok) {
-  setAssets(prev => {
-    const newAssets = [...prev, newAsset];
-    if (userId) assetCache.delete(userId);
-    // 原有事件总线
-    eventBus.emit('assetsUpdated', newAssets);
-    // 新增自定义事件，确保首页组件能收到
-    window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
-    return newAssets;
-  });
+      setAssets(prev => {
+        const newAssets = [...prev, newAsset];
+        if (userId) assetCache.delete(userId);
+        eventBus.emit('assetsUpdated', newAssets);
+        window.dispatchEvent(new CustomEvent('assets-changed', { detail: newAssets }));
+        return newAssets;
+      });
       // 重置表单
       setFoundAsset(null);
       setSearchQuery('');
@@ -1172,6 +1244,27 @@ const handleAddAsset = async () => {
       setSelectedMainCategory(null);
       setSelectedAssetType(null);
       setShowMenu(false);
+
+      // 保存加仓记录（初始买入）
+      const buyDateToUse = purchaseDate || new Date().toISOString().slice(0, 10);
+      const buyPrice = costPrice ? parseFloat(costPrice) : (foundAsset.price ?? 0);
+      const buyQuantity = holdingsNum;
+      try {
+        await fetch('/api/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId, },
+          body: JSON.stringify({
+            assetSymbol: newAsset.symbol,
+            transactionType: 'buy',
+            quantity: buyQuantity,
+            price: buyPrice,
+            transactionDate: buyDateToUse,
+            currency: newAsset.currency,
+          }),
+        });
+      } catch (err) {
+        console.error('保存初始加仓记录失败', err);
+      }
     } else {
       alert('添加失败');
     }

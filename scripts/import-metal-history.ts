@@ -13,10 +13,8 @@ const execPromise = promisify(exec);
 
 // 需要导入的贵金属品种列表
 const METAL_SYMBOLS = [
-  'Au(T+N2)',
-  'Ag99.99',
-  'Ag(T+D)',
-  'Pt99.95',
+  'Au100g',
+  'Au(T+D)',
 ];
 
 interface MetalRecord {

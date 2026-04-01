@@ -4,11 +4,12 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
-import { getAssetBySymbol, addAsset } from '@/src/utils/assetStorage';
+import { getAssetBySymbol, addAsset, getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { CryptoChart, StockChart, FundChart, MetalChart, } from './charts';
+import TransactionHistory from 'components/TransactionHistory'
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -32,6 +33,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [sellDate, setSellDate] = useState('');
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { currency } = useCurrency();
   const { convert } = useCurrencyConverter();
@@ -86,10 +88,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     convertAsset();
   }, [asset, currency, convert]);
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     if (!asset) return;
     const qty = parseFloat(buyQuantity);
     const price = parseFloat(buyPrice);
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setMessage({ type: 'error', text: '请先登录' });
+      return;
+    }
     if (isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) {
       setMessage({ type: 'error', text: '请输入有效的数量和价格' });
       return;
@@ -115,12 +122,34 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     setBuyQuantity('');
     setBuyPrice('');
     setBuyDate('');
+    try {
+    await fetch('/api/transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({
+        assetSymbol: asset.symbol,
+        transactionType: 'buy',
+        quantity: qty,
+        price: price,
+        transactionDate: buyDate,
+        currency: asset.currency,
+      }),
+    });
+    setRefreshKey(prev => prev + 1); // 刷新交易记录组件
+  } catch (err) {
+    console.error('保存加仓记录失败', err);
+  };
   };
 
-  const handleSell = () => {
+  const handleSell = async () => {
     if (!asset) return;
     const qty = parseFloat(sellQuantity);
     const price = parseFloat(sellPrice);
+    const userId = getCurrentUserId();
+    if (!userId) {
+    setMessage({ type: 'error', text: '请先登录' });
+    return;
+    }
     if (isNaN(qty) || qty <= 0 || qty > asset.holdings || isNaN(price) || price < 0) {
       setMessage({ type: 'error', text: '卖出数量无效或超过持仓' });
       return;
@@ -141,18 +170,24 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     setSellQuantity('');
     setSellPrice('');
     setSellDate('');
+     try {
+    await fetch('/api/transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId, },
+      body: JSON.stringify({
+        assetSymbol: asset.symbol,
+        transactionType: 'sell',
+        quantity: qty,
+        price: price,
+        transactionDate: sellDate,
+        currency: asset.currency,
+      }),
+    });
+    setRefreshKey(prev => prev + 1); // 刷新交易记录组件
+  } catch (err) {
+    console.error('保存卖出记录失败', err);
+  }
   };
-
-  const mockBuyRecords = [
-    { date: '2024-02-20', quantity: 100, price: 310.5 },
-    { date: '2024-02-15', quantity: 50, price: 305.2 },
-    { date: '2024-02-10', quantity: 200, price: 298.0 },
-  ];
-  const mockSellRecords = [
-    { date: '2024-02-18', quantity: 30, price: 320.0 },
-    { date: '2024-02-12', quantity: 80, price: 315.5 },
-  ];
-  const transactionHistory = activeTab === 'buy' ? mockBuyRecords : mockSellRecords;
 
   const formatLargeNumber = (num: number): string => {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -435,25 +470,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             </div>
 
             <div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2">
-              <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">
-                {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}
-              </h4>
-              {transactionHistory.length === 0 ? (
-                <p className="text-[9px] text-gray-400 dark:text-gray-500 text-center py-1">暂无记录</p>
-              ) : (
-                <div className="space-y-1 max-h-24 overflow-y-auto">
-                  {transactionHistory.map((record, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-[9px] bg-gray-50 dark:bg-[#1a1a1a] p-1 rounded">
-                      <span className="text-gray-600 dark:text-gray-400">{record.date.slice(5)}</span>
-                      <span className="font-bold text-gray-900 dark:text-gray-100">{record.quantity}</span>
-                      <span className="font-bold text-gray-900 dark:text-gray-100">
-                        {currencySymbol}{record.price.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+  <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">
+    {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}
+  </h4>
+  <TransactionHistory
+    assetSymbol={asset.symbol}
+    type={activeTab}
+    refreshTrigger={refreshKey}
+  />
+</div>
           </div>
         </div>
 
