@@ -1,7 +1,7 @@
 // components/TransactionHistory.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
@@ -24,28 +24,44 @@ interface TransactionHistoryProps {
   refreshTrigger?: any;
 }
 
+// 格式化大数字
+const formatLargeNumber = (num: number): string => {
+  if (num >= 1_000_000_000_000) return (num / 1_000_000_000_000).toFixed(2) + 'T';
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
+  if (num >= 1_000) return (num / 1_000).toFixed(2) + 'K';
+  return num.toFixed(2);
+};
+
 export default function TransactionHistory({ assetSymbol, type, refreshTrigger }: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const { currency, symbol: currencySymbol } = useCurrency();
   const { convert, loading: converting } = useCurrencyConverter();
+  const requestIdRef = useRef(0);
 
   const fetchTransactions = async () => {
+    const currentRequestId = ++requestIdRef.current;
+    setLoading(true);
     try {
       const userId = getCurrentUserId();
       if (!userId) return;
-      const res = await fetch(`/api/transaction?assetSymbol=${encodeURIComponent(assetSymbol)}&type=${type}`, {
-        headers: {
-          'x-user-id': userId,
-        },
+      const url = `/api/transaction?assetSymbol=${encodeURIComponent(assetSymbol)}&type=${type}`;
+      const res = await fetch(url, {
+        headers: { 'x-user-id': userId },
       });
       if (!res.ok) throw new Error('获取记录失败');
       const data = await res.json();
-      setTransactions(data);
+      // 仅当这是最新的请求时才设置状态
+      if (currentRequestId === requestIdRef.current) {
+        setTransactions(data);
+      }
     } catch (err) {
       console.error('加载交易记录失败:', err);
     } finally {
-      setLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -60,12 +76,10 @@ export default function TransactionHistory({ assetSymbol, type, refreshTrigger }
     try {
       const res = await fetch(`/api/transaction?id=${id}`, {
         method: 'DELETE',
-        headers: {
-          'x-user-id': userId,
-        },
+        headers: { 'x-user-id': userId },
       });
       if (res.ok) {
-        fetchTransactions();
+        fetchTransactions(); // 删除成功后刷新
       } else {
         alert('删除失败');
       }
@@ -115,17 +129,20 @@ export default function TransactionHistory({ assetSymbol, type, refreshTrigger }
         const amount = t.quantity * t.price;
         const displayAmount = convertedAmounts[t.id] ?? amount;
         return (
-<div key={t.id} className="grid grid-cols-3 items-center text-[9px] bg-gray-50 dark:bg-[#1a1a1a] p-1 rounded group">
-  <span className="text-gray-600 dark:text-gray-400 text-left">
-    {t.transaction_date.slice(5, 10)}
-  </span>
-  <span className="font-bold text-gray-900 dark:text-gray-100 text-center">
-    {Number(t.quantity).toFixed(4).replace(/\.?0+$/, '')}
-  </span>
-  <span className="font-bold text-gray-900 dark:text-gray-100 text-right">
-    {currencySymbol}{displayAmount.toFixed(2)}
-  </span>
-</div>
+          <div
+            key={t.id}
+            className="grid grid-cols-3 items-center text-[9px] bg-gray-50 dark:bg-[#1a1a1a] p-1 rounded group"
+          >
+            <span className="text-gray-600 dark:text-gray-400 text-left">
+              {t.transaction_date.slice(5, 10)}
+            </span>
+            <span className="font-bold text-gray-900 dark:text-gray-100 text-center">
+              {Number(t.quantity).toFixed(4).replace(/\.?0+$/, '')}
+            </span>
+            <span className="font-bold text-gray-900 dark:text-gray-100 text-right">
+              {currencySymbol}{formatLargeNumber(displayAmount)}
+            </span>
+          </div>
         );
       })}
     </div>

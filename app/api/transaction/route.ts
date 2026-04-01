@@ -35,16 +35,16 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const userId = request.headers.get('x-user-id');
-  if (!userId) {
-    return NextResponse.json({ error: '未登录' }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
   const assetSymbol = request.nextUrl.searchParams.get('assetSymbol');
-  if (!assetSymbol) {
-    return NextResponse.json({ error: '缺少资产代码' }, { status: 400 });
-  }
+  if (!assetSymbol) return NextResponse.json({ error: '缺少资产代码' }, { status: 400 });
 
   const type = request.nextUrl.searchParams.get('type');
+
+  // 添加日志
+  console.log(`[API] 查询交易记录: userId=${userId}, assetSymbol="${assetSymbol}", type=${type}`);
+
   let query;
   if (type === 'buy' || type === 'sell') {
     query = sql`
@@ -60,5 +60,6 @@ export async function GET(request: NextRequest) {
     `;
   }
   const result = await query;
+  console.log(`[API] 找到 ${result.length} 条记录`);
   return NextResponse.json(result);
 }
