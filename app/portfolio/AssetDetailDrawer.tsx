@@ -490,7 +490,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
     >
       {isBuySubmitting ? '加仓成功' : '确认加仓'}
     </button>
-  </div>
+  </div> 
 )}
 
 
