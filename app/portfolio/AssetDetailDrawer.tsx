@@ -30,8 +30,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [sellQuantity, setSellQuantity] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [sellDate, setSellDate] = useState('');
-  const [isBuyDateFocused, setIsBuyDateFocused] = useState(false);
-  const [isSellDateFocused, setIsSellDateFocused] = useState(false);
 
   // 按钮提交状态（用于显示临时成功文字并禁用按钮）
   const [isBuySubmitting, setIsBuySubmitting] = useState(false);
@@ -432,17 +430,17 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
-<div>
+<div className="relative">
   <input
-    type={isBuyDateFocused || buyDate ? 'date' : 'text'}
+    type="date"
     value={buyDate}
     onChange={(e) => setBuyDate(e.target.value)}
-    onFocus={() => setIsBuyDateFocused(true)}
-    onBlur={() => setIsBuyDateFocused(false)}
-    placeholder="日期"
-    className="w-full min-w-0 p-2 text-[10px] rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-    style={{ minWidth: 0 }}
+    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
   />
+  {!buyDate && (
+    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+      日期</span>
+  )}
 </div>
                   <button
                     onClick={handleBuy}
@@ -479,17 +477,18 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-[px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
-<div>
+<div className="relative">
   <input
-    type={isSellDateFocused || sellDate ? 'date' : 'text'}
+    type="date"
     value={sellDate}
     onChange={(e) => setSellDate(e.target.value)}
-    onFocus={() => setIsSellDateFocused(true)}
-    onBlur={() => setIsSellDateFocused(false)}
-    placeholder="日期"
-    className="w-full min-w-0 p-2 text-[10px] rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-    style={{ minWidth: 0 }}
+    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
   />
+  {!sellDate && (
+    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+      日期
+    </span>
+  )}
 </div>
                   <button
                     onClick={handleSell}
