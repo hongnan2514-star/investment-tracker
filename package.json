@@ -34,6 +34,7 @@
     "protobufjs": "^8.0.0",
     "react": "18.2.0",
     "react-avatar-editor": "^14.0.0",
+    "react-datepicker": "^9.1.0",
     "react-dom": "18.2.0",
     "react-image-crop": "^11.0.10",
     "recharts": "^3.7.0",

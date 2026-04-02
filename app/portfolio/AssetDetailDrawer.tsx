@@ -11,6 +11,8 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { CryptoChart, StockChart, FundChart, MetalChart } from './charts';
 import TransactionHistory from 'components/TransactionHistory';
 import AssetStats from '@/components/AssetStats';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -26,10 +28,10 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 
   const [buyQuantity, setBuyQuantity] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
-  const [buyDate, setBuyDate] = useState('');
+  const [buyDate, setBuyDate] = useState<Date | null>(null);
   const [sellQuantity, setSellQuantity] = useState('');
   const [sellPrice, setSellPrice] = useState('');
-  const [sellDate, setSellDate] = useState('');
+  const [sellDate, setSellDate] = useState<Date | null>(null);
 
   // 按钮提交状态（用于显示临时成功文字并禁用按钮）
   const [isBuySubmitting, setIsBuySubmitting] = useState(false);
@@ -162,7 +164,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
       // 清空表单
       setBuyQuantity('');
       setBuyPrice('');
-      setBuyDate('');
+      setBuyDate(null);
 
       // 保存交易记录
       await fetch('/api/transaction', {
@@ -173,7 +175,9 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
           transactionType: 'buy',
           quantity: qty,
           price: price,
-          transactionDate: buyDate,
+          transactionDate: buyDate
+  ? buyDate.toISOString().split("T")[0]
+  : "",
           currency: asset.currency,
         }),
       });
@@ -220,7 +224,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 
       setSellQuantity('');
       setSellPrice('');
-      setSellDate('');
+      setSellDate(null);
 
       await fetch('/api/transaction', {
         method: 'POST',
@@ -416,7 +420,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   value={buyQuantity}
   onChange={(e) => setBuyQuantity(e.target.value)}
   placeholder="数量"
-  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
 </div>
 
@@ -428,22 +432,18 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   value={buyPrice}
   onChange={(e) => setBuyPrice(e.target.value)}
   placeholder="价格"
-  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
     </div>
-    <div className="relative">
-<input
-  type="date"
-  value={buyDate}
-  onChange={(e) => setBuyDate(e.target.value)}
-  className="w-full h-8 px-2 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-[10px] font-bold rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border appearance-none"
-/>
-      {!buyDate && (
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[12px] text-gray-400 pointer-events-none">
-          日期
-        </span>
-      )}
-    </div>
+<div className="relative">
+  <DatePicker
+    selected={buyDate}
+    onChange={(date: Date | null) => setBuyDate(date)}
+    dateFormat="yyyy-MM-dd"
+    placeholderText="日期"
+    className="w-full h-8 px-2 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  />
+</div>
     <button
       onClick={handleBuy}
       disabled={!buyQuantity || !buyPrice || isBuySubmitting}
@@ -462,8 +462,8 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   type="number"
   step="0.01"
   min="0.01"
-  value={buyQuantity}
-  onChange={(e) => setBuyQuantity(e.target.value)}
+  value={sellQuantity}
+  onChange={(e) => setSellQuantity(e.target.value)}
   placeholder="数量"
   className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
@@ -474,25 +474,21 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   type="number"
   step="0.01"
   min="0"
-  value={buyPrice}
-  onChange={(e) => setBuyPrice(e.target.value)}
+  value={sellPrice}
+  onChange={(e) => setSellPrice(e.target.value)}
   placeholder="价格"
   className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
     </div>
-    <div className="relative">
-      <input
-  type="date"
-  value={buyDate}
-  onChange={(e) => setBuyDate(e.target.value)}
-  className="w-full h-8 px-2 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-/>
-      {!sellDate && (
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[12px] text-gray-400 pointer-events-none">
-          日期
-        </span>
-      )}
-    </div>
+<div className="relative">
+  <DatePicker
+    selected={sellDate}
+    onChange={(date: Date | null) => setSellDate(date)}
+    dateFormat="yyyy-MM-dd"
+    placeholderText="日期"
+    className="w-full h-8 px-2 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  />
+</div>
     <button
       onClick={handleSell}
       disabled={!sellQuantity || !sellPrice || isSellSubmitting}
