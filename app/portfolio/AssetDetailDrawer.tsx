@@ -30,6 +30,8 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [sellQuantity, setSellQuantity] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [sellDate, setSellDate] = useState('');
+  const [isBuyDateFocused, setIsBuyDateFocused] = useState(false);
+  const [isSellDateFocused, setIsSellDateFocused] = useState(false);
 
   // 按钮提交状态（用于显示临时成功文字并禁用按钮）
   const [isBuySubmitting, setIsBuySubmitting] = useState(false);
@@ -416,7 +418,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       value={buyQuantity}
                       onChange={(e) => setBuyQuantity(e.target.value)}
                       placeholder="数量"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
                   <div className="relative">
@@ -427,16 +429,18 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       value={buyPrice}
                       onChange={(e) => setBuyPrice(e.target.value)}
                       placeholder="价格"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
 <div>
   <input
-    type="date"
+    type={isBuyDateFocused || buyDate ? 'date' : 'text'}
     value={buyDate}
     onChange={(e) => setBuyDate(e.target.value)}
+    onFocus={() => setIsBuyDateFocused(true)}
+    onBlur={() => setIsBuyDateFocused(false)}
     placeholder="日期"
-    className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+    className="w-full min-w-0 p-2 text-[10px] rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
     style={{ minWidth: 0 }}
   />
 </div>
@@ -461,7 +465,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       value={sellQuantity}
                       onChange={(e) => setSellQuantity(e.target.value)}
                       placeholder="数量"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
                   <div className="relative">
@@ -472,16 +476,18 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       value={sellPrice}
                       onChange={(e) => setSellPrice(e.target.value)}
                       placeholder="价格"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-[px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
 <div>
   <input
-    type="date"
+    type={isSellDateFocused || sellDate ? 'date' : 'text'}
     value={sellDate}
     onChange={(e) => setSellDate(e.target.value)}
+    onFocus={() => setIsSellDateFocused(true)}
+    onBlur={() => setIsSellDateFocused(false)}
     placeholder="日期"
-    className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+    className="w-full min-w-0 p-2 text-[10px] rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
     style={{ minWidth: 0 }}
   />
 </div>
