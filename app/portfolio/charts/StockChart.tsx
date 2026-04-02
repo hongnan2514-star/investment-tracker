@@ -1,25 +1,11 @@
 // app/portfolio/charts/StockChart.tsx
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { LineChart, Line, ReferenceDot, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import React, { useState, useEffect, useRef } from 'react';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Loader2 } from 'lucide-react';
-import { eventBus } from '@/src/utils/eventBus';
-import { getCurrentUserId } from '@/src/utils/assetStorage';
 
 export type ChartRange = '1d' | '1M' | 'since_holding';
-
-interface Transaction {
-  id: number;
-  user_id: string;
-  asset_symbol: string;
-  transaction_type: 'buy' | 'sell';
-  quantity: number;
-  price: number;
-  transaction_date: string;
-  currency: string;
-  created_at: string;
-}
 
 interface StockChartProps {
   symbol: string;
@@ -37,33 +23,7 @@ export default function StockChart({
   const [range, setRange] = useState<ChartRange>('1d');
   const [data, setData] = useState<{ date: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // 获取交易记录
-  const fetchTransactions = async () => {
-    try {
-      const userId = getCurrentUserId();
-      if (!userId) return;
-      const res = await fetch(`/api/transaction?assetSymbol=${encodeURIComponent(symbol)}`, {
-        headers: { 'x-user-id': userId },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTransactions(data);
-      }
-    } catch (err) {
-      console.error('获取交易记录失败', err);
-    }
-  };
-
-  // 监听资产更新事件，重新获取交易记录
-  useEffect(() => {
-    const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
-      fetchTransactions();
-    });
-    return unsubscribe;
-  }, [symbol]);
 
   // 获取历史数据
   const getRequestParams = (range: ChartRange): { apiRange: string; limit: number; isSinceHolding: boolean } => {
@@ -165,59 +125,12 @@ export default function StockChart({
     };
 
     fetchData();
-    fetchTransactions();
 
     return () => {
       controller.abort();
       isCurrent = false;
     };
   }, [symbol, range, purchaseDate, costPrice]);
-
-  // 数据范围用于判断标注方向
-  const dataMin = useMemo(() => data.length ? Math.min(...data.map(d => d.value)) : 0, [data]);
-  const dataMax = useMemo(() => data.length ? Math.max(...data.map(d => d.value)) : 0, [data]);
-  const dataMid = (dataMin + dataMax) / 2;
-
-  // 构建标注点：按日期聚合，若同一天既有买又有卖则标记为'T'，否则为'B'或'S'
-  const markers = useMemo(() => {
-    if (!data.length || !transactions.length) return [];
-
-    // 按日期聚合交易记录
-    const byDate = new Map<string, { buy: number; sell: number }>();
-    transactions.forEach(t => {
-      const date = t.transaction_date;
-      if (!byDate.has(date)) byDate.set(date, { buy: 0, sell: 0 });
-      const entry = byDate.get(date)!;
-      if (t.transaction_type === 'buy') entry.buy++;
-      else entry.sell++;
-    });
-
-    // 为每个数据点创建标记
-    const markersList: { date: string; value: number; label: string; yOffset: number }[] = [];
-    data.forEach(point => {
-      const date = point.date;
-      const trans = byDate.get(date);
-      if (!trans) return;
-
-      let label = '';
-      if (trans.buy > 0 && trans.sell > 0) label = 'T';
-      else if (trans.buy > 0) label = 'B';
-      else if (trans.sell > 0) label = 'S';
-      if (!label) return;
-
-      // 决定偏移方向：价格高于中位数则向下偏移（避免遮挡），否则向上偏移
-      const isAboveMid = point.value > dataMid;
-      const yOffset = isAboveMid ? 20 : -20;   // 向上为负，向下为正
-
-      markersList.push({
-        date: point.date,
-        value: point.value,
-        label,
-        yOffset,
-      });
-    });
-    return markersList;
-  }, [data, transactions, dataMid]);
 
   const strokeColor = changePercent != null
     ? changePercent >= 0 ? '#22c55e' : '#ef4444'
@@ -275,54 +188,6 @@ export default function StockChart({
                 filter="url(#glow)"
                 isAnimationActive={false}
               />
-              {markers.map((marker, idx) => {
-                const bgColor = marker.label === 'B' ? '#22c55e' : marker.label === 'S' ? '#ef4444' : '#f59e0b';
-                return (
-                  <ReferenceDot
-                    key={idx}
-                    x={marker.date}
-                    y={marker.value}
-                    shape={(props: any) => {
-                      const { cx, cy } = props;
-                      const yOffset = marker.yOffset;
-                      const centerX = cx;
-                      const centerY = cy + yOffset;
-                      const arrowSize = 8;
-                      const rectWidth = 10;
-                      const rectHeight = 10;
-                      const isAbove = yOffset < 0; // 标注在上方，箭头朝下
-                      const rectX = centerX - rectWidth / 2;
-                      const rectY = centerY - rectHeight / 2;
-                      // 三角形路径
-                      let trianglePoints = '';
-                      if (isAbove) {
-                        // 箭头朝下，位于矩形下方
-                        const tipX = centerX;
-                        const tipY = centerY + rectHeight/2 + arrowSize;
-                        const leftX = tipX - arrowSize/2;
-                        const rightX = tipX + arrowSize/2;
-                        trianglePoints = `${tipX},${tipY} ${leftX},${tipY-arrowSize} ${rightX},${tipY-arrowSize}`;
-                      } else {
-                        // 箭头朝上，位于矩形上方
-                        const tipX = centerX;
-                        const tipY = centerY - rectHeight/2 - arrowSize;
-                        const leftX = tipX - arrowSize/2;
-                        const rightX = tipX + arrowSize/2;
-                        trianglePoints = `${tipX},${tipY} ${leftX},${tipY+arrowSize} ${rightX},${tipY+arrowSize}`;
-                      }
-                      return (
-                        <g>
-                          <rect x={rectX} y={rectY} width={rectWidth} height={rectHeight} fill={bgColor} stroke="white" strokeWidth={1} rx={2} />
-                          <polygon points={trianglePoints} fill={bgColor} stroke="white" strokeWidth={0} />
-                          <text x={centerX} y={centerY} textAnchor="middle" dominantBaseline="middle" fill="white" fontSize={8} fontWeight="bold">
-                            {marker.label}
-                          </text>
-                        </g>
-                      );
-                    }}
-                  />
-                );
-              })}
             </LineChart>
           </ResponsiveContainer>
         )}

@@ -8,8 +8,9 @@ import { getAssetBySymbol, addAsset, getCurrentUserId } from '@/src/utils/assetS
 import { eventBus } from '@/src/utils/eventBus';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
-import { CryptoChart, StockChart, FundChart, MetalChart, } from './charts';
-import TransactionHistory from 'components/TransactionHistory'
+import { CryptoChart, StockChart, FundChart, MetalChart } from './charts';
+import TransactionHistory from 'components/TransactionHistory';
+import AssetStats from '@/components/AssetStats';
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -38,21 +39,58 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const { currency } = useCurrency();
   const { convert } = useCurrencyConverter();
 
-  const loadAsset = () => {
-    if (!symbol) return;
-    setLoading(true);
-    const found = getAssetBySymbol(decodeURIComponent(symbol));
-    setAsset(found ? { ...found } : null);
+  // 从本地存储加载资产
+const loadAsset = async () => {
+  if (!symbol) return;
+  setLoading(true);
+  try {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setAsset(null);
+      return;
+    }
+    // 注意：后端目前不支持按 symbol 查询单个资产，因此获取所有资产后手动查找
+    const res = await fetch('/api/asset', {
+      headers: { 'x-user-id': userId },
+    });
+    if (res.ok) {
+      const data = await res.json(); // data 是一个数组
+      // 解码 symbol（因为路由传递时可能被编码）
+      const targetSymbol = decodeURIComponent(symbol);
+      const found = data.find((item: any) => item.symbol === targetSymbol);
+      if (found) {
+        const normalized: Asset = {
+          ...found,
+          price: Number(found.price),
+          holdings: Number(found.holdings),
+          marketValue: Number(found.marketValue),
+          costPrice: found.costPrice ? Number(found.costPrice) : undefined,
+          changePercent: found.changePercent ? Number(found.changePercent) : 0,
+        };
+        setAsset(normalized);
+      } else {
+        setAsset(null);
+      }
+    } else {
+      console.error('加载资产失败', res.status);
+      setAsset(null);
+    }
+  } catch (err) {
+    console.error('加载资产失败', err);
+    setAsset(null);
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
+  // 监听全局资产更新事件（资产列表页更新价格后会触发）
   useEffect(() => {
     loadAsset();
     const unsubscribe = eventBus.subscribe('assetsUpdated', loadAsset);
     return () => unsubscribe();
   }, [symbol]);
 
-  // 货币转换，增加有效性检查，防止 NaN 覆盖有效价格
+  // 货币转换
   useEffect(() => {
     const convertAsset = async () => {
       if (!asset) {
@@ -122,23 +160,24 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     setBuyQuantity('');
     setBuyPrice('');
     setBuyDate('');
+
     try {
-    await fetch('/api/transaction', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-      body: JSON.stringify({
-        assetSymbol: asset.symbol,
-        transactionType: 'buy',
-        quantity: qty,
-        price: price,
-        transactionDate: buyDate,
-        currency: asset.currency,
-      }),
-    });
-    setRefreshKey(prev => prev + 1); // 刷新交易记录组件
-  } catch (err) {
-    console.error('保存加仓记录失败', err);
-  };
+      await fetch('/api/transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({
+          assetSymbol: asset.symbol,
+          transactionType: 'buy',
+          quantity: qty,
+          price: price,
+          transactionDate: buyDate,
+          currency: asset.currency,
+        }),
+      });
+      setRefreshKey(prev => prev + 1);
+    } catch (err) {
+      console.error('保存加仓记录失败', err);
+    }
   };
 
   const handleSell = async () => {
@@ -147,8 +186,8 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     const price = parseFloat(sellPrice);
     const userId = getCurrentUserId();
     if (!userId) {
-    setMessage({ type: 'error', text: '请先登录' });
-    return;
+      setMessage({ type: 'error', text: '请先登录' });
+      return;
     }
     if (isNaN(qty) || qty <= 0 || qty > asset.holdings || isNaN(price) || price < 0) {
       setMessage({ type: 'error', text: '卖出数量无效或超过持仓' });
@@ -170,23 +209,24 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     setSellQuantity('');
     setSellPrice('');
     setSellDate('');
-     try {
-    await fetch('/api/transaction', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': userId, },
-      body: JSON.stringify({
-        assetSymbol: asset.symbol,
-        transactionType: 'sell',
-        quantity: qty,
-        price: price,
-        transactionDate: sellDate,
-        currency: asset.currency,
-      }),
-    });
-    setRefreshKey(prev => prev + 1); // 刷新交易记录组件
-  } catch (err) {
-    console.error('保存卖出记录失败', err);
-  }
+
+    try {
+      await fetch('/api/transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({
+          assetSymbol: asset.symbol,
+          transactionType: 'sell',
+          quantity: qty,
+          price: price,
+          transactionDate: sellDate,
+          currency: asset.currency,
+        }),
+      });
+      setRefreshKey(prev => prev + 1);
+    } catch (err) {
+      console.error('保存卖出记录失败', err);
+    }
   };
 
   const formatLargeNumber = (num: number): string => {
@@ -223,7 +263,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 
   const displayAsset = convertedAsset || asset;
   const cachedLogo = getCachedLogo(asset.symbol);
-  const logoSrc = cachedLogo || asset.logoUrl;
   const currencySymbol = asset.currency === 'CNY' ? '¥' : asset.currency === 'USD' ? '$' : asset.currency;
 
   return (
@@ -240,6 +279,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
           <div className="flex justify-between items-start gap-4 max-w-full">
             <div className="flex items-center gap-3 min-w-0 flex-1">
+              {/* 图标和名称部分保持不变 */}
               {(() => {
                 const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
                 const code = isAStock ? asset.symbol.split('.')[0] : null;
@@ -281,76 +321,56 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
               </div>
             </div>
 
-            <div className="flex flex-col gap-0 ml-auto ml-10">
-              <div className="leading-4">
-                <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">当前市价</span>
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {formatLargeNumber(displayAsset.price)}
-                </span>
-              </div>
-              <div className="leading-4">
-                <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">持仓数量</span>
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {formatLargeNumber(asset.holdings)}
-                </span>
-              </div>
-              <div className="leading-4">
-                <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">成本均价</span>
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {displayAsset.costPrice ? formatLargeNumber(displayAsset.costPrice) : '--'}
-                </span>
-              </div>
-              <div className="leading-4">
-                <span className="inline-block w-16 text-left text-[10px] text-gray-500 dark:text-gray-400">持仓金额</span>
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {formatLargeNumber(displayAsset.marketValue)}
-                </span>
-              </div>
-            </div>
+            <AssetStats
+              asset={asset}
+              displayAsset={displayAsset}
+              formatLargeNumber={formatLargeNumber}
+            />
           </div>
 
           <div className="mt-4 h-45 w-full">
-  {asset.type === 'crypto' ? (
-    <CryptoChart
-      symbol={asset.symbol}
-      changePercent={asset.changePercent}
-      purchaseDate={asset.purchaseDate}
-      costPrice={asset.costPrice}
-    />
-  ) : asset.type === 'stock' || asset.type === 'etf' ? (
-    <StockChart
-      symbol={asset.symbol}
-      changePercent={asset.changePercent}
-      purchaseDate={asset.purchaseDate}
-      costPrice={asset.costPrice}
-    />
-  ) : asset.type === 'fund' ? (
-    <FundChart
-      symbol={asset.symbol}
-      changePercent={asset.changePercent}
-      purchaseDate={asset.purchaseDate}
-      costPrice={asset.costPrice}
-      currentPrice={displayAsset.price}
-    />
-   ) : asset.type === 'metal' ? (
-    <MetalChart
-      symbol={asset.symbol}
-      changePercent={asset.changePercent}
-      purchaseDate={asset.purchaseDate}
-      costPrice={asset.costPrice}
-      currentPrice={displayAsset.price}
-    />
-  ) : (
-    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
-      暂无走势图
-    </div>
-  )}
-</div>
+            {asset.type === 'crypto' ? (
+              <CryptoChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                purchaseDate={asset.purchaseDate}
+                costPrice={asset.costPrice}
+              />
+            ) : asset.type === 'stock' || asset.type === 'etf' ? (
+              <StockChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                purchaseDate={asset.purchaseDate}
+                costPrice={asset.costPrice}
+              />
+            ) : asset.type === 'fund' ? (
+              <FundChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                purchaseDate={asset.purchaseDate}
+                costPrice={asset.costPrice}
+                currentPrice={displayAsset.price}
+              />
+            ) : asset.type === 'metal' ? (
+              <MetalChart
+                symbol={asset.symbol}
+                changePercent={asset.changePercent}
+                purchaseDate={asset.purchaseDate}
+                costPrice={asset.costPrice}
+                currentPrice={displayAsset.price}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                暂无走势图
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">
           <div className="flex flex-row gap-2">
             <div className="w-3/5">
+              {/* 加仓/卖出表单保持不变 */}
               <div className="relative flex bg-gray-200 dark:bg-gray-700 rounded-lg mb-2">
                 <div
                   className={`absolute top-0 bottom-0 w-1/2 rounded-lg transition-all duration-300 ease-in-out ${
@@ -470,15 +490,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
             </div>
 
             <div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2">
-  <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">
-    {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}
-  </h4>
-  <TransactionHistory
-    assetSymbol={asset.symbol}
-    type={activeTab}
-    refreshTrigger={refreshKey}
-  />
-</div>
+              <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">
+                {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}
+              </h4>
+              <TransactionHistory
+                assetSymbol={asset.symbol}
+                type={activeTab}
+                refreshTrigger={refreshKey}
+              />
+            </div>
           </div>
         </div>
 
