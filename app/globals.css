@@ -30,3 +30,6 @@ button:focus {
   box-shadow: none !important;
 }
 
+input, textarea, select {
+  font-size: 16px; /* 防止 iOS 自动缩放 */
+} 

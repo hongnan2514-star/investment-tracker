@@ -24,8 +24,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
 
-  const [isBuyDateFocused, setIsBuyDateFocused] = useState(false);
-  const [isSellDateFocused, setIsSellDateFocused] = useState(false);
   const [buyQuantity, setBuyQuantity] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
   const [buyDate, setBuyDate] = useState('');
@@ -432,18 +430,16 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
-                  <div>
-                    <input
-                      type={isBuyDateFocused || buyDate ? 'date' : 'text'}
-                      value={buyDate}
-                      onChange={(e) => setBuyDate(e.target.value)}
-                      onFocus={() => setIsBuyDateFocused(true)}
-                      onBlur={() => setIsBuyDateFocused(false)}
-                      placeholder="日期"
-                      className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-                      style={{ minWidth: 0 }}
-                    />
-                  </div>
+<div>
+  <input
+    type="date"
+    value={buyDate}
+    onChange={(e) => setBuyDate(e.target.value)}
+    placeholder="日期"
+    className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+    style={{ minWidth: 0 }}
+  />
+</div>
                   <button
                     onClick={handleBuy}
                     disabled={!buyQuantity || !buyPrice || isBuySubmitting}
@@ -479,18 +475,16 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                       className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
                     />
                   </div>
-                  <div>
-                    <input
-                      type={isSellDateFocused || sellDate ? 'date' : 'text'}
-                      value={sellDate}
-                      onChange={(e) => setSellDate(e.target.value)}
-                      onFocus={() => setIsSellDateFocused(true)}
-                      onBlur={() => setIsSellDateFocused(false)}
-                      placeholder="日期"
-                      className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
-                      style={{ minWidth: 0 }}
-                    />
-                  </div>
+<div>
+  <input
+    type="date"
+    value={sellDate}
+    onChange={(e) => setSellDate(e.target.value)}
+    placeholder="日期"
+    className="w-full min-w-0 p-2 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1a1a1a] font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 appearance-none"
+    style={{ minWidth: 0 }}
+  />
+</div>
                   <button
                     onClick={handleSell}
                     disabled={!sellQuantity || !sellPrice || isSellSubmitting}
