@@ -431,12 +431,12 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
       />
     </div>
     <div className="relative">
-      <input
-        type="date"
-        value={buyDate}
-        onChange={(e) => setBuyDate(e.target.value)}
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pr-6 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-      />
+<input
+  type="date"
+  value={buyDate}
+  onChange={(e) => setBuyDate(e.target.value)}
+  className="w-full h-8 px-2 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+/>
       {!buyDate && (
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
           日期
@@ -481,11 +481,11 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     </div>
     <div className="relative">
       <input
-        type="date"
-        value={sellDate}
-        onChange={(e) => setSellDate(e.target.value)}
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pr-6 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-      />
+  type="date"
+  value={buyDate}
+  onChange={(e) => setBuyDate(e.target.value)}
+  className="w-full h-8 px-2 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+/>
       {!sellDate && (
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
           日期
