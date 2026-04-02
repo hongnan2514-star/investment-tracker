@@ -478,7 +478,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
     type="text"
     value={buyDate}
     onChange={(e) => handleDateChange(e, setBuyDate)}
-    placeholder="yyyy/MM/dd"
+    placeholder="年/月/日"
     className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
   />
 </div>
@@ -524,7 +524,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
     type="text"
     value={sellDate}
     onChange={(e) => handleDateChange(e, setBuyDate)}
-    placeholder="yyyy/MM/dd"
+    placeholder="年/月/日"
     className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
   />
 </div>
