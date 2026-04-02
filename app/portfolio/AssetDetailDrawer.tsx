@@ -590,7 +590,7 @@ const AssetDetailSkeleton = ({ onClose }: { onClose: () => void }) => {
                 <div className={`h-8 w-full ${skeletonBlockClass} ${shimmerClass}`} />
                 <div className={`h-8 w-full ${skeletonBlockClass} ${shimmerClass}`} />
               </div>
-            </div>
+            </div> 
           </div>
         </div>
       </div>
