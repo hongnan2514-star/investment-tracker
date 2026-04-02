@@ -416,7 +416,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         value={buyQuantity}
         onChange={(e) => setBuyQuantity(e.target.value)}
         placeholder="数量"
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
       />
     </div>
     <div>
@@ -427,7 +427,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         value={buyPrice}
         onChange={(e) => setBuyPrice(e.target.value)}
         placeholder="价格"
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
       />
     </div>
     <div className="relative">
@@ -435,7 +435,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         type="date"
         value={buyDate}
         onChange={(e) => setBuyDate(e.target.value)}
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pr-6 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
       />
       {!buyDate && (
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
@@ -446,7 +446,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     <button
       onClick={handleBuy}
       disabled={!buyQuantity || !buyPrice || isBuySubmitting}
-      className="w-full bg-green-600 text-white font-bold p-2 text-[10px] rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
+      className="w-full bg-green-600 text-white font-bold p-2 text-[10px] rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform box-border"
     >
       {isBuySubmitting ? '加仓成功' : '确认加仓'}
     </button>
@@ -465,7 +465,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         value={sellQuantity}
         onChange={(e) => setSellQuantity(e.target.value)}
         placeholder="数量"
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
       />
     </div>
     <div>
@@ -476,7 +476,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         value={sellPrice}
         onChange={(e) => setSellPrice(e.target.value)}
         placeholder="价格"
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
       />
     </div>
     <div className="relative">
@@ -484,7 +484,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         type="date"
         value={sellDate}
         onChange={(e) => setSellDate(e.target.value)}
-        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pr-6 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
       />
       {!sellDate && (
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
@@ -495,7 +495,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     <button
       onClick={handleSell}
       disabled={!sellQuantity || !sellPrice || isSellSubmitting}
-      className="w-full bg-red-600 text-white font-bold p-2 text-[10px] rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
+      className="w-full bg-red-600 text-white font-bold p-2 text-[10px] rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform box-border"
     >
       {isSellSubmitting ? '卖出成功' : '确认卖出'}
     </button>
