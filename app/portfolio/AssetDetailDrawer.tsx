@@ -406,99 +406,101 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
                 </button>
               </div>
 
-              {activeTab === 'buy' && (
-                <div className="space-y-2">
-                  <div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={buyQuantity}
-                      onChange={(e) => setBuyQuantity(e.target.value)}
-                      placeholder="数量"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={buyPrice}
-                      onChange={(e) => setBuyPrice(e.target.value)}
-                      placeholder="价格"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-                    />
-                  </div>
-<div className="relative">
-  <input
-    type="date"
-    value={buyDate}
-    onChange={(e) => setBuyDate(e.target.value)}
-    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-  />
-  {!buyDate && (
-    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-      日期</span>
-  )}
-</div>
-                  <button
-                    onClick={handleBuy}
-                    disabled={!buyQuantity || !buyPrice || isBuySubmitting}
-                    className="w-full bg-green-600 text-white font-bold py-2 text-xs rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
-                  >
-                    {isBuySubmitting ? '加仓成功' : '确认加仓'}
-                  </button>
-                </div>
-              )}
+{activeTab === 'buy' && (
+  <div className="space-y-2">
+    <div>
+      <input
+        type="number"
+        step="0.01"
+        min="0.01"
+        value={buyQuantity}
+        onChange={(e) => setBuyQuantity(e.target.value)}
+        placeholder="数量"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+      />
+    </div>
+    <div>
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        value={buyPrice}
+        onChange={(e) => setBuyPrice(e.target.value)}
+        placeholder="价格"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+      />
+    </div>
+    <div className="relative">
+      <input
+        type="date"
+        value={buyDate}
+        onChange={(e) => setBuyDate(e.target.value)}
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+      />
+      {!buyDate && (
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
+          日期
+        </span>
+      )}
+    </div>
+    <button
+      onClick={handleBuy}
+      disabled={!buyQuantity || !buyPrice || isBuySubmitting}
+      className="w-full bg-green-600 text-white font-bold p-2 text-[10px] rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
+    >
+      {isBuySubmitting ? '加仓成功' : '确认加仓'}
+    </button>
+  </div>
+)}
 
-              {activeTab === 'sell' && (
-                <div className="space-y-2">
-                  <div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      max={asset.holdings}
-                      value={sellQuantity}
-                      onChange={(e) => setSellQuantity(e.target.value)}
-                      placeholder="数量"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={sellPrice}
-                      onChange={(e) => setSellPrice(e.target.value)}
-                      placeholder="价格"
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 pl-2 text-[px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-                    />
-                  </div>
-<div className="relative">
-  <input
-    type="date"
-    value={sellDate}
-    onChange={(e) => setSellDate(e.target.value)}
-    className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-xs rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
-  />
-  {!sellDate && (
-    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-      日期
-    </span>
-  )}
-</div>
-                  <button
-                    onClick={handleSell}
-                    disabled={!sellQuantity || !sellPrice || isSellSubmitting}
-                    className="w-full bg-red-600 text-white font-bold py-2 text-xs rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
-                  >
-                    {isSellSubmitting ? '卖出成功' : '确认卖出'}
-                  </button>
-                </div>
-              )}
+
+{activeTab === 'sell' && (
+  <div className="space-y-2">
+    <div>
+      <input
+        type="number"
+        step="0.01"
+        min="0.01"
+        max={asset.holdings}
+        value={sellQuantity}
+        onChange={(e) => setSellQuantity(e.target.value)}
+        placeholder="数量"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+      />
+    </div>
+    <div>
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        value={sellPrice}
+        onChange={(e) => setSellPrice(e.target.value)}
+        placeholder="价格"
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+      />
+    </div>
+    <div className="relative">
+      <input
+        type="date"
+        value={sellDate}
+        onChange={(e) => setSellDate(e.target.value)}
+        className="w-full bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] rounded-lg font-bold text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500"
+      />
+      {!sellDate && (
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
+          日期
+        </span>
+      )}
+    </div>
+    <button
+      onClick={handleSell}
+      disabled={!sellQuantity || !sellPrice || isSellSubmitting}
+      className="w-full bg-red-600 text-white font-bold p-2 text-[10px] rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
+    >
+      {isSellSubmitting ? '卖出成功' : '确认卖出'}
+    </button>
+  </div>
+)}
             </div>
 
             <div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2">
