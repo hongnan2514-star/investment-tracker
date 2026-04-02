@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react'; // 移除 Loader2
 import { Asset } from '@/src/constants/types';
 import { getAssetBySymbol, addAsset, getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
@@ -140,10 +140,11 @@ const loadAsset = async () => {
       return;
     }
 
-    const totalCostOld = asset.holdings * (asset.costPrice || 0);
-    const totalCostNew = totalCostOld + qty * price;
-    const newHoldings = asset.holdings + qty;
-    const newCostPrice = totalCostNew / newHoldings;
+  const totalCostOld = asset.holdings * (asset.costPrice || 0);
+  const totalCostNew = totalCostOld + qty * price;
+  const newHoldings = asset.holdings + qty;
+  const newCostPrice = totalCostNew / newHoldings;
+  const newMarketValue = newHoldings * asset.price;
 
     const updatedAsset: Asset = {
       ...asset,
@@ -153,8 +154,10 @@ const loadAsset = async () => {
       lastUpdated: new Date().toISOString(),
     };
 
-    addAsset(updatedAsset);
-    setAsset(updatedAsset);
+    // 先调用 addAsset（内部会更新数据库和本地缓存）
+    await addAsset(updatedAsset);
+    // 重新从数据库加载最新资产（确保数据一致）
+    await loadAsset();
     eventBus.emit('assetsUpdated');
     setMessage({ type: 'success', text: '加仓成功' });
     setBuyQuantity('');
@@ -195,6 +198,8 @@ const loadAsset = async () => {
     }
 
     const newHoldings = asset.holdings - qty;
+    const newMarketValue = newHoldings * asset.price;
+
     const updatedAsset: Asset = {
       ...asset,
       holdings: newHoldings,
@@ -202,8 +207,8 @@ const loadAsset = async () => {
       lastUpdated: new Date().toISOString(),
     };
 
-    addAsset(updatedAsset);
-    setAsset(updatedAsset);
+    await addAsset(updatedAsset);
+    await loadAsset();
     eventBus.emit('assetsUpdated');
     setMessage({ type: 'success', text: '卖出成功' });
     setSellQuantity('');
@@ -236,14 +241,12 @@ const loadAsset = async () => {
     return num.toFixed(2);
   };
 
+
   if (!symbol || !isOpen) return null;
 
+  // ✅ 替换加载动画为骨架屏
   if (loading) {
-    return (
-      <div className="fixed inset-0 bg-white dark:bg-black z-50 p-4 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
-      </div>
-    );
+    return <AssetDetailSkeleton onClose={onClose} />;
   }
 
   if (!asset) {
@@ -513,3 +516,72 @@ const loadAsset = async () => {
     </div>
   );
 }
+
+const AssetDetailSkeleton = ({ onClose }: { onClose: () => void }) => {
+  const skeletonBlockClass = "relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded-xl";
+  const shimmerClass = "before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent";
+
+  return (
+    <div className="fixed inset-0 bg-white dark:bg-black z-50 overflow-y-auto">
+      <div className="p-4">
+        <button
+          onClick={onClose}
+          className="text-gray-500 dark:text-gray-400 mb-6 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+          aria-label="返回"
+        >
+          <ArrowLeft size={24} />
+        </button>
+
+        <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
+          <div className="flex justify-between items-start gap-4 max-w-full">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className={`w-12 h-12 rounded-lg ${skeletonBlockClass} ${shimmerClass}`} />
+              <div className="min-w-0 flex-1">
+                <div className={`h-7 w-32 mb-1 ${skeletonBlockClass} ${shimmerClass}`} />
+                <div className={`h-4 w-20 ${skeletonBlockClass} ${shimmerClass}`} />
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`h-5 w-16 ml-auto mb-1 ${skeletonBlockClass} ${shimmerClass}`} />
+              <div className={`h-6 w-20 ml-auto ${skeletonBlockClass} ${shimmerClass}`} />
+            </div>
+          </div>
+          <div className={`mt-4 h-45 w-full ${skeletonBlockClass} ${shimmerClass}`} style={{ height: '180px' }} />
+        </div>
+
+        <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">
+          <div className="flex flex-row gap-2">
+            <div className="w-3/5">
+              <div className="relative flex bg-gray-200 dark:bg-gray-700 rounded-lg mb-2 h-9">
+                <div className="flex-1 rounded-l-lg bg-gray-300 dark:bg-gray-600"></div>
+                <div className="flex-1 rounded-r-lg"></div>
+              </div>
+              <div className="space-y-2">
+                <div className={`h-10 w-full ${skeletonBlockClass} ${shimmerClass}`} />
+                <div className={`h-10 w-full ${skeletonBlockClass} ${shimmerClass}`} />
+                <div className={`h-10 w-full ${skeletonBlockClass} ${shimmerClass}`} />
+                <div className={`h-10 w-full ${skeletonBlockClass} ${shimmerClass}`} />
+              </div>
+            </div>
+            <div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2">
+              <div className={`h-4 w-24 mb-2 ${skeletonBlockClass} ${shimmerClass}`} />
+              <div className="space-y-2">
+                <div className={`h-8 w-full ${skeletonBlockClass} ${shimmerClass}`} />
+                <div className={`h-8 w-full ${skeletonBlockClass} ${shimmerClass}`} />
+                <div className={`h-8 w-full ${skeletonBlockClass} ${shimmerClass}`} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes shimmer {
+          100% {
+            transform: translateX(200%);
+          }
+        }
+      `}</style>
+    </div>
+  );
+};

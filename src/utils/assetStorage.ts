@@ -2,11 +2,8 @@
 import { Asset } from '@/src/constants/types';
 import { eventBus } from './eventBus';
 
-// 内存缓存 Map，键为资产 symbol，值为资产对象
 let assetsMap: Map<string, Asset> | null = null;
 let currentUserId: string | null = null;
-
-// 同步锁，避免并发同步
 let syncPromise: Promise<void> | null = null;
 
 export const getCurrentUserId = (): string | null => {
@@ -22,22 +19,21 @@ export const setCurrentUserId = async (userId: string | null) => {
     localStorage.removeItem('currentUserId');
   }
   currentUserId = userId;
-  assetsMap = null; // 清空缓存
-  // 触发用户切换事件
+  assetsMap = null;
   eventBus.emit('userChanged', userId);
-  // 如果新用户登录，从云端拉取资产
   if (userId) {
     await pullAssetsFromCloud(userId);
   }
 };
 
-// 从云端拉取资产
+// 从云端拉取资产（使用 /api/asset）
 async function pullAssetsFromCloud(userId: string): Promise<void> {
   try {
-    const res = await fetch(`/api/user/assets?userId=${encodeURIComponent(userId)}`);
+    const res = await fetch('/api/asset', {
+      headers: { 'x-user-id': userId },
+    });
     if (!res.ok) throw new Error('拉取失败');
-    const { assets } = await res.json();
-    // 存入本地存储和缓存
+    const assets = await res.json();
     const assetsKey = `assets_${userId}`;
     localStorage.setItem(assetsKey, JSON.stringify(assets));
     assetsMap = new Map(assets.map((asset: Asset) => [asset.symbol, asset]));
@@ -47,26 +43,68 @@ async function pullAssetsFromCloud(userId: string): Promise<void> {
   }
 }
 
-// 推送到云端
-async function pushAssetsToCloud(userId: string, assets: Asset[]): Promise<void> {
+// 推送到云端（单个资产更新/新增）
+async function pushAssetToCloud(userId: string, asset: Asset): Promise<boolean> {
   try {
-    await fetch('/api/user/assets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, assets }),
+    // 先尝试更新（PUT）
+    const putRes = await fetch('/api/asset', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({
+        symbol: asset.symbol,
+        holdings: asset.holdings,
+        costPrice: asset.costPrice,
+        marketValue: asset.marketValue,
+      }),
     });
+
+    if (putRes.ok) {
+      return true; // 更新成功
+    }
+
+    if (putRes.status === 404) {
+      // 资产不存在，执行新增
+      const postRes = await fetch('/api/asset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({
+          symbol: asset.symbol,
+          name: asset.name,
+          price: asset.price,
+          holdings: asset.holdings,
+          marketValue: asset.marketValue,
+          currency: asset.currency,
+          type: asset.type,
+          purchaseDate: asset.purchaseDate,
+          costPrice: asset.costPrice,
+          notes: asset.notes,
+          includeInChart: asset.includeInChart,
+          logoUrl: asset.logoUrl,
+        }),
+      });
+      if (!postRes.ok) {
+        const errorText = await postRes.text();
+        console.error('新增资产失败，响应:', errorText);
+        throw new Error('新增资产失败');
+      }
+      return true;
+    }
+
+    // 其他错误
+    const errorText = await putRes.text();
+    console.error('更新资产失败，状态码:', putRes.status, errorText);
+    return false;
   } catch (error) {
     console.error('推送资产到云端失败:', error);
+    return false;
   }
 }
 
-// 获取本地存储键
 function getAssetsKey(): string | null {
   const userId = getCurrentUserId();
   return userId ? `assets_${userId}` : null;
 }
 
-// 加载资产到内存缓存（从本地存储）
 function loadAssetsMap(): void {
   const assetsKey = getAssetsKey();
   if (!assetsKey) {
@@ -95,21 +133,16 @@ function loadAssetsMap(): void {
 }
 
 export function getAssetBySymbol(symbol: string): Asset | null {
-  if (!assetsMap) {
-    loadAssetsMap();
-  }
+  if (!assetsMap) loadAssetsMap();
   return assetsMap?.get(symbol) || null;
 }
 
 export const getAssets = (): Asset[] => {
   if (typeof window === 'undefined') return [];
-
   const assetsKey = getAssetsKey();
   if (!assetsKey) return [];
-
   const data = localStorage.getItem(assetsKey);
   if (!data) return [];
-
   try {
     const assets = JSON.parse(data) as Asset[];
     const cleanedAssets = assets.map(asset => ({
@@ -128,7 +161,7 @@ export const getAssets = (): Asset[] => {
   }
 };
 
-// 同步资产到本地和云端
+// 同步资产到本地和云端（供 addAsset 调用）
 async function syncAssets(updatedAssets: Asset[]) {
   const userId = getCurrentUserId();
   if (!userId) return;
@@ -137,17 +170,15 @@ async function syncAssets(updatedAssets: Asset[]) {
   localStorage.setItem(assetsKey, JSON.stringify(updatedAssets));
   assetsMap = new Map(updatedAssets.map(asset => [asset.symbol, asset]));
 
-  // 触发事件通知组件更新
   eventBus.emit('assetsUpdated');
 
-  // 异步推送到云端（避免阻塞）
+  // 异步推送到云端（可选，但 addAsset 内部已单独推送，此处可保留用于其他场景）
   if (!syncPromise) {
-    syncPromise = pushAssetsToCloud(userId, updatedAssets).finally(() => {
-      syncPromise = null;
-    });
+    // 注意：syncAssets 可能被多处调用，此处简化，实际建议 addAsset 中单独处理
   }
 }
 
+// ✅ 核心修改：加仓/卖出时调用此方法，它会先更新数据库，再更新本地缓存
 export const addAsset = async (newAsset: Asset) => {
   if (typeof window === 'undefined') return;
 
@@ -157,39 +188,57 @@ export const addAsset = async (newAsset: Asset) => {
     return;
   }
 
+  // 1. 先调用后端 API 更新数据库（PUT 或 POST）
+  const success = await pushAssetToCloud(userId, newAsset);
+  if (!success) {
+    console.error('云端更新失败，本地将不会更新');
+    return;
+  }
+
+  // 2. 后端更新成功后，再更新本地缓存和 localStorage
   const assets = getAssets();
   const existingIndex = assets.findIndex(asset => asset.symbol === newAsset.symbol);
 
   if (existingIndex !== -1) {
-    const existing = assets[existingIndex];
-    const totalHoldings = existing.holdings + newAsset.holdings;
-    const totalCost = (existing.costPrice || 0) * existing.holdings + (newAsset.costPrice || 0) * newAsset.holdings;
-    const avgCost = totalCost / totalHoldings;
-
-    assets[existingIndex] = {
-      ...existing,
-      holdings: totalHoldings,
-      costPrice: avgCost,
-      purchaseDate: existing.purchaseDate && newAsset.purchaseDate
-        ? (existing.purchaseDate < newAsset.purchaseDate ? existing.purchaseDate : newAsset.purchaseDate)
-        : (existing.purchaseDate || newAsset.purchaseDate),
-      marketValue: totalHoldings * existing.price,
-    };
+    // 更新现有资产
+    assets[existingIndex] = { ...newAsset };
   } else {
+    // 新增资产
     assets.push(newAsset);
   }
 
-  await syncAssets(assets);
+  const assetsKey = `assets_${userId}`;
+  localStorage.setItem(assetsKey, JSON.stringify(assets));
+  assetsMap = new Map(assets.map(asset => [asset.symbol, asset]));
+
+  // 3. 触发全局更新事件
+  eventBus.emit('assetsUpdated');
 };
 
 export const removeAsset = async (symbol: string) => {
   if (typeof window === 'undefined') return;
-
   const userId = getCurrentUserId();
   if (!userId) return;
 
+  // 先调用后端删除
+  try {
+    const res = await fetch('/api/asset', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ symbol }),
+    });
+    if (!res.ok) throw new Error('删除失败');
+  } catch (error) {
+    console.error('删除云端资产失败:', error);
+    return;
+  }
+
+  // 再更新本地
   const assets = getAssets().filter(asset => asset.symbol !== symbol);
-  await syncAssets(assets);
+  const assetsKey = `assets_${userId}`;
+  localStorage.setItem(assetsKey, JSON.stringify(assets));
+  assetsMap = new Map(assets.map(asset => [asset.symbol, asset]));
+  eventBus.emit('assetsUpdated');
 };
 
 export const clearCurrentUserAssets = () => {
@@ -198,6 +247,5 @@ export const clearCurrentUserAssets = () => {
     const assetsKey = `assets_${userId}`;
     localStorage.removeItem(assetsKey);
     assetsMap = null;
-    // 可选：同时删除云端数据（调用 DELETE API）
   }
 };
