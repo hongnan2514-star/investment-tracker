@@ -416,9 +416,11 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   value={buyQuantity}
   onChange={(e) => setBuyQuantity(e.target.value)}
   placeholder="数量"
-  className="w-full h-8 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-bold rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
+</div>
 
+<div>
 <input
   type="number"
   step="0.01"
@@ -426,7 +428,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   value={buyPrice}
   onChange={(e) => setBuyPrice(e.target.value)}
   placeholder="价格"
-  className="w-full h-8 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-bold rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
     </div>
     <div className="relative">
@@ -463,9 +465,11 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   value={buyQuantity}
   onChange={(e) => setBuyQuantity(e.target.value)}
   placeholder="数量"
-  className="w-full h-8 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-bold rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
+</div>
 
+<div>
 <input
   type="number"
   step="0.01"
@@ -473,7 +477,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   value={buyPrice}
   onChange={(e) => setBuyPrice(e.target.value)}
   placeholder="价格"
-  className="w-full h-8 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-bold rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
+  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
     </div>
     <div className="relative">
