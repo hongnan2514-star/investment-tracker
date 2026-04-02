@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react'; // 移除 Loader2
+import { ArrowLeft } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
 import { getAssetBySymbol, addAsset, getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
@@ -33,57 +33,58 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [sellPrice, setSellPrice] = useState('');
   const [sellDate, setSellDate] = useState('');
 
+  // 按钮提交状态（用于显示临时成功文字并禁用按钮）
+  const [isBuySubmitting, setIsBuySubmitting] = useState(false);
+  const [isSellSubmitting, setIsSellSubmitting] = useState(false);
+
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { currency } = useCurrency();
   const { convert } = useCurrencyConverter();
 
-  // 从本地存储加载资产
-const loadAsset = async () => {
-  if (!symbol) return;
-  setLoading(true);
-  try {
-    const userId = getCurrentUserId();
-    if (!userId) {
-      setAsset(null);
-      return;
-    }
-    // 注意：后端目前不支持按 symbol 查询单个资产，因此获取所有资产后手动查找
-    const res = await fetch('/api/asset', {
-      headers: { 'x-user-id': userId },
-    });
-    if (res.ok) {
-      const data = await res.json(); // data 是一个数组
-      // 解码 symbol（因为路由传递时可能被编码）
-      const targetSymbol = decodeURIComponent(symbol);
-      const found = data.find((item: any) => item.symbol === targetSymbol);
-      if (found) {
-        const normalized: Asset = {
-          ...found,
-          price: Number(found.price),
-          holdings: Number(found.holdings),
-          marketValue: Number(found.marketValue),
-          costPrice: found.costPrice ? Number(found.costPrice) : undefined,
-          changePercent: found.changePercent ? Number(found.changePercent) : 0,
-        };
-        setAsset(normalized);
+  // 从后端加载资产
+  const loadAsset = async () => {
+    if (!symbol) return;
+    setLoading(true);
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        setAsset(null);
+        return;
+      }
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const targetSymbol = decodeURIComponent(symbol);
+        const found = data.find((item: any) => item.symbol === targetSymbol);
+        if (found) {
+          const normalized: Asset = {
+            ...found,
+            price: Number(found.price),
+            holdings: Number(found.holdings),
+            marketValue: Number(found.marketValue),
+            costPrice: found.costPrice ? Number(found.costPrice) : undefined,
+            changePercent: found.changePercent ? Number(found.changePercent) : 0,
+          };
+          setAsset(normalized);
+        } else {
+          setAsset(null);
+        }
       } else {
+        console.error('加载资产失败', res.status);
         setAsset(null);
       }
-    } else {
-      console.error('加载资产失败', res.status);
+    } catch (err) {
+      console.error('加载资产失败', err);
       setAsset(null);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('加载资产失败', err);
-    setAsset(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-  // 监听全局资产更新事件（资产列表页更新价格后会触发）
   useEffect(() => {
     loadAsset();
     const unsubscribe = eventBus.subscribe('assetsUpdated', loadAsset);
@@ -140,31 +141,32 @@ const loadAsset = async () => {
       return;
     }
 
-  const totalCostOld = asset.holdings * (asset.costPrice || 0);
-  const totalCostNew = totalCostOld + qty * price;
-  const newHoldings = asset.holdings + qty;
-  const newCostPrice = totalCostNew / newHoldings;
-  const newMarketValue = newHoldings * asset.price;
-
-    const updatedAsset: Asset = {
-      ...asset,
-      holdings: newHoldings,
-      costPrice: newCostPrice,
-      marketValue: newHoldings * asset.price,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    // 先调用 addAsset（内部会更新数据库和本地缓存）
-    await addAsset(updatedAsset);
-    // 重新从数据库加载最新资产（确保数据一致）
-    await loadAsset();
-    eventBus.emit('assetsUpdated');
-    setMessage({ type: 'success', text: '加仓成功' });
-    setBuyQuantity('');
-    setBuyPrice('');
-    setBuyDate('');
-
+    setIsBuySubmitting(true);
     try {
+      const totalCostOld = asset.holdings * (asset.costPrice || 0);
+      const totalCostNew = totalCostOld + qty * price;
+      const newHoldings = asset.holdings + qty;
+      const newCostPrice = totalCostNew / newHoldings;
+      const newMarketValue = newHoldings * asset.price;
+
+      const updatedAsset: Asset = {
+        ...asset,
+        holdings: newHoldings,
+        costPrice: newCostPrice,
+        marketValue: newMarketValue,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      await addAsset(updatedAsset);
+      await loadAsset();
+      eventBus.emit('assetsUpdated');
+
+      // 清空表单
+      setBuyQuantity('');
+      setBuyPrice('');
+      setBuyDate('');
+
+      // 保存交易记录
       await fetch('/api/transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
@@ -178,8 +180,13 @@ const loadAsset = async () => {
         }),
       });
       setRefreshKey(prev => prev + 1);
+
+      // 2秒后恢复按钮文字
+      setTimeout(() => setIsBuySubmitting(false), 2000);
     } catch (err) {
-      console.error('保存加仓记录失败', err);
+      console.error('加仓失败', err);
+      setMessage({ type: 'error', text: '加仓失败，请重试' });
+      setIsBuySubmitting(false);
     }
   };
 
@@ -197,25 +204,26 @@ const loadAsset = async () => {
       return;
     }
 
-    const newHoldings = asset.holdings - qty;
-    const newMarketValue = newHoldings * asset.price;
-
-    const updatedAsset: Asset = {
-      ...asset,
-      holdings: newHoldings,
-      marketValue: newHoldings * asset.price,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    await addAsset(updatedAsset);
-    await loadAsset();
-    eventBus.emit('assetsUpdated');
-    setMessage({ type: 'success', text: '卖出成功' });
-    setSellQuantity('');
-    setSellPrice('');
-    setSellDate('');
-
+    setIsSellSubmitting(true);
     try {
+      const newHoldings = asset.holdings - qty;
+      const newMarketValue = newHoldings * asset.price;
+
+      const updatedAsset: Asset = {
+        ...asset,
+        holdings: newHoldings,
+        marketValue: newMarketValue,
+        lastUpdated: new Date().toISOString(),
+      };
+
+      await addAsset(updatedAsset);
+      await loadAsset();
+      eventBus.emit('assetsUpdated');
+
+      setSellQuantity('');
+      setSellPrice('');
+      setSellDate('');
+
       await fetch('/api/transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
@@ -229,8 +237,12 @@ const loadAsset = async () => {
         }),
       });
       setRefreshKey(prev => prev + 1);
+
+      setTimeout(() => setIsSellSubmitting(false), 2000);
     } catch (err) {
-      console.error('保存卖出记录失败', err);
+      console.error('卖出失败', err);
+      setMessage({ type: 'error', text: '卖出失败，请重试' });
+      setIsSellSubmitting(false);
     }
   };
 
@@ -241,10 +253,8 @@ const loadAsset = async () => {
     return num.toFixed(2);
   };
 
-
   if (!symbol || !isOpen) return null;
 
-  // ✅ 替换加载动画为骨架屏
   if (loading) {
     return <AssetDetailSkeleton onClose={onClose} />;
   }
@@ -436,10 +446,10 @@ const loadAsset = async () => {
                   </div>
                   <button
                     onClick={handleBuy}
-                    disabled={!buyQuantity || !buyPrice}
+                    disabled={!buyQuantity || !buyPrice || isBuySubmitting}
                     className="w-full bg-green-600 text-white font-bold py-2 text-xs rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
                   >
-                    确认加仓
+                    {isBuySubmitting ? '加仓成功' : '确认加仓'}
                   </button>
                 </div>
               )}
@@ -483,10 +493,10 @@ const loadAsset = async () => {
                   </div>
                   <button
                     onClick={handleSell}
-                    disabled={!sellQuantity || !sellPrice}
+                    disabled={!sellQuantity || !sellPrice || isSellSubmitting}
                     className="w-full bg-red-600 text-white font-bold py-2 text-xs rounded-lg disabled:opacity-50 active:scale-[0.98] transition-transform"
                   >
-                    确认卖出
+                    {isSellSubmitting ? '卖出成功' : '确认卖出'}
                   </button>
                 </div>
               )}
@@ -505,10 +515,9 @@ const loadAsset = async () => {
           </div>
         </div>
 
-        {message && (
-          <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-bold ${
-            message.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-          }`}>
+        {/* 仅显示错误消息，成功时不显示圆框 */}
+        {message && message.type === 'error' && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-bold bg-red-600 text-white">
             {message.text}
           </div>
         )}

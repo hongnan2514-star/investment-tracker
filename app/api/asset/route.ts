@@ -92,3 +92,57 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  const userId = request.headers.get('x-user-id');
+  if (!userId) {
+    return NextResponse.json({ error: '未登录' }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { symbol, holdings, costPrice, marketValue } = body;
+
+    if (!symbol || holdings === undefined) {
+      return NextResponse.json({ error: '缺少必要字段 (symbol, holdings)' }, { status: 400 });
+    }
+
+    // 构建动态更新语句
+    const updates: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    updates.push(`holdings = $${paramIndex++}`);
+    params.push(holdings);
+
+    if (costPrice !== undefined) {
+      updates.push(`cost_price = $${paramIndex++}`);
+      params.push(costPrice);
+    }
+
+    if (marketValue !== undefined) {
+      updates.push(`market_value = $${paramIndex++}`);
+      params.push(marketValue);
+    }
+
+    updates.push(`last_updated = NOW()`);
+    params.push(symbol, userId);
+
+    const sql = `
+      UPDATE assets
+      SET ${updates.join(', ')}
+      WHERE symbol = $${paramIndex} AND user_id = $${paramIndex + 1}
+      RETURNING *
+    `;
+
+    const result = await query(sql, params);
+    if (result.rowCount === 0) {
+      return NextResponse.json({ error: '资产不存在或无权限' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, asset: result.rows[0] });
+  } catch (error) {
+    console.error('更新资产失败:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
