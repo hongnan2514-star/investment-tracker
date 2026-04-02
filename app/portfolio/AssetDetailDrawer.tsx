@@ -11,8 +11,6 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { CryptoChart, StockChart, FundChart, MetalChart } from './charts';
 import TransactionHistory from 'components/TransactionHistory';
 import AssetStats from '@/components/AssetStats';
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 
 interface AssetDetailDrawerProps {
   symbol: string | null;
@@ -28,10 +26,10 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 
   const [buyQuantity, setBuyQuantity] = useState('');
   const [buyPrice, setBuyPrice] = useState('');
-  const [buyDate, setBuyDate] = useState<Date | null>(null);
+  const [buyDate, setBuyDate] = useState<string>('');
   const [sellQuantity, setSellQuantity] = useState('');
   const [sellPrice, setSellPrice] = useState('');
-  const [sellDate, setSellDate] = useState<Date | null>(null);
+  const [sellDate, setSellDate] = useState<string>('');
 
   // 按钮提交状态（用于显示临时成功文字并禁用按钮）
   const [isBuySubmitting, setIsBuySubmitting] = useState(false);
@@ -132,6 +130,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     const qty = parseFloat(buyQuantity);
     const price = parseFloat(buyPrice);
     const userId = getCurrentUserId();
+    const transactionDate = buyDate.replace(/\//g, '-');
     if (!userId) {
       setMessage({ type: 'error', text: '请先登录' });
       return;
@@ -164,7 +163,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
       // 清空表单
       setBuyQuantity('');
       setBuyPrice('');
-      setBuyDate(null);
+      setBuyDate('');
 
       // 保存交易记录
       await fetch('/api/transaction', {
@@ -175,9 +174,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
           transactionType: 'buy',
           quantity: qty,
           price: price,
-          transactionDate: buyDate
-  ? buyDate.toISOString().split("T")[0]
-  : "",
+          transactionDate: transactionDate,
           currency: asset.currency,
         }),
       });
@@ -192,11 +189,52 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     }
   };
 
+  const formatDateMask = (value: string): string => {
+  // 移除非数字字符
+  const digits = value.replace(/\D/g, '');
+  // 限制最大长度 8 位（年4+月2+日2）
+  const limited = digits.slice(0, 8);
+  
+  let formatted = '';
+  for (let i = 0; i < limited.length; i++) {
+    if (i === 4 || i === 6) {
+      formatted += '/';
+    }
+    formatted += limited[i];
+  }
+  return formatted;
+};
+
+// 将 yyyy/MM/dd 字符串转换为 Date 对象（用于校验）
+const parseDateString = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  // 支持 yyyy/MM/dd 或 yyyy-MM-dd
+  const normalized = dateStr.replace(/\//g, '-');
+  const [year, month, day] = normalized.split('-');
+  if (!year || !month || !day) return null;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  if (isNaN(date.getTime())) return null;
+  return date;
+};
+
+// 处理输入变化
+const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
+  const raw = e.target.value;
+  // 如果用户删除到空，直接清空
+  if (raw === '') {
+    setter('');
+    return;
+  }
+  const formatted = formatDateMask(raw);
+  setter(formatted);
+};
+
   const handleSell = async () => {
     if (!asset) return;
     const qty = parseFloat(sellQuantity);
     const price = parseFloat(sellPrice);
     const userId = getCurrentUserId();
+    const transactionDate = buyDate.replace(/\//g, '-');
     if (!userId) {
       setMessage({ type: 'error', text: '请先登录' });
       return;
@@ -224,7 +262,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 
       setSellQuantity('');
       setSellPrice('');
-      setSellDate(null);
+      setSellDate('');
 
       await fetch('/api/transaction', {
         method: 'POST',
@@ -234,7 +272,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
           transactionType: 'sell',
           quantity: qty,
           price: price,
-          transactionDate: sellDate,
+          transactionDate: transactionDate,
           currency: asset.currency,
         }),
       });
@@ -435,19 +473,13 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
     </div>
-<div className="relative">
-  <DatePicker
-    selected={buyDate}
-    onChange={(date: Date | null) => setBuyDate(date)}
-    dateFormat="yyyy-MM-dd"
-    placeholderText="日期"
-    wrapperClassName="w-full"
-    customInput={
-      <input
-        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-        placeholder="日期"
-      />
-    }
+<div>
+  <input
+    type="text"
+    value={buyDate}
+    onChange={(e) => handleDateChange(e, setBuyDate)}
+    placeholder="yyyy/MM/dd"
+    className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
   />
 </div>
 
@@ -487,19 +519,13 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
 />
     </div>
-<div className="relative">
-  <DatePicker
-    selected={sellDate}
-    onChange={(date: Date | null) => setSellDate(date)}
-    dateFormat="yyyy-MM-dd"
-    placeholderText="日期"
-    wrapperClassName="w-full"
-    customInput={
-      <input
-        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-        placeholder="日期"
-      />
-    }
+<div>
+  <input
+    type="text"
+    value={sellDate}
+    onChange={(e) => handleDateChange(e, setBuyDate)}
+    placeholder="yyyy/MM/dd"
+    className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
   />
 </div>
     <button
