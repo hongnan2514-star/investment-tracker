@@ -204,7 +204,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     if (isNaN(qty) || qty <= 0 || qty > asset.holdings || isNaN(price) || price < 0) {
       setMessage({ type: 'error', text: '卖出数量无效或超过持仓' });
       return;
-    }
+    } 
 
     setIsSellSubmitting(true);
     try {
