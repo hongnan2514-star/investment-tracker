@@ -90,7 +90,6 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
   return (
     <div className="px-2 mb-2">
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-[12px] font-normal text-gray-800 dark:text-gray-100">本月总预算</h3>
       </div>
 
       <div className="flex flex-row items-center gap-3 justify-start flex-nowrap">
@@ -127,7 +126,7 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
 
         {/* 右侧区域：flex-1 占满剩余宽度，内部 justify-between 实现两端对齐 */}
         <div className="flex-1 flex flex-row justify-between items-baseline">
-          <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">剩余预算：</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">本月剩余预算：</span>
           {isAmountHidden ? (
             <span className="text-base font-bold text-gray-900 dark:text-gray-100 tracking-widest">****</span>
           ) : (

@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, PieChart, Wallet, User } from 'lucide-react';
+import { Home, PieChart, Wallet, User, BotMessageSquare } from 'lucide-react';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -10,8 +10,8 @@ export default function BottomNav() {
   const navItems = [
     { name: '首页', path: '/', icon: Home },
     { name: '资产', path: '/portfolio', icon: Wallet },
-    { name: 'AI分析', path: '/analytics', icon: PieChart },
-    { name: '我的', path: '/profile', icon: User },
+    { name: '收支', path: '/ledger', icon: PieChart },
+    { name: '分析', path: '/analytics', icon: BotMessageSquare },
   ];
 
   const firstThree = navItems.slice(0, 3);
