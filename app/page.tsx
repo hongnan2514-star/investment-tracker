@@ -60,7 +60,7 @@ export default function Home() {
           </div>
           <button
             onClick={() => setIsDrawerOpen(true)}
-            className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden hover:ring-2 ring-gray-300 dark:ring-gray-600 transition"
+            className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden hover:ring-2 ring-gray-300 dark:ring-gray-600 transition"
           >
             {user?.avatarUrl ? (
               < img src={user.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
