@@ -530,7 +530,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
       />
     </div>
 
-    <div>
+    <div> 
       <input
         type="text"
         value={sellDate}
