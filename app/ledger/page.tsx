@@ -38,9 +38,9 @@ const MONTHLY_BUDGET = 565;
 export default function LedgerPage() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { symbol: currencySymbol } = useCurrency(); // 获取当前货币符号
+  const { symbol: currencySymbol } = useCurrency();
   const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(3); // 0-index: 3 => 4月
+  const [currentMonth, setCurrentMonth] = useState(3);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -53,20 +53,14 @@ export default function LedgerPage() {
 
   const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
-  // 计算当前月份的收支统计
   const currentMonthTransactions = transactions.filter(t => {
     const [year, month] = t.date.split('-');
     return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
   });
-  const totalIncome = currentMonthTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = currentMonthTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const netBalance = totalIncome - totalExpense;
 
-  // 打开原生月份选择器
   const openMonthPicker = () => {
     const existingPicker = document.querySelector('.temp-month-picker');
     if (existingPicker) existingPicker.remove();
@@ -114,7 +108,6 @@ export default function LedgerPage() {
     }
   };
 
-  // 添加收支记录
   const handleAddTransaction = () => {
     const amountNum = parseFloat(formAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -134,7 +127,6 @@ export default function LedgerPage() {
       date: formDate,
     };
     setTransactions(prev => [newTransaction, ...prev]);
-    // 重置表单并关闭
     setFormAmount('');
     setFormCategory('');
     setFormNote('');
@@ -143,7 +135,6 @@ export default function LedgerPage() {
     setShowAddMenu(false);
   };
 
-  // 打开添加表单前的准备
   const openAddForm = (type: 'income' | 'expense') => {
     setAddType(type);
     setFormCategory(type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
@@ -151,7 +142,6 @@ export default function LedgerPage() {
     setShowAddForm(true);
   };
 
-  // 按日期分组交易记录
   const groupedTransactions = currentMonthTransactions.reduce((groups, tx) => {
     const date = tx.date;
     if (!groups[date]) groups[date] = [];
@@ -164,12 +154,15 @@ export default function LedgerPage() {
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
       <div className="max-w-md mx-auto">
         {/* 顶部栏 */}
-        <div className="flex justify-between items-center mb-4 px-2">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">收支</h1>
-          <button className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
-            <MoreVertical size={20} className="text-gray-600 dark:text-gray-400" />
-          </button>
-        </div>
+<div className="flex justify-between items-center mb-4 px-2">
+  <div>
+    <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
+    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p >
+  </div>
+  <button className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
+    <MoreVertical size={20} className="text-gray-600 dark:text-gray-400" />
+  </button>
+</div>
 
         {/* 搜索框 */}
         <div className="relative mb-6 px-2">
@@ -227,21 +220,21 @@ export default function LedgerPage() {
           </div>
         </div>
 
-        {/* 预算饼图组件 - 放在月结余下方 */}
+        {/* 预算饼图组件 */}
         <BudgetPieChart
           budget={MONTHLY_BUDGET}
           spent={totalExpense}
           currencySymbol={currencySymbol}
         />
 
-        {/* 交易列表区域 */}
-        <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 mb-20">
-          {sortedDates.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400 dark:text-gray-500 font-medium">本月暂无数据</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">点击右下角 + 记录收支</p>
-            </div>
-          ) : (
+        {/* 交易列表区域 - 无数据时无白色容器 */}
+        {sortedDates.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-400 dark:text-gray-500 font-medium">暂无收支记录</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">点击右下角 + 记录收支</p>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 mb-20">
             <div className="space-y-4">
               {sortedDates.map(date => {
                 const dayTransactions = groupedTransactions[date];
@@ -280,8 +273,8 @@ export default function LedgerPage() {
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* 右下角添加按钮 */}
@@ -292,7 +285,7 @@ export default function LedgerPage() {
         <Plus size={36} strokeWidth={3} />
       </button>
 
-      {/* 底部菜单：选择收入/支出 */}
+      {/* 底部菜单 */}
       {showAddMenu && (
         <>
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity" onClick={() => setShowAddMenu(false)} />

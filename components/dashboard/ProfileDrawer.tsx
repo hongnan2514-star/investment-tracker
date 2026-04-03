@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, LogOut, Smartphone, Send, ChevronRight, Settings, X } from 'lucide-react';
+import { User, Smartphone, Send, Settings } from 'lucide-react';
 import Image from 'next/image';
 import { setCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
@@ -238,17 +238,6 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     setRegisterStep(false);
     setRegisterPassword('');
     onClose(); // 登录成功后关闭抽屉
-  };
-
-  // 退出登录
-  const handleLogout = () => {
-    setCurrentUserId(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('preferred_currency');
-    setIsLoggedIn(false);
-    setUser(null);
-    eventBus.emit('userChanged', null);
-    onClose(); // 退出后关闭抽屉
   };
 
   const resetForm = () => {
@@ -529,69 +518,46 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
         }`}
       >
         <div className="flex flex-col h-full overflow-y-auto">
-          {/* 头部：标题 + 设置图标 + 关闭按钮 */}
-          <div className="sticky top-0 bg-white dark:bg-black z-10 px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">我的</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  router.push('/settings');
-                  onClose(); // 跳转后关闭抽屉
-                }}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                aria-label="设置"
-              >
-                <Settings size={22} className="text-gray-600 dark:text-gray-300" />
-              </button>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                aria-label="关闭"
-              >
-                <X size={22} className="text-gray-600 dark:text-gray-300" />
-              </button>
-            </div>
-          </div>
-
-          {/* 主要内容区域（原ProfilePage的内容） */}
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-4 pt-8">
             {isLoggedIn ? (
               <>
+                {/* 垂直布局：头像在上，文字在下，左对齐，无右箭头 */}
                 <div
                   onClick={() => {
                     router.push('/profile/edit');
-                    onClose(); // 跳转后关闭抽屉
+                    onClose();
                   }}
-                  className="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl -mx-2 p-2 transition"
+                  className="flex flex-col items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl -mx-2 p-4 transition"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {user?.avatarUrl ? (
-                        <Image src={user.avatarUrl} alt={user.name} width={80} height={80} className="object-cover" />
-                      ) : (
-                        <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                          {user?.name?.charAt(0).toUpperCase() || '?'}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
-                      <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1">
-                        <Smartphone size={14} />
-                        <span>{user?.phone}</span>
-                      </div>
+                  <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {user?.avatarUrl ? (
+                      <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="object-cover" />
+                    ) : (
+                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {user?.name?.charAt(0).toUpperCase() || '?'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
+                    <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1">
+                      <Smartphone size={14} />
+                      <span>{user?.phone}</span>
                     </div>
                   </div>
-                  <ChevronRight size={24} className="text-gray-400 dark:text-gray-500" />
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+                  {/* 仅保留设置与隐私按钮，删除退出登录按钮 */}
                   <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 text-red-500 dark:text-red-400 font-bold py-3 rounded-2xl border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                    onClick={() => {
+                      router.push('/settings');
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4"
                   >
-                    <LogOut size={20} />
-                    退出登录
+                    <Settings size={20} className="text-gray-500 dark:text-gray-400" />
+                    <span>设置与隐私</span>
                   </button>
                 </div>
               </>
@@ -611,7 +577,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                         <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">使用手机号验证码或密码登录</p>
                       </div>
                     </div>
-                    <ChevronRight className="text-blue-400 dark:text-blue-500" size={20} />
+                    {/* 移除右侧箭头 */}
                   </button>
                 ) : showForgotPassword ? (
                   renderForgotPassword()
@@ -656,6 +622,20 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                     {renderLoginForm()}
                   </div>
                 )}
+
+                {/* 未登录状态下同样显示设置与隐私按钮 */}
+                <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    onClick={() => {
+                      router.push('/settings');
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4"
+                  >
+                    <Settings size={20} className="text-gray-500 dark:text-gray-400" />
+                    <span>设置与隐私</span>
+                  </button>
+                </div>
               </>
             )}
           </div>
