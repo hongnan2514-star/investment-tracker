@@ -1,3 +1,4 @@
+// components/dashboard/ChartView.tsx
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, ChevronUp } from 'lucide-react';
@@ -14,11 +15,11 @@ interface Props {
   mode: Mode;
   totalValue: number;
   currencySymbol: string;
-  todayProfit?: number;          // 仅扩展模式需要，用于线条颜色
-  onClose?: () => void;          // 仅扩展模式需要
+  todayProfit?: number;
+  onClose?: () => void;
   period: Period;
   onPeriodChange: (period: Period) => void;
-  onHoverValueChange?: (value: number | null, timeStr?: string) => void; // 扩展模式需要
+  onHoverValueChange?: (value: number | null, timeStr?: string) => void;
 }
 
 export default function ChartView({
@@ -50,7 +51,7 @@ export default function ChartView({
   const cacheKey = `${period}_${currency}`;
   const margin = { top: 20, right: 20, left: 20, bottom: 20 };
 
-  // ---------- 数据获取（统一逻辑） ----------
+  // ---------- 数据获取（统一逻辑，不再强制对齐实时净资产） ----------
   const fetchData = useCallback(async (force = false) => {
     if (!mounted.current) return;
 
@@ -105,11 +106,11 @@ export default function ChartView({
       if (json.error) throw new Error(json.error);
 
       let rawData: { timestamp: number; value: number }[] = json.data || [];
-
       // 去重
       const uniqueData = rawData.filter((p, i, arr) => i === 0 || p.timestamp !== arr[i - 1].timestamp);
 
       let finalData = uniqueData;
+      // 数据不足两个点时，用当前净资产补一个点（仅用于占位，不是强制对齐）
       if (finalData.length < 2) {
         const nowTs = Date.now();
         finalData.push({ timestamp: nowTs, value: totalValue });
@@ -134,34 +135,10 @@ export default function ChartView({
         return { time: timeStr, value: p.value };
       });
 
-      // ---------- 强制对齐当前净资产 ----------
-      let finalFormatted = formatted;
-      const nowTs = Date.now();
-      const lastTimestamp = finalData[finalData.length - 1]?.timestamp;
-      const lastDate = lastTimestamp ? new Date(lastTimestamp) : null;
-      const nowDate = new Date(nowTs);
-
-      if (period === '1W') {
-        if (!lastTimestamp || (nowTs - lastTimestamp) > 60 * 60 * 1000) {
-          const nowTimeStr = nowDate.toLocaleString('zh-CN', {
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          }).replace(/\//g, '/');
-          finalFormatted = [...formatted, { time: nowTimeStr, value: totalValue }];
-        }
-      } else {
-        if (!lastDate || lastDate.toDateString() !== nowDate.toDateString()) {
-          const nowDateStr = nowDate.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
-          finalFormatted = [...formatted, { time: nowDateStr, value: totalValue }];
-        }
-      }
-
+      // ✅ 关键：将格式化后的数据设置到 chartData 并更新缓存
       if (currentRequestId === requestIdRef.current && !signal.aborted) {
-        setChartData(finalFormatted);
-        chartCache.set(cacheKey, { data: finalFormatted, timestamp: now });
+        setChartData(formatted);
+        chartCache.set(cacheKey, { data: formatted, timestamp: now });
       }
     } catch (err: any) {
       if (signal.aborted) return;
@@ -176,7 +153,7 @@ export default function ChartView({
     }
   }, [period, currency, totalValue, cacheKey]);
 
-  // ---------- 扩展图绘制逻辑 ----------
+  // ---------- 扩展图绘制逻辑（保持不变） ----------
   const drawChart = useCallback(() => {
     if (mode !== 'expanded') return;
     if (!canvasRef.current || !containerRef.current || chartData.length === 0) return;
@@ -394,7 +371,7 @@ export default function ChartView({
     return (
       <div
         className="w-24 h-12 mb-2 cursor-pointer hover:opacity-80 transition active:scale-95"
-        onClick={() => onPeriodChange(period)} // 实际上迷你图点击应该展开，这里需要父组件处理
+        onClick={() => onPeriodChange(period)}
         tabIndex={-1}
         style={{
           outline: 'none',
