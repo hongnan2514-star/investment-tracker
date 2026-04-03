@@ -30,7 +30,7 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
       if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
       resizeTimerRef.current = setTimeout(() => {
         const mobile = window.innerWidth < 768;
-        setIsMobile(mobile);
+        setIsMobile(mobile); 
         setOuterRadius(mobile ? 30 : 35);
       }, 150);
     };
