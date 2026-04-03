@@ -3,7 +3,6 @@
 
 import SummaryCard from '@/components/dashboard/SummaryCard';
 import AssetPieChart from "@/components/dashboard/AssetPieChart";
-import BudgetPieChart from "@/components/dashboard/BudgetPieChart";
 import ProfileDrawer from "@/components/dashboard/ProfileDrawer";
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { useState, useEffect } from 'react';
@@ -12,12 +11,6 @@ import { User } from 'lucide-react';
 export default function Home() {
   const { currency, symbol } = useCurrency();
   const { convert } = useCurrencyConverter();
-
-  // 预算数据（示例）
-  const [rawBudgetCNY] = useState(565);
-  const [rawSpentCNY] = useState(0);
-  const [convertedBudget, setConvertedBudget] = useState(565);
-  const [convertedSpent, setConvertedSpent] = useState(0);
 
   // 用户状态（用于头像显示）
   const [user, setUser] = useState<any>(null);
@@ -37,17 +30,6 @@ export default function Home() {
     window.addEventListener('user-changed', handleUserChange);
     return () => window.removeEventListener('user-changed', handleUserChange);
   }, []);
-
-  // 货币转换预算
-  useEffect(() => {
-    const convertBudget = async () => {
-      const budgetConverted = await convert(rawBudgetCNY, 'CNY', currency);
-      const spentConverted = await convert(rawSpentCNY, 'CNY', currency);
-      setConvertedBudget(budgetConverted);
-      setConvertedSpent(spentConverted);
-    };
-    convertBudget();
-  }, [currency, convert, rawBudgetCNY, rawSpentCNY]);
 
   return (
     <main className="min-h-screen bg-white dark:bg-black p-4">
@@ -73,12 +55,6 @@ export default function Home() {
         </header>
 
         <SummaryCard />
-
-        <BudgetPieChart
-          budget={convertedBudget}
-          spent={convertedSpent}
-          currencySymbol={symbol}
-        />
 
         <AssetPieChart />
 

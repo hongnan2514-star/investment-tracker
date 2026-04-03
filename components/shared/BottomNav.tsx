@@ -8,10 +8,10 @@ export default function BottomNav() {
   const router = useRouter();
 
   const navItems = [
-    { name: '首页', path: '/', icon: Home },
-    { name: '资产', path: '/portfolio', icon: Wallet },
-    { name: '收支', path: '/ledger', icon: PieChart },
-    { name: '分析', path: '/analytics', icon: BotMessageSquare },
+    { path: '/', icon: Home },
+    { path: '/portfolio', icon: Wallet },
+    { path: '/ledger', icon: PieChart },
+    { path: '/analytics', icon: BotMessageSquare },
   ];
 
   const firstThree = navItems.slice(0, 3);
@@ -31,7 +31,6 @@ export default function BottomNav() {
           strokeWidth={isActive ? 2.5 : 2}
         />
         <span className={`text-[10px] font-medium ${isActive ? 'text-[#ff8800]' : 'text-gray-500 dark:text-gray-400'}`}>
-          {item.name}
         </span>
       </button>
     );
@@ -48,7 +47,7 @@ export default function BottomNav() {
         </div>
 
         {/* 第四个图标单独一个正圆圆框 */}
-        <div className="w-14 h-14 bg-white/20 dark:bg-black/20 backdrop-blur-2xl backdrop-saturate-150 rounded-full shadow-2xl border border-white/40 dark:border-white/10 flex items-center justify-center">
+        <div className="w-11 h-11 bg-white/20 dark:bg-black/20 backdrop-blur-2xl backdrop-saturate-150 rounded-full shadow-2xl border border-white/40 dark:border-white/10 flex items-center justify-center">
           <NavButton item={lastItem} className="w-full" />
         </div>
       </div>

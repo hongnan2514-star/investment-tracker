@@ -13,9 +13,10 @@ import {
   Plus,
   X,
   ChevronRight,
-  ArrowLeft,
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
+import { useCurrency } from '@/src/services/currency';
+import BudgetPieChart from '@/components/dashboard/BudgetPieChart';
 
 // 交易记录类型
 type Transaction = {
@@ -31,9 +32,13 @@ type Transaction = {
 const INCOME_CATEGORIES = ['工资', '兼职', '理财', '红包', '其他'];
 const EXPENSE_CATEGORIES = ['餐饮', '购物', '交通', '娱乐', '医疗', '房租', '其他'];
 
+// 每月预算（示例，后续可改为用户自定义）
+const MONTHLY_BUDGET = 565;
+
 export default function LedgerPage() {
   const router = useRouter();
   const { theme } = useTheme();
+  const { symbol: currencySymbol } = useCurrency(); // 获取当前货币符号
   const [currentYear, setCurrentYear] = useState(2026);
   const [currentMonth, setCurrentMonth] = useState(3); // 0-index: 3 => 4月
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -155,12 +160,6 @@ export default function LedgerPage() {
   }, {} as Record<string, Transaction[]>);
   const sortedDates = Object.keys(groupedTransactions).sort().reverse();
 
-  const navigateTo = (page: string) => {
-    if (page === 'ledger') return;
-    if (page === 'assets') router.push('/portfolio');
-    if (page === 'stats') router.push('/statistics');
-  };
-
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
       <div className="max-w-md mx-auto">
@@ -208,25 +207,32 @@ export default function LedgerPage() {
                 <span>月结余</span>
               </div>
               <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                ¥{netBalance.toFixed(2)}
+                {currencySymbol}{netBalance.toFixed(2)}
               </p>
             </div>
             <div className="flex gap-4 mt-1 text-sm">
               <div className="flex items-center gap-1">
                 <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  ¥{totalExpense.toFixed(2)}
+                  {currencySymbol}{totalExpense.toFixed(2)}
                 </span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
                 <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  ¥{totalIncome.toFixed(2)}
+                  {currencySymbol}{totalIncome.toFixed(2)}
                 </span>
               </div>
             </div>
           </div>
         </div>
+
+        {/* 预算饼图组件 - 放在月结余下方 */}
+        <BudgetPieChart
+          budget={MONTHLY_BUDGET}
+          spent={totalExpense}
+          currencySymbol={currencySymbol}
+        />
 
         {/* 交易列表区域 */}
         <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 mb-20">
@@ -248,8 +254,8 @@ export default function LedgerPage() {
                         {date.slice(5)}  {new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' })}
                       </span>
                       <div className="flex gap-3 text-xs">
-                        {dayTotalExpense > 0 && <span className="text-red-500">支出 ¥{dayTotalExpense.toFixed(2)}</span>}
-                        {dayTotalIncome > 0 && <span className="text-green-500">收入 ¥{dayTotalIncome.toFixed(2)}</span>}
+                        {dayTotalExpense > 0 && <span className="text-red-500">支出 {currencySymbol}{dayTotalExpense.toFixed(2)}</span>}
+                        {dayTotalIncome > 0 && <span className="text-green-500">收入 {currencySymbol}{dayTotalIncome.toFixed(2)}</span>}
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -265,7 +271,7 @@ export default function LedgerPage() {
                             </div>
                           </div>
                           <p className={`font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                            {tx.type === 'income' ? '+' : '-'}¥{tx.amount.toFixed(2)}
+                            {tx.type === 'income' ? '+' : '-'}{currencySymbol}{tx.amount.toFixed(2)}
                           </p>
                         </div>
                       ))}
@@ -344,11 +350,10 @@ export default function LedgerPage() {
             </div>
 
             <div className="space-y-5">
-              {/* 金额输入 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">金额</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">¥</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{currencySymbol}</span>
                   <input
                     type="number"
                     placeholder="0.00"
@@ -361,7 +366,6 @@ export default function LedgerPage() {
                 </div>
               </div>
 
-              {/* 分类选择 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">分类</label>
                 <div className="flex flex-wrap gap-2">
@@ -381,7 +385,6 @@ export default function LedgerPage() {
                 </div>
               </div>
 
-              {/* 日期选择 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">日期</label>
                 <input
@@ -392,7 +395,6 @@ export default function LedgerPage() {
                 />
               </div>
 
-              {/* 备注 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">备注（可选）</label>
                 <input
