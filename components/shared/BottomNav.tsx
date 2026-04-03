@@ -26,7 +26,7 @@ export default function BottomNav() {
         className={`flex flex-col items-center justify-center gap-0.5 ${className}`}
       >
         <Icon
-          size={22}
+          size={25}
           className={isActive ? 'text-[#ff8800]' : 'text-gray-500 dark:text-gray-400'}
           strokeWidth={isActive ? 2.5 : 2}
         />
@@ -38,16 +38,16 @@ export default function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 pb-safe">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 px-9 py-3">
         {/* 前三个图标共用一个圆框 */}
-        <div className="flex-1 flex items-center justify-around bg-white/20 dark:bg-black/20 backdrop-blur-2xl backdrop-saturate-150 rounded-full shadow-2xl border border-white/40 dark:border-white/10 py-2">
+        <div className="flex-1 flex items-center justify-around bg-white/20 dark:bg-black/20 backdrop-blur-2xl backdrop-saturate-150 rounded-full shadow-2xl border border-white/40 dark:border-white/10 py-3">
           {firstThree.map((item) => (
             <NavButton key={item.path} item={item} className="flex-1" />
           ))}
         </div>
 
         {/* 第四个图标单独一个正圆圆框 */}
-        <div className="w-11 h-11 bg-white/20 dark:bg-black/20 backdrop-blur-2xl backdrop-saturate-150 rounded-full shadow-2xl border border-white/40 dark:border-white/10 flex items-center justify-center">
+        <div className="w-14 h-14 bg-white/20 dark:bg-black/20 backdrop-blur-2xl backdrop-saturate-150 rounded-full shadow-2xl border border-white/40 dark:border-white/10 flex items-center justify-center">
           <NavButton item={lastItem} className="w-full" />
         </div>
       </div>
