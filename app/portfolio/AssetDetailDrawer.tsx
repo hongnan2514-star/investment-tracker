@@ -451,37 +451,44 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
 {activeTab === 'buy' && (
   <div className="space-y-2">
     <div>
-<input
-  type="number"
-  step="0.01"
-  min="0.01"
-  value={buyQuantity}
-  onChange={(e) => setBuyQuantity(e.target.value)}
-  placeholder="数量"
-  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-/>
-</div>
-
-<div>
-<input
-  type="number"
-  step="0.01"
-  min="0"
-  value={buyPrice}
-  onChange={(e) => setBuyPrice(e.target.value)}
-  placeholder="价格"
-  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-/>
+      <input
+        type="number"
+        step="0.01"
+        min="0.01"
+        value={buyQuantity}
+        onChange={(e) => setBuyQuantity(e.target.value)}
+        placeholder="数量"
+        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
+                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   outline-none focus:border-blue-500 box-border"
+      />
     </div>
-<div>
-  <input
-    type="text"
-    value={buyDate}
-    onChange={(e) => handleDateChange(e, setBuyDate)}
-    placeholder="年/月/日"
-    className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-  />
-</div>
+
+    <div>
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        value={buyPrice}
+        onChange={(e) => setBuyPrice(e.target.value)}
+        placeholder="价格"
+        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
+                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   outline-none focus:border-blue-500 box-border"
+      />
+    </div>
+
+    <div>
+      <input
+        type="text"
+        value={buyDate}
+        onChange={(e) => handleDateChange(e, setBuyDate)}
+        placeholder="年/月/日"
+        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
+                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   outline-none focus:border-blue-500 box-border"
+      />
+    </div>
 
     <button
       onClick={handleBuy}
@@ -490,44 +497,51 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
     >
       {isBuySubmitting ? '加仓成功' : '确认加仓'}
     </button>
-  </div> 
-)} 
-
+  </div>
+)}
 
 {activeTab === 'sell' && (
   <div className="space-y-2">
     <div>
-<input
-  type="number"
-  step="0.01"
-  min="0.01"
-  value={sellQuantity}
-  onChange={(e) => setSellQuantity(e.target.value)}
-  placeholder="数量"
-  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-/>
-</div>
-
-<div>
-<input
-  type="number"
-  step="0.01"
-  min="0"
-  value={sellPrice}
-  onChange={(e) => setSellPrice(e.target.value)}
-  placeholder="价格"
-  className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[10px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-/>
+      <input
+        type="number"
+        step="0.01"
+        min="0.01"
+        value={sellQuantity}
+        onChange={(e) => setSellQuantity(e.target.value)}
+        placeholder="数量"
+        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
+                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   outline-none focus:border-blue-500 box-border"
+      />
     </div>
-<div>
-  <input
-    type="text"
-    value={sellDate}
-    onChange={(e) => handleDateChange(e, setBuyDate)}
-    placeholder="年/月/日"
-    className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 text-[6px] font-normal rounded-lg text-gray-900 dark:text-gray-100 outline-none focus:border-blue-500 box-border"
-  />
-</div>
+
+    <div>
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        value={sellPrice}
+        onChange={(e) => setSellPrice(e.target.value)}
+        placeholder="价格"
+        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
+                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   outline-none focus:border-blue-500 box-border"
+      />
+    </div>
+
+    <div>
+      <input
+        type="text"
+        value={sellDate}
+        onChange={(e) => handleDateChange(e, setSellDate)} 
+        placeholder="年/月/日"
+        className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
+                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   outline-none focus:border-blue-500 box-border"
+      />
+    </div>
+
     <button
       onClick={handleSell}
       disabled={!sellQuantity || !sellPrice || isSellSubmitting}
