@@ -18,6 +18,9 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
   const [isMobile, setIsMobile] = useState(false);
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 饼图圆心水平位置（百分比），与 <Pie cx> 保持一致
+  const pieCenterX = 40;
+
   useEffect(() => {
     const unsubscribe = eventBus.subscribe('toggleAmountVisibility', (hidden: boolean) => {
       setIsAmountHidden(hidden);
@@ -89,8 +92,7 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
 
   return (
     <div className="px-2 mb-2">
-      <div className="flex justify-between items-center mb-2">
-      </div>
+      <div className="flex justify-between items-center mb-2"></div>
 
       <div className="flex flex-row items-center gap-3 justify-start flex-nowrap">
         {/* 饼图 */}
@@ -100,7 +102,7 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
               <PieChart>
                 <Pie
                   data={pieData}
-                  cx="50%"
+                  cx={`${pieCenterX}%`}
                   cy="50%"
                   innerRadius={outerRadius * 0.65}
                   outerRadius={outerRadius}
@@ -114,7 +116,14 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute inset-0 flex items-center justify-center text-center">
+            {/* 百分比文字：定位到与饼图圆心相同的水平位置 */}
+            <div
+              className="absolute top-1/2 text-center"
+              style={{
+                left: `${pieCenterX}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
               {!isAmountHidden && (
                 <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
                   {remainingPercent.toFixed(0)}%

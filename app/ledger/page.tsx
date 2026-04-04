@@ -268,17 +268,17 @@ useEffect(() => {
   };
 
   // 选择收支类型后打开账户选择器
-  const handleSelectType = (type: 'income' | 'expense') => {
-    setAddType(type);
-    setFormCategory(type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
-    setShowAddMenu(false);
-    // 如果已有账户，直接打开账户选择器；否则先加载
-    if (accounts.length === 0) {
-      loadAccounts().then(() => setShowAccountSelector(true));
-    } else {
-      setShowAccountSelector(true);
-    }
-  };
+const handleSelectType = (type: 'income' | 'expense') => {
+  setAddType(type);
+  setFormCategory(type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
+  setShowAddMenu(false);
+  // 立即显示账户选择器（不等待加载）
+  setShowAccountSelector(true);
+  // 如果账户列表为空，则触发加载（选择器内会显示骨架屏）
+  if (accounts.length === 0) {
+    loadAccounts();
+  }
+};
 
   // 选择账户后打开记账表单
   const handleSelectAccount = (account: AccountAsset) => {
@@ -314,7 +314,7 @@ useEffect(() => {
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input
             type="text"
-            placeholder="输入关键词"
+            placeholder="查找账单"
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-3xl py-2 pl-12 pr-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
@@ -322,48 +322,47 @@ useEffect(() => {
         </div>
 
         {/* 主要区域：左侧日期 + 竖线 + 右侧统计信息 */}
-        <div className="flex items-start gap-3 mb-6 px-2">
-          <div className="flex flex-col shrink-0">
-            <span className="text-sm text-gray-500 dark:text-gray-400">{currentYear}年</span>
-            <div className="flex items-center gap-0 mt-0.5">
-              <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                {monthNames[currentMonth]}
-              </span>
-              <button
-                onClick={openMonthPicker}
-                className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-                aria-label="选择年月"
-              >
-                <CalendarDays size={18} className="text-gray-500 dark:text-gray-400 translate-y-0.5 -m-1" />
-              </button>
-            </div>
-          </div>
-          <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>
-          <div>
-            <div>
-              <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
-                <span>月结余</span>
-              </div>
-              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {currencySymbol}{netBalance.toFixed(2)}
-              </p>
-            </div>
-            <div className="flex gap-4 mt-1 text-sm">
-              <div className="flex items-center gap-1">
-                <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {currencySymbol}{totalExpense.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {currencySymbol}{totalIncome.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+<div className="flex items-start gap-3 mb-6 px-2">
+  {/* 左侧：年月选择器 - 点击整个区域弹出选择器 */}
+  <div
+    onClick={openMonthPicker}
+    className="flex flex-col shrink-0 cursor-pointer"
+  >
+    <span className="text-sm text-gray-500 dark:text-gray-400">{currentYear}年</span>
+    <div className="flex items-center gap-0 mt-0.5">
+      <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+        {monthNames[currentMonth]}
+      </span>
+      <CalendarDays size={18} className="translate-x-1 text-gray-500 dark:text-gray-400 translate-y-2 -m-1" />
+    </div>
+  </div>
+  {/* 保留一条竖线 */}
+  <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>
+  <div>
+    <div>
+      <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
+        <span>月结余</span>
+      </div>
+      <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+        {currencySymbol}{netBalance.toFixed(2)}
+      </p >
+    </div>
+    <div className="flex gap-4 mt-1 text-sm">
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">
+          {currencySymbol}{totalExpense.toFixed(2)}
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">
+          {currencySymbol}{totalIncome.toFixed(2)}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
 
         {/* 预算饼图组件 */}
         <div className="-mt-6">
@@ -372,6 +371,57 @@ useEffect(() => {
             spent={totalExpense}
             currencySymbol={currencySymbol}
           />
+        </div>
+
+        {/* 当前账户组件 */}
+        <div className="mt-4 px-2">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">账户</h2>
+          </div>
+          {loadingAccounts ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-1"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : accounts.length === 0 ? (
+            <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-4 text-center text-gray-400 dark:text-gray-500">
+              暂无现金账户
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {accounts.map(acc => (
+                <div
+                  key={acc.symbol}
+                  className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm border border-gray-100 dark:border-gray-800"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-full">
+                      {acc.logoUrl ? (
+                        <Image src={acc.logoUrl} alt={acc.name} width={40} height={40} className="object-contain rounded-full" />
+                      ) : (
+                        <Banknote size={24} className="text-orange-600" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-900 dark:text-gray-100">{acc.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        余额 {currencySymbol}{acc.marketValue.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 交易列表区域 - 无数据时无白色容器 */}
@@ -503,8 +553,8 @@ useEffect(() => {
         </div>
       ) : accounts.length === 0 ? (
         <div className="text-center py-10">
-          <p className="text-gray-500 dark:text-gray-400">暂无现金账户</p >
-          <p className="text-xs text-gray-400 mt-1">请先在资产管理中添加现金资产</p >
+          <p className="text-gray-500 dark:text-gray-400">暂无收支账户</p >
+          <p className="text-xs text-gray-400 mt-1">请先在资产管理中添加收支账户</p >
         </div>
       ) : (
         <div className="space-y-3">
