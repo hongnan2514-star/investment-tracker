@@ -23,25 +23,23 @@ import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import Image from 'next/image';
 
-// 交易记录类型
 type Transaction = {
   id: string;
   type: 'income' | 'expense';
   amount: number;
   category: string;
   note: string;
-  date: string; // YYYY-MM-DD
-  accountSymbol: string; // 关联的账户资产 symbol
+  date: string;
+  accountSymbol: string;
+  accountName: string;
+  accountLogoUrl?: string;
+  accountBalanceAfter: number;
 };
 
-// 默认分类
 const INCOME_CATEGORIES = ['工资', '兼职', '理财', '红包', '其他'];
 const EXPENSE_CATEGORIES = ['餐饮', '购物', '交通', '娱乐', '医疗', '房租', '其他'];
-
-// 每月预算（示例，后续可改为用户自定义）
 const MONTHLY_BUDGET = 565;
 
-// 资产类型（用于账户选择）
 interface AccountAsset {
   symbol: string;
   name: string;
@@ -58,7 +56,7 @@ export default function LedgerPage() {
   const [currentYear, setCurrentYear] = useState(2026);
   const [currentMonth, setCurrentMonth] = useState(3);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAccountSelector, setShowAccountSelector] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -68,76 +66,129 @@ export default function LedgerPage() {
   const [formNote, setFormNote] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
 
-  // 账户相关
+  // 月份选择弹窗
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [tempYear, setTempYear] = useState(currentYear);
+  const [tempMonth, setTempMonth] = useState(currentMonth);
+
   const [accounts, setAccounts] = useState<AccountAsset[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<AccountAsset | null>(null);
-
   const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
-  // 加载现金账户列表（type === 'custom'）
-const loadAccounts = useCallback(async () => {
-  const userId = getCurrentUserId();
-  if (!userId) {
-    console.log('[LedgerPage] 未登录，不加载账户');
-    setAccounts([]);
-    return;
-  }
-  console.log('[LedgerPage] 开始加载现金账户，userId:', userId);
-  setLoadingAccounts(true);
-  try {
-    const res = await fetch('/api/asset', {
-      headers: { 'x-user-id': userId },
-    });
-    if (!res.ok) throw new Error('加载账户失败');
-    const data = await res.json();
-    // 筛选现金资产（type === 'custom'）并确保数字类型
-    const cashAccounts = data
-      .filter((asset: any) => asset.type === 'custom')
-      .map((asset: any) => ({
-        ...asset,
-        marketValue: Number(asset.marketValue) || 0,
-        price: Number(asset.price) || 0,
-      }));
-    setAccounts(cashAccounts);
-    console.log('[LedgerPage] 加载到账户数量:', cashAccounts.length);
-    // 默认选中第一个账户
-    if (cashAccounts.length > 0 && !selectedAccount) {
-      setSelectedAccount(cashAccounts[0]);
+  // 生成年份范围（当前年份前后5年）
+  const yearOptions = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
+  const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  const loadAccounts = useCallback(async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setAccounts([]);
+      return;
     }
-  } catch (err) {
-    console.error('[LedgerPage] 加载账户失败', err);
-    setAccounts([]);
-  } finally {
-    setLoadingAccounts(false);
-  }
-}, [selectedAccount]); // 依赖 selectedAccount 确保更新选中状态
+    setLoadingAccounts(true);
+    try {
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) throw new Error('加载账户失败');
+      const data = await res.json();
+      const cashAccounts = data
+        .filter((asset: any) => asset.type === 'custom')
+        .map((asset: any) => ({
+          ...asset,
+          marketValue: Number(asset.marketValue) || 0,
+          price: Number(asset.price) || 0,
+        }));
+      setAccounts(cashAccounts);
+      if (cashAccounts.length > 0 && !selectedAccount) {
+        setSelectedAccount(cashAccounts[0]);
+      }
+    } catch (err) {
+      console.error('加载账户失败', err);
+      setAccounts([]);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, []);
 
-// 组件挂载时立即加载（仅一次）
-useEffect(() => {
-  loadAccounts();
-}, [loadAccounts]);
+  const loadAllTransactions = useCallback(async () => {
+    const userId = getCurrentUserId();
+    if (!userId || accounts.length === 0) {
+      setAllTransactions([]);
+      return;
+    }
+    try {
+      const fetchPromises = accounts.map(account =>
+        fetch(`/api/transaction?assetSymbol=${encodeURIComponent(account.symbol)}`, {
+          headers: { 'x-user-id': userId },
+        }).then(res => res.ok ? res.json() : [])
+      );
+      const results = await Promise.all(fetchPromises);
 
-// 监听用户登录/切换，重新加载账户
-useEffect(() => {
-  const handleUserChange = () => {
-    console.log('[LedgerPage] 检测到用户切换，重新加载账户');
+      const enriched: Transaction[] = [];
+      for (let idx = 0; idx < accounts.length; idx++) {
+        const account = accounts[idx];
+        const txs = results[idx];
+        if (!txs || txs.length === 0) continue;
+
+        const sorted = [...txs].sort((a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime());
+        const descending = [...sorted].reverse();
+        let currentBalance = account.marketValue;
+        for (const tx of descending) {
+          const isIncome = tx.transaction_type === 'buy';
+          const amountNum = Number(tx.price);
+          const balanceAfter = currentBalance;
+          if (isIncome) {
+            currentBalance = currentBalance - amountNum;
+          } else {
+            currentBalance = currentBalance + amountNum;
+          }
+          enriched.push({
+            id: tx.id.toString(),
+            type: isIncome ? 'income' : 'expense',
+            amount: amountNum,
+            category: '其他',
+            note: '',
+            date: tx.transaction_date,
+            accountSymbol: account.symbol,
+            accountName: account.name,
+            accountLogoUrl: account.logoUrl,
+            accountBalanceAfter: balanceAfter,
+          });
+        }
+      }
+      enriched.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setAllTransactions(enriched);
+    } catch (err) {
+      console.error('加载交易记录失败', err);
+      setAllTransactions([]);
+    }
+  }, [accounts]);
+
+  useEffect(() => {
     loadAccounts();
-  };
-  window.addEventListener('user-changed', handleUserChange);
-  return () => window.removeEventListener('user-changed', handleUserChange);
-}, [loadAccounts]);
+  }, [loadAccounts]);
 
-// 监听资产更新事件，刷新账户列表
-useEffect(() => {
-  const unsubscribe = eventBus.subscribe('assetsUpdated', () => {
-    console.log('[LedgerPage] 资产更新，重新加载账户');
-    loadAccounts();
-  });
-  return unsubscribe;
-}, [loadAccounts]);
+  useEffect(() => {
+    if (accounts.length > 0) {
+      loadAllTransactions();
+    } else {
+      setAllTransactions([]);
+    }
+  }, [accounts, loadAllTransactions]);
 
-  const currentMonthTransactions = transactions.filter(t => {
+  useEffect(() => {
+    const handleUserChange = () => loadAccounts();
+    window.addEventListener('user-changed', handleUserChange);
+    const unsubscribe = eventBus.subscribe('assetsUpdated', () => loadAccounts());
+    return () => {
+      window.removeEventListener('user-changed', handleUserChange);
+      unsubscribe();
+    };
+  }, [loadAccounts]);
+
+  const currentMonthTransactions = allTransactions.filter(t => {
     const [year, month] = t.date.split('-');
     return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
   });
@@ -145,54 +196,20 @@ useEffect(() => {
   const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const netBalance = totalIncome - totalExpense;
 
+  // 打开月份选择器
   const openMonthPicker = () => {
-    const existingPicker = document.querySelector('.temp-month-picker');
-    if (existingPicker) existingPicker.remove();
-
-    const input = document.createElement('input');
-    input.type = 'month';
-    input.className = 'temp-month-picker';
-    const monthValue = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-    input.value = monthValue;
-
-    input.style.position = 'fixed';
-    input.style.top = '-100px';
-    input.style.left = '-100px';
-    input.style.opacity = '0';
-    input.style.pointerEvents = 'none';
-    document.body.appendChild(input);
-
-    const handleChange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const newValue = target.value;
-      if (newValue) {
-        const [year, month] = newValue.split('-');
-        const parsedYear = parseInt(year, 10);
-        const parsedMonth = parseInt(month, 10) - 1;
-        if (!isNaN(parsedYear) && !isNaN(parsedMonth) && parsedMonth >= 0 && parsedMonth <= 11) {
-          setCurrentYear(parsedYear);
-          setCurrentMonth(parsedMonth);
-        }
-      }
-      input.removeEventListener('change', handleChange);
-      input.remove();
-    };
-
-    input.addEventListener('change', handleChange);
-    window.addEventListener('focus', () => {
-      if (document.body.contains(input)) input.remove();
-    }, { once: true });
-
-    try {
-      if (input.showPicker) input.showPicker();
-      else input.click();
-    } catch (err) {
-      console.warn('无法打开月份选择器', err);
-      input.remove();
-    }
+    setTempYear(currentYear);
+    setTempMonth(currentMonth);
+    setShowMonthPicker(true);
   };
 
-  // 更新资产余额
+  // 确认选择月份
+  const confirmMonth = () => {
+    setCurrentYear(tempYear);
+    setCurrentMonth(tempMonth);
+    setShowMonthPicker(false);
+  };
+
   const updateAccountBalance = async (account: AccountAsset, amount: number, isIncome: boolean) => {
     const userId = getCurrentUserId();
     if (!userId) return false;
@@ -210,12 +227,12 @@ useEffect(() => {
         },
         body: JSON.stringify({
           symbol: account.symbol,
-          price: newAmount,
+          holdings: 1,
           marketValue: newAmount,
+          costPrice: newAmount,
         }),
       });
       if (!res.ok) throw new Error('更新账户失败');
-      // 触发资产更新事件，刷新其他页面
       eventBus.emit('assetsUpdated');
       return true;
     } catch (err) {
@@ -225,7 +242,6 @@ useEffect(() => {
     }
   };
 
-  // 添加收支记录
   const handleAddTransaction = async () => {
     const amountNum = parseFloat(formAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -241,23 +257,32 @@ useEffect(() => {
       return;
     }
 
-    // 先更新账户余额
     const success = await updateAccountBalance(selectedAccount, amountNum, addType === 'income');
     if (!success) return;
 
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      type: addType,
-      amount: amountNum,
-      category: formCategory,
-      note: formNote.trim() || '',
-      date: formDate,
-      accountSymbol: selectedAccount.symbol,
-    };
-    setTransactions(prev => [newTransaction, ...prev]);
+    const userId = getCurrentUserId();
+    if (userId) {
+      try {
+        await fetch('/api/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+          body: JSON.stringify({
+            assetSymbol: selectedAccount.symbol,
+            transactionType: addType === 'income' ? 'buy' : 'sell',
+            quantity: 1,
+            price: amountNum,
+            transactionDate: formDate,
+            currency: currencySymbol,
+          }),
+        });
+        await loadAccounts();
+        await loadAllTransactions();
+      } catch (err) {
+        console.error('保存交易记录失败', err);
+        alert('保存交易记录失败，但账户余额已更新');
+      }
+    }
 
-    // 可选：保存收支记录到后端（可扩展）
-    // 重置表单并关闭
     setFormAmount('');
     setFormCategory('');
     setFormNote('');
@@ -267,38 +292,27 @@ useEffect(() => {
     setSelectedAccount(accounts[0] || null);
   };
 
-  // 选择收支类型后打开账户选择器
-const handleSelectType = (type: 'income' | 'expense') => {
-  setAddType(type);
-  setFormCategory(type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
-  setShowAddMenu(false);
-  // 立即显示账户选择器（不等待加载）
-  setShowAccountSelector(true);
-  // 如果账户列表为空，则触发加载（选择器内会显示骨架屏）
-  if (accounts.length === 0) {
-    loadAccounts();
-  }
-};
+  const handleSelectType = (type: 'income' | 'expense') => {
+    setAddType(type);
+    setFormCategory(type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
+    setShowAddMenu(false);
+    setShowAccountSelector(true);
+    if (accounts.length === 0) {
+      loadAccounts();
+    }
+  };
 
-  // 选择账户后打开记账表单
   const handleSelectAccount = (account: AccountAsset) => {
     setSelectedAccount(account);
     setShowAccountSelector(false);
     setShowAddForm(true);
   };
 
-  const groupedTransactions = currentMonthTransactions.reduce((groups, tx) => {
-    const date = tx.date;
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(tx);
-    return groups;
-  }, {} as Record<string, Transaction[]>);
-  const sortedDates = Object.keys(groupedTransactions).sort().reverse();
+  const sortedTransactions = [...currentMonthTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
       <div className="max-w-md mx-auto">
-        {/* 顶部栏 */}
         <div className="flex justify-between items-center mb-4 px-2">
           <div>
             <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
@@ -309,7 +323,6 @@ const handleSelectType = (type: 'income' | 'expense') => {
           </button>
         </div>
 
-        {/* 搜索框 */}
         <div className="relative mb-6 px-2">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
           <input
@@ -321,157 +334,90 @@ const handleSelectType = (type: 'income' | 'expense') => {
           />
         </div>
 
-        {/* 主要区域：左侧日期 + 竖线 + 右侧统计信息 */}
-<div className="flex items-start gap-3 mb-6 px-2">
-  {/* 左侧：年月选择器 - 点击整个区域弹出选择器 */}
-  <div
-    onClick={openMonthPicker}
-    className="flex flex-col shrink-0 cursor-pointer"
-  >
-    <span className="text-sm text-gray-500 dark:text-gray-400">{currentYear}年</span>
-    <div className="flex items-center gap-0 mt-0.5">
-      <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-        {monthNames[currentMonth]}
-      </span>
-      <CalendarDays size={18} className="translate-x-1 text-gray-500 dark:text-gray-400 translate-y-2 -m-1" />
-    </div>
-  </div>
-  {/* 保留一条竖线 */}
-  <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>
-  <div>
-    <div>
-      <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
-        <span>月结余</span>
-      </div>
-      <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-        {currencySymbol}{netBalance.toFixed(2)}
-      </p >
-    </div>
-    <div className="flex gap-4 mt-1 text-sm">
-      <div className="flex items-center gap-1">
-        <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
-        <span className="font-semibold text-gray-900 dark:text-gray-100">
-          {currencySymbol}{totalExpense.toFixed(2)}
-        </span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
-        <span className="font-semibold text-gray-900 dark:text-gray-100">
-          {currencySymbol}{totalIncome.toFixed(2)}
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
-
-        {/* 预算饼图组件 */}
-        <div className="-mt-6">
-          <BudgetPieChart
-            budget={MONTHLY_BUDGET}
-            spent={totalExpense}
-            currencySymbol={currencySymbol}
-          />
+        <div className="flex items-start gap-3 mb-6 px-2">
+          <div onClick={openMonthPicker} className="flex flex-col shrink-0 cursor-pointer">
+            <span className="text-sm text-gray-500 dark:text-gray-400">{currentYear}年</span>
+            <div className="flex items-center gap-0 mt-0.5">
+              <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">{monthNames[currentMonth]}</span>
+              <CalendarDays size={18} className="translate-x-1 text-gray-500 dark:text-gray-400 translate-y-2 -m-1" />
+            </div>
+          </div>
+          <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>
+          <div>
+            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
+              <span>月结余</span>
+            </div>
+            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              {currencySymbol}{netBalance.toFixed(2)}
+            </p>
+            <div className="flex gap-4 mt-1 text-sm">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {currencySymbol}{totalExpense.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {currencySymbol}{totalIncome.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* 当前账户组件 */}
-        <div className="mt-4 px-2">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">账户</h2>
-          </div>
-          {loadingAccounts ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm animate-pulse">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-1"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : accounts.length === 0 ? (
-            <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-4 text-center text-gray-400 dark:text-gray-500">
-              暂无现金账户
+        <div className="-mt-6">
+          <BudgetPieChart budget={MONTHLY_BUDGET} spent={totalExpense} currencySymbol={currencySymbol} />
+        </div>
+
+        {/* 交易列表 */}
+        <div className="space-y-3 mb-20">
+          {sortedTransactions.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400 dark:text-gray-500 font-medium">暂无收支记录</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">点击右下角 + 记录收支</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {accounts.map(acc => (
-                <div
-                  key={acc.symbol}
-                  className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm border border-gray-100 dark:border-gray-800"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-full">
-                      {acc.logoUrl ? (
-                        <Image src={acc.logoUrl} alt={acc.name} width={40} height={40} className="object-contain rounded-full" />
+            sortedTransactions.map(tx => (
+              <div key={tx.id} className="bg-white dark:bg-[#0a0a0a] rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
+                      {tx.accountLogoUrl ? (
+                        <Image src={tx.accountLogoUrl} alt={tx.accountName} width={32} height={32} className="object-contain rounded-full" />
                       ) : (
-                        <Banknote size={24} className="text-orange-600" />
+                        <Banknote size={20} className="text-orange-600" />
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="font-bold text-gray-900 dark:text-gray-100">{acc.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        余额 {currencySymbol}{acc.marketValue.toFixed(2)}
+                      <div className="flex items-center flex-wrap gap-x-2">
+                        <span className="font-bold text-gray-900 dark:text-gray-100">{tx.category}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{tx.accountName}</span>
+                      </div>
+                      {tx.note && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{tx.note}</p>}
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                        余额 {currencySymbol}{tx.accountBalanceAfter.toFixed(2)}
                       </p>
                     </div>
                   </div>
+                  <p className={`font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                    {tx.type === 'income' ? '+' : '-'}{currencySymbol}{tx.amount.toFixed(2)}
+                  </p>
                 </div>
-              ))}
-            </div>
+                <div className="text-right text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                  {new Date(tx.date).toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </div>
+              </div>
+            ))
           )}
         </div>
-
-        {/* 交易列表区域 - 无数据时无白色容器 */}
-        {sortedDates.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-400 dark:text-gray-500 font-medium">暂无收支记录</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">点击右下角 + 记录收支</p>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 mb-20">
-            <div className="space-y-4">
-              {sortedDates.map(date => {
-                const dayTransactions = groupedTransactions[date];
-                const dayTotalExpense = dayTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-                const dayTotalIncome = dayTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-                return (
-                  <div key={date} className="border-b border-gray-100 dark:border-gray-800 last:border-0 pb-3">
-                    <div className="flex justify-between items-center mb-2 px-1">
-                      <span className="text-sm font-bold text-gray-500 dark:text-gray-400">
-                        {date.slice(5)}  {new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' })}
-                      </span>
-                      <div className="flex gap-3 text-xs">
-                        {dayTotalExpense > 0 && <span className="text-red-500">支出 {currencySymbol}{dayTotalExpense.toFixed(2)}</span>}
-                        {dayTotalIncome > 0 && <span className="text-green-500">收入 {currencySymbol}{dayTotalIncome.toFixed(2)}</span>}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {dayTransactions.map(tx => (
-                        <div key={tx.id} className="flex justify-between items-center py-1 px-1">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${tx.type === 'income' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
-                              {tx.type === 'income' ? <TrendingUp size={16} className="text-green-600" /> : <TrendingDown size={16} className="text-red-600" />}
-                            </div>
-                            <div>
-                              <p className="font-bold text-gray-900 dark:text-gray-100">{tx.category}</p>
-                              {tx.note && <p className="text-xs text-gray-400 dark:text-gray-500">{tx.note}</p>}
-                            </div>
-                          </div>
-                          <p className={`font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                            {tx.type === 'income' ? '+' : '-'}{currencySymbol}{tx.amount.toFixed(2)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 右下角添加按钮 */}
@@ -526,65 +472,63 @@ const handleSelectType = (type: 'income' | 'expense') => {
       )}
 
       {/* 账户选择浮层 */}
-{showAccountSelector && (
-  <>
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowAccountSelector(false)} />
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 max-h-[70vh] overflow-y-auto transition-transform duration-500">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择账户</h3>
-        <button onClick={() => setShowAccountSelector(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-          <X size={24} className="text-gray-500" />
-        </button>
-      </div>
-
-      {loadingAccounts ? (
-        // 骨架屏：模拟账户卡片的加载状态
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl animate-pulse">
-              <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
-              <div className="flex-1">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-              </div>
-              <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      {showAccountSelector && (
+        <>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowAccountSelector(false)} />
+          <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 max-h-[70vh] overflow-y-auto transition-transform duration-500">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择账户</h3>
+              <button onClick={() => setShowAccountSelector(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+                <X size={24} className="text-gray-500" />
+              </button>
             </div>
-          ))}
-        </div>
-      ) : accounts.length === 0 ? (
-        <div className="text-center py-10">
-          <p className="text-gray-500 dark:text-gray-400">暂无收支账户</p >
-          <p className="text-xs text-gray-400 mt-1">请先在资产管理中添加收支账户</p >
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {accounts.map(acc => (
-            <button
-              key={acc.symbol}
-              onClick={() => handleSelectAccount(acc)}
-              className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-            >
-              <div className="w-10 h-10 flex items-center justify-center">
-                {acc.logoUrl ? (
-                  <Image src={acc.logoUrl} alt={acc.name} width={40} height={40} className="object-contain rounded-2xl" />
-                ) : (
-                  <Banknote size={32} className="text-orange-600" />
-                )}
+            {loadingAccounts ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl animate-pulse">
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                    </div>
+                    <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  </div>
+                ))}
               </div>
-              <div className="flex-1 text-left">
-                <p className="font-bold text-gray-900 dark:text-gray-100">{acc.name}</p >
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  余额 {currencySymbol}{acc.marketValue.toFixed(2)}
-                </p >
+            ) : accounts.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-gray-500 dark:text-gray-400">暂无收支账户</p>
+                <p className="text-xs text-gray-400 mt-1">请先在资产管理中添加收支账户</p>
               </div>
-              <ChevronRight size={20} className="text-gray-400" />
-            </button>
-          ))}
-        </div>
+            ) : (
+              <div className="space-y-3">
+                {accounts.map(acc => (
+                  <button
+                    key={acc.symbol}
+                    onClick={() => handleSelectAccount(acc)}
+                    className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                  >
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      {acc.logoUrl ? (
+                        <Image src={acc.logoUrl} alt={acc.name} width={40} height={40} className="object-contain rounded-2xl" />
+                      ) : (
+                        <Banknote size={32} className="text-orange-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-bold text-gray-900 dark:text-gray-100">{acc.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        余额 {currencySymbol}{acc.marketValue.toFixed(2)}
+                      </p>
+                    </div>
+                    <ChevronRight size={20} className="text-gray-400" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
-    </div>
-  </>
-)}
 
       {/* 添加表单浮层 */}
       {showAddForm && selectedAccount && (
@@ -601,17 +545,16 @@ const handleSelectType = (type: 'income' | 'expense') => {
             </div>
 
             <div className="space-y-5">
-              {/* 显示所选账户 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">账户</label>
                 <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-2xl p-3">
-<div className="w-8 h-8 flex items-center justify-center">
-  {selectedAccount.logoUrl ? (
-    <Image src={selectedAccount.logoUrl} alt="" width={32} height={32} className="object-contain rounded-xl" />
-  ) : (
-    <Banknote size={24} className="text-orange-600" />
-  )}
-</div>
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    {selectedAccount.logoUrl ? (
+                      <Image src={selectedAccount.logoUrl} alt="" width={32} height={32} className="object-contain rounded-xl" />
+                    ) : (
+                      <Banknote size={24} className="text-orange-600" />
+                    )}
+                  </div>
                   <div>
                     <p className="font-bold text-gray-900 dark:text-gray-100">{selectedAccount.name}</p>
                     <p className="text-xs text-gray-500">余额 {currencySymbol}{selectedAccount.marketValue.toFixed(2)}</p>
@@ -619,7 +562,6 @@ const handleSelectType = (type: 'income' | 'expense') => {
                 </div>
               </div>
 
-              {/* 金额输入 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">金额</label>
                 <div className="relative">
@@ -636,7 +578,6 @@ const handleSelectType = (type: 'income' | 'expense') => {
                 </div>
               </div>
 
-              {/* 分类选择 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">分类</label>
                 <div className="flex flex-wrap gap-2">
@@ -656,7 +597,6 @@ const handleSelectType = (type: 'income' | 'expense') => {
                 </div>
               </div>
 
-              {/* 日期选择 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">日期</label>
                 <input
@@ -667,7 +607,6 @@ const handleSelectType = (type: 'income' | 'expense') => {
                 />
               </div>
 
-              {/* 备注 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">备注（可选）</label>
                 <input
@@ -684,6 +623,58 @@ const handleSelectType = (type: 'income' | 'expense') => {
                 className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
               >
                 确认添加
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 月份选择弹窗 (ActionSheet) */}
+      {showMonthPicker && (
+        <>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowMonthPicker(false)} />
+          <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 transition-transform duration-500 transform translate-y-0">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择月份</h3>
+              <button onClick={() => setShowMonthPicker(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+                <X size={24} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {/* 年份选择 */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">年份</label>
+                <select
+                  value={tempYear}
+                  onChange={(e) => setTempYear(parseInt(e.target.value))}
+                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}年</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 月份选择 */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">月份</label>
+                <select
+                  value={tempMonth + 1}
+                  onChange={(e) => setTempMonth(parseInt(e.target.value) - 1)}
+                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+                >
+                  {monthOptions.map(month => (
+                    <option key={month} value={month}>{month}月</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={confirmMonth}
+                className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
+              >
+                确认
               </button>
             </div>
           </div>

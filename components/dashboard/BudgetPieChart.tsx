@@ -19,7 +19,9 @@ export default function BudgetPieChart({ budget, spent, currencySymbol }: Budget
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 饼图圆心水平位置（百分比），与 <Pie cx> 保持一致
-  const pieCenterX = 40;
+  const pieCenterX = 42;
+
+  
 
   useEffect(() => {
     const unsubscribe = eventBus.subscribe('toggleAmountVisibility', (hidden: boolean) => {
