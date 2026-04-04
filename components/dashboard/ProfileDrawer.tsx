@@ -270,13 +270,13 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 placeholder="至少6位"
                 value={registerPassword}
                 onChange={(e) => setRegisterPassword(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium"
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 mt-1 text-black dark:text-white font-medium"
               />
             </div>
             <button
               onClick={handleRegister}
               disabled={registerPassword.length < 6 || loading}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600 mt-4"
+              className="w-full bg-[#ff8800] text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-[#ff8800] transition disabled:bg-gray-300 dark:disabled:bg-gray-600 mt-4"
             >
               {loading ? '注册中...' : '完成注册'}
             </button>
@@ -310,7 +310,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                   }
                 }}
                 disabled={otpSent}
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium disabled:bg-gray-100 dark:disabled:bg-[#2a2a2a] disabled:text-gray-700 dark:disabled:text-gray-400"
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 mt-1 text-black dark:text-white font-medium disabled:bg-gray-100 dark:disabled:bg-[#2a2a2a] disabled:text-gray-700 dark:disabled:text-gray-400"
               />
             </div>
 
@@ -318,7 +318,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
               <button
                 onClick={handleSendOtp}
                 disabled={!phoneNumber || phoneNumber.length !== 11 || loading}
-                className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600 flex items-center justify-center gap-2"
+                className="w-full bg-[#ff8800] text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-[#ff8800] transition disabled:bg-gray-300 dark:disabled:bg-gray-600 flex items-center justify-center gap-2"
               >
                 {loading ? '发送中...' : (
                   <>
@@ -338,7 +338,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                       placeholder="请输入验证码"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 text-black dark:text-white font-medium pr-24"
+                      className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 text-black dark:text-white font-medium pr-24"
                       maxLength={6}
                       autoFocus
                     />
@@ -348,7 +348,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                       ) : (
                         <button
                           onClick={handleSendOtp}
-                          className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 whitespace-nowrap"
+                          className="text-sm font-bold text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 whitespace-nowrap"
                         >
                           重发
                         </button>
@@ -360,7 +360,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 <button
                   onClick={handleVerifyOtp}
                   disabled={otp.length !== 6 || loading}
-                  className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
+                  className="w-full bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
                 >
                   {loading ? '验证中...' : '下一步'}
                 </button>
@@ -389,7 +389,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
               placeholder="请输入手机号"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 mt-1 text-black dark:text-white font-medium"
             />
           </div>
           <div>
@@ -399,7 +399,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
               placeholder="请输入密码"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium"
+              className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 mt-1 text-black dark:text-white font-medium"
             />
           </div>
           <div className="flex justify-end">
@@ -408,7 +408,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 setShowForgotPassword(true);
                 setLoginMethod('otp');
               }}
-              className="text-sm text-blue-600 dark:text-blue-400"
+              className="text-sm text-[#ff8800] dark:text-orange-400"
             >
               忘记密码？
             </button>
@@ -416,7 +416,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
           <button
             onClick={handlePasswordLogin}
             disabled={!phoneNumber || phoneNumber.length !== 11 || !password || loading}
-            className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
+            className="w-full bg-[#ff8800] text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
           >
             {loading ? '登录中...' : '登录'}
           </button>
@@ -438,13 +438,13 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 placeholder="请输入手机号"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium"
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 mt-1 text-black dark:text-white font-medium"
               />
             </div>
             <button
               onClick={handleForgotPassword}
               disabled={!phoneNumber || phoneNumber.length !== 11 || loading}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
+              className="w-full bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
             >
               {loading ? '发送中...' : '发送验证码'}
             </button>
@@ -458,7 +458,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 placeholder="请输入验证码"
                 value={resetOtp}
                 onChange={(e) => setResetOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium"
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 mt-1 text-black dark:text-white font-medium"
                 maxLength={6}
               />
             </div>
@@ -469,13 +469,13 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 placeholder="至少6位"
                 value={resetPassword}
                 onChange={(e) => setResetPassword(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-blue-500 mt-1 text-black dark:text-white font-medium"
+                className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 ring-orange-500 mt-1 text-black dark:text-white font-medium"
               />
             </div>
             <button
               onClick={handleForgotPassword}
               disabled={resetOtp.length !== 6 || !resetPassword || loading}
-              className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-blue-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
+              className="w-full bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:bg-orange-700 transition disabled:bg-gray-300 dark:disabled:bg-gray-600"
             >
               {loading ? '重置中...' : '确认重置'}
             </button>
@@ -529,11 +529,11 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                   }}
                   className="flex flex-col items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl -mx-2 p-4 transition"
                 >
-                  <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
                     {user?.avatarUrl ? (
                       <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="object-cover" />
                     ) : (
-                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
                         {user?.name?.charAt(0).toUpperCase() || '?'}
                       </span>
                     )}
@@ -566,15 +566,15 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                 {!showLoginForm && !showForgotPassword ? (
                   <button
                     onClick={() => setShowLoginForm(true)}
-                    className="w-full flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/30 rounded-2xl border border-blue-100 dark:border-blue-800"
+                    className="w-full flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/30 rounded-2xl border border-orange-100 dark:border-orange-800"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-                        <User size={20} className="text-blue-600 dark:text-blue-400" />
+                      <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center">
+                        <User size={20} className="text-orange-600 dark:text-orange-400" />
                       </div>
                       <div className="text-left">
-                        <p className="font-bold text-blue-900 dark:text-blue-300">登录/注册</p>
-                        <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">使用手机号验证码或密码登录</p>
+                        <p className="font-bold text-orange-900 dark:text-orange-300">登录/注册</p>
+                        <p className="text-xs text-orange-600/70 dark:text-orange-400/70 font-medium">使用手机号验证码或密码登录</p>
                       </div>
                     </div>
                     {/* 移除右侧箭头 */}
@@ -601,7 +601,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                       <button
                         className={`flex-1 py-2 text-sm font-medium ${
                           loginMethod === 'otp'
-                            ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                            ? 'text-[#ff8800] dark:text-[#ff8800] border-b-2 border-[#ff8800] dark:border-orange-400'
                             : 'text-gray-400 dark:text-gray-500'
                         }`}
                         onClick={() => setLoginMethod('otp')}
@@ -611,7 +611,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                       <button
                         className={`flex-1 py-2 text-sm font-medium ${
                           loginMethod === 'password'
-                            ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                            ? 'text-[#ff8800] dark:text-[#ff8800] border-b-2 border-orange-600 dark:border-orange-400'
                             : 'text-gray-400 dark:text-gray-500'
                         }`}
                         onClick={() => setLoginMethod('password')}

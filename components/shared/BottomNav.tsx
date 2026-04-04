@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, PieChart, Wallet, User, BotMessageSquare } from 'lucide-react';
+import { Home, PieChart, Wallet, User, BotMessageSquare, NotepadText } from 'lucide-react';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -10,7 +10,7 @@ export default function BottomNav() {
   const navItems = [
     { path: '/', icon: Home },
     { path: '/portfolio', icon: Wallet },
-    { path: '/ledger', icon: PieChart },
+    { path: '/ledger', icon: NotepadText },
     { path: '/analytics', icon: BotMessageSquare },
   ];
 

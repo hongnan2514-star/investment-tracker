@@ -2805,8 +2805,8 @@ filteredAndSortedAssets.map(asset => {
                     <Banknote size={24} />
                   </div>
                   <div className="text-left">
-                    <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金</p>
-                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款</p>
+                    <p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金/收支账户</p>
+                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款、收支账户</p>
                   </div>
                 </div>
                 <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />

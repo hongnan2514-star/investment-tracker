@@ -22,7 +22,12 @@ export default function SettingsPage() {
     setCurrentUserId(null);
     localStorage.removeItem('user');
     clearCurrentUserAssets();
-    router.push('/profile');
+    // 触发全局用户变更事件，通知其他组件（如ProfileDrawer）更新UI
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('user-changed'));
+    }
+    // 退出登录后跳转到首页
+    router.push('/');
   };
 
   return (
