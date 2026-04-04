@@ -674,7 +674,7 @@ export default function LedgerPage() {
                 onClick={confirmMonth}
                 className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
               >
-                确认
+                确认 
               </button>
             </div>
           </div>
