@@ -209,8 +209,8 @@ export default function LedgerPage() {
             id: tx.id.toString(),
             type: isIncome ? 'income' : 'expense',
             amount: amountNum,
-            category: '其他',
-            note: '',
+            category: tx.category || '其他',
+            note: tx.note || '',
             date: tx.transaction_date,
             accountSymbol: account.symbol,
             accountName: account.name,
@@ -335,6 +335,8 @@ export default function LedgerPage() {
             price: amountNum,
             transactionDate: formDate,
             currency: currencySymbol,
+            category: formCategory,
+            note: formNote,
           }),
         });
         await loadAccounts();

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { assetSymbol, transactionType, quantity, price, transactionDate, currency } = body;
+  const { assetSymbol, transactionType, quantity, price, transactionDate, currency, category, note } = body;
 
   if (!assetSymbol || !transactionType || !quantity || !price || !transactionDate || !currency) {
     return NextResponse.json({ error: '缺少必要字段' }, { status: 400 });
@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
 
   try {
     await sql`
-      INSERT INTO transactions (user_id, asset_symbol, transaction_type, quantity, price, transaction_date, currency)
-      VALUES (${userId}, ${assetSymbol}, ${transactionType}, ${quantity}, ${price}, ${transactionDate}, ${currency})
+      INSERT INTO transactions (user_id, asset_symbol, transaction_type, quantity, price, transaction_date, currency, category, note)
+      VALUES (${userId}, ${assetSymbol}, ${transactionType}, ${quantity}, ${price}, ${transactionDate}, ${currency}, ${category || null}, ${note || null})
     `;
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -42,9 +42,6 @@ export async function GET(request: NextRequest) {
 
   const type = request.nextUrl.searchParams.get('type');
 
-  // 添加日志
-  console.log(`[API] 查询交易记录: userId=${userId}, assetSymbol="${assetSymbol}", type=${type}`);
-
   let query;
   if (type === 'buy' || type === 'sell') {
     query = sql`
@@ -60,6 +57,5 @@ export async function GET(request: NextRequest) {
     `;
   }
   const result = await query;
-  console.log(`[API] 找到 ${result.length} 条记录`);
   return NextResponse.json(result);
 }
