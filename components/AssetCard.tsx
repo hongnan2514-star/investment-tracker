@@ -95,7 +95,6 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
   };
 
   const renderIcon = () => {
-    // A股特殊处理（保持原有逻辑）
     if (isAStock && aStockCode) {
       const localPath = `/images/company_logos/${aStockCode}.png`;
       return (
@@ -118,12 +117,10 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
       );
     }
 
-    // 有缓存的 Logo（图片）
     if (logoSrc) {
       return < img src={logoSrc} alt={asset.name} className="w-8 h-8 object-contain rounded-lg" />;
     }
 
-    // 金属图标（图片）
     if (asset.type === 'metal') {
       const isSilver = asset.symbol && asset.symbol.includes('Ag');
       return isSilver ? (
@@ -133,7 +130,6 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
       );
     }
 
-    // 其他情况：返回 Lucide 图标，放在统一容器中
     let IconComponent;
     switch (asset.type) {
       case 'car': IconComponent = CarFront; break;
@@ -158,9 +154,9 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
   return (
     <div
       onClick={() => onClick(asset.symbol)}
-      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+     className="cursor-pointer bg-white dark:bg-[#0a0a0a] rounded-2xl border border-gray-100 dark:border-gray-800 transition-all overflow-hidden"
     >
-      <div className="px-2 py-3">
+      <div className="p-3">
         <div className="flex items-start justify-between">
           {/* 左侧信息区 */}
           <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -181,23 +177,23 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
           </div>
 
           {/* 右侧信息区 */}
-          <div className="flex items-start gap-2 flex-shrink-0 ml-2 mt-1">
+          <div className="flex items-start gap-2 flex-shrink-0 ml-2">
             {showCostBlock && (
-  <div className="flex flex-col items-end text-xs">
-    <span className="font-medium text-gray-500 dark:text-gray-400">
-      {Number(asset.price).toFixed(2)}
-    </span>
-    <span className="text-gray-500 dark:text-gray-400 font-normal">
-      {Number(asset.costPrice).toFixed(2)}
-    </span>
-  </div>
-)}
+              <div className="flex flex-col items-end text-xs mt-1">
+                <span className="font-medium text-gray-500 dark:text-gray-400">
+                  {Number(asset.price).toFixed(2)}
+                </span>
+                <span className="text-gray-500 dark:text-gray-400 font-normal">
+                  {Number(asset.costPrice).toFixed(2)}
+                </span>
+              </div>
+            )}
             <div className="text-right">
-              <div className={`text-base font-black ${profitLossColor} relative -top-1`}>
+              <div className={`text-base font-black ${profitLossColor}`}>
                 {formatLargeNumber(safeMarketValue)}
               </div>
               {displayPercent !== 0 && (
-                <div className={`text-xs font-bold ${profitLossSmallColor} relative -top-2`}>
+                <div className={`text-xs font-bold ${profitLossSmallColor}`}>
                   {displayPercentSign}{displayPercent.toFixed(2)}%
                 </div>
               )}

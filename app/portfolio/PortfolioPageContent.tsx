@@ -2380,44 +2380,35 @@ if (selectedAssetType === 'custom_asset') {
 />
 
       {/* 资产卡片列表 */}
-<div className="flex flex-col">
+<div className="grid grid-col space-y-3">
   {(loadingAssets || convertingAssets) ? (
-    // 骨架屏：5个占位行（无边框，与 AssetCard 结构一致）
-    Array(5).fill(0).map((_, i) => (
-      <div key={i} className="px-2 py-3 animate-pulse">
+    // 骨架屏：改为卡片式占位网格
+    Array(8).fill(0).map((_, i) => (
+      <div key={i} className="bg-white dark:bg-[#0a0a0a] rounded-2xl border border-gray-100 dark:border-gray-800 p-3 animate-pulse">
         <div className="flex items-start justify-between">
-          {/* 左侧图标和文字占位 */}
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg" />
-            <div className="min-w-0 flex-1">
+            <div className="flex-1">
               <div className="flex items-center gap-2">
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" />
                 <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12" />
               </div>
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 mt-1" />
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 mt-1" />
             </div>
           </div>
-          {/* 右侧金额和涨跌幅占位 */}
-          <div className="flex items-start gap-2 ml-2">
-            <div className="text-right">
-              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-1" />
-              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10" />
-            </div>
+          <div className="text-right">
+            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-1" />
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10 ml-auto" />
           </div>
         </div>
       </div>
     ))
   ) : filteredAndSortedAssets.length > 0 ? (
     filteredAndSortedAssets.map(asset => (
-      <AssetCard
-        key={asset.symbol}
-        asset={asset}
-        onClick={openAssetDetail}
-      />
+      <AssetCard key={asset.symbol} asset={asset} onClick={openAssetDetail} />
     ))
   ) : (
-    // 空状态
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+    <div className="col-span-full flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
       <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
       <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
         点击右下方加号开始追踪您的投资
