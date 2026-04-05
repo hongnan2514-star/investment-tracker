@@ -1,5 +1,4 @@
 // app/ledger/page.tsx
-// app/ledger/page.tsx
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -51,6 +50,34 @@ interface AccountAsset {
 }
 
 // 交易列表骨架屏组件
+function SummarySkeleton() {
+  return (
+    <div className="flex items-start gap-3 mb-6 px-2 animate-pulse">
+      <div className="flex flex-col shrink-0">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2" />
+        <div className="flex items-center gap-0 mt-0.5">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+          <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded-full ml-1" />
+        </div>
+      </div>
+      <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center" />
+      <div>
+        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2" />
+        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2" />
+        <div className="flex gap-4 mt-1">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 饼图骨架屏
+function PieChartSkeleton() {
+  return <div className="h-32 w-full" />;
+}
+// 交易列表骨架屏（已有）
 function TransactionSkeleton() {
   return (
     <div className="space-y-3 mb-20">
@@ -350,30 +377,34 @@ export default function LedgerPage() {
 
   const sortedTransactions = [...currentMonthTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  return (
-    <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
-      <div className="max-w-md mx-auto">
-        <div className="flex justify-between items-center mb-4 px-2">
-          <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p>
-          </div>
-          <button className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
-            <MoreVertical size={20} className="text-gray-600 dark:text-gray-400" />
-          </button>
+return (
+  <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
+    <div className="max-w-md mx-auto">
+      <div className="flex justify-between items-center mb-4 px-2">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p>
         </div>
+        <button className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
+          <MoreVertical size={20} className="text-gray-600 dark:text-gray-400" />
+        </button>
+      </div>
 
-        <div className="relative mb-6 px-2">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-          <input
-            type="text"
-            placeholder="查找账单"
-            value={searchKeyword}
-            onChange={(e) => setSearchKeyword(e.target.value)}
-            className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-3xl py-2 pl-12 pr-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
-          />
-        </div>
+      <div className="relative mb-6 px-2">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
+        <input
+          type="text"
+          placeholder="查找账单"
+          value={searchKeyword}
+          onChange={(e) => setSearchKeyword(e.target.value)}
+          className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-3xl py-2 pl-12 pr-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
+        />
+      </div>
 
+      {/* 汇总区域 - 条件渲染 */}
+      {loadingTransactions ? (
+        <SummarySkeleton />
+      ) : (
         <div className="flex items-start gap-3 mb-6 px-2">
           <div onClick={openMonthPicker} className="flex flex-col shrink-0 cursor-pointer">
             <span className="text-sm text-gray-500 dark:text-gray-400">{currentYear}年</span>
@@ -406,282 +437,287 @@ export default function LedgerPage() {
             </div>
           </div>
         </div>
+      )}
 
-        <div className="-mt-6">
-          <BudgetPieChart budget={MONTHLY_BUDGET} spent={totalExpense} currencySymbol={currencySymbol} />
-        </div>
-
-        {/* 交易列表区域 - 骨架屏或真实列表 */}
+      {/* 饼图区域 - 条件渲染 */}
+      <div className="-mt-6">
         {loadingTransactions ? (
-          <TransactionSkeleton />
+          <PieChartSkeleton />
         ) : (
-          <TransactionList
-            transactions={sortedTransactions}
-            currencySymbol={currencySymbol}
-            emptyMessage="暂无收支记录"
-          />
+          <BudgetPieChart budget={MONTHLY_BUDGET} spent={totalExpense} currencySymbol={currencySymbol} />
         )}
       </div>
 
-      {/* 右下角添加按钮 */}
-      <button
-        onClick={() => setShowAddMenu(true)}
-        className="fixed bottom-24 right-6 w-16 h-16 bg-[#ff8800] rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-40 active:scale-90 transition-transform"
-      >
-        <Plus size={36} strokeWidth={3} />
-      </button>
-
-      {/* 底部菜单：选择收入/支出 */}
-      {showAddMenu && (
-        <>
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity" onClick={() => setShowAddMenu(false)} />
-          <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-8 pb-12 transition-transform duration-500 ease-in-out transform translate-y-0">
-            <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-8" />
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">选择类型</h3>
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={() => handleSelectType('income')}
-                className="flex items-center justify-between p-5 bg-green-50 dark:bg-green-900/30 rounded-[28px] border border-green-100 dark:border-green-800 group active:scale-[0.98] transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-green-200 dark:shadow-green-900/20">
-                    <TrendingUp size={24} />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-bold text-green-900 dark:text-green-300 text-lg">收入</p>
-                    <p className="text-xs text-green-600/70 dark:text-green-400/70 font-medium">工资、理财、红包等</p>
-                  </div>
-                </div>
-                <ChevronRight className="text-green-300 dark:text-green-500 group-active:translate-x-1 transition-transform" />
-              </button>
-              <button
-                onClick={() => handleSelectType('expense')}
-                className="flex items-center justify-between p-5 bg-red-50 dark:bg-red-900/30 rounded-[28px] border border-red-100 dark:border-red-800 group active:scale-[0.98] transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="bg-red-600 p-3 rounded-2xl text-white shadow-lg shadow-red-200 dark:shadow-red-900/20">
-                    <TrendingDown size={24} />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-bold text-red-900 dark:text-red-300 text-lg">支出</p>
-                    <p className="text-xs text-red-600/70 dark:text-red-400/70 font-medium">餐饮、购物、交通等</p>
-                  </div>
-                </div>
-                <ChevronRight className="text-red-300 dark:text-red-500 group-active:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* 账户选择浮层 */}
-      {showAccountSelector && (
-        <>
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowAccountSelector(false)} />
-          <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 max-h-[70vh] overflow-y-auto transition-transform duration-500">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择账户</h3>
-              <button onClick={() => setShowAccountSelector(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                <X size={24} className="text-gray-500" />
-              </button>
-            </div>
-            {loadingAccounts ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl animate-pulse">
-                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                    </div>
-                    <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                  </div>
-                ))}
-              </div>
-            ) : accounts.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-gray-500 dark:text-gray-400">暂无收支账户</p>
-                <p className="text-xs text-gray-400 mt-1">请先在资产管理中添加收支账户</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {accounts.map(acc => (
-                  <button
-                    key={acc.symbol}
-                    onClick={() => handleSelectAccount(acc)}
-                    className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                  >
-                    <div className="w-10 h-10 flex items-center justify-center">
-                      {acc.logoUrl ? (
-                        <Image src={acc.logoUrl} alt={acc.name} width={40} height={40} className="object-contain rounded-2xl" />
-                      ) : (
-                        <Banknote size={32} className="text-orange-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-bold text-gray-900 dark:text-gray-100">{acc.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        余额 {currencySymbol}{acc.marketValue.toFixed(2)}
-                      </p>
-                    </div>
-                    <ChevronRight size={20} className="text-gray-400" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* 添加表单浮层 */}
-      {showAddForm && selectedAccount && (
-        <>
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowAddForm(false)} />
-          <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 max-h-[85vh] overflow-y-auto transition-transform duration-500">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {addType === 'income' ? '记收入' : '记支出'}
-              </h3>
-              <button onClick={() => setShowAddForm(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                <X size={24} className="text-gray-500" />
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              <div>
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">账户</label>
-                <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-2xl p-3">
-                  <div className="w-8 h-8 flex items-center justify-center">
-                    {selectedAccount.logoUrl ? (
-                      <Image src={selectedAccount.logoUrl} alt="" width={32} height={32} className="object-contain rounded-xl" />
-                    ) : (
-                      <Banknote size={24} className="text-orange-600" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-900 dark:text-gray-100">{selectedAccount.name}</p>
-                    <p className="text-xs text-gray-500">余额 {currencySymbol}{selectedAccount.marketValue.toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">金额</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{currencySymbol}</span>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-4 pl-8 pr-4 text-xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
-                    step="0.01"
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {/* 分类选择框 - 点击打开分类选择器 */}
-              <div>
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">分类</label>
-                <button
-                  onClick={() => setShowCategorySelector(true)}
-                  className="w-full text-left bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ring-orange-500"
-                >
-                  {formCategory || '点击选择分类'}
-                </button>
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">日期</label>
-                <input
-                  type="date"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">备注（可选）</label>
-                <input
-                  type="text"
-                  placeholder="例如：午餐、工资"
-                  value={formNote}
-                  onChange={(e) => setFormNote(e.target.value)}
-                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
-                />
-              </div>
-
-              <button
-                onClick={handleAddTransaction}
-                className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
-              >
-                确认添加
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* 分类选择器浮层 */}
-      {showCategorySelector && (
-        <CategorySelector
-          type={addType}
-          onSelect={handleSelectCategory}
-          onClose={() => setShowCategorySelector(false)}
+      {/* 交易列表区域 - 条件渲染 */}
+      {loadingTransactions ? (
+        <TransactionSkeleton />
+      ) : (
+        <TransactionList
+          transactions={sortedTransactions}
+          currencySymbol={currencySymbol}
+          emptyMessage="暂无收支记录"
         />
       )}
+    </div>
 
-      {/* 月份选择弹窗 (ActionSheet) */}
-      {showMonthPicker && (
-        <>
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowMonthPicker(false)} />
-          <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 transition-transform duration-500 transform translate-y-0">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择月份</h3>
-              <button onClick={() => setShowMonthPicker(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                <X size={24} className="text-gray-500" />
-              </button>
-            </div>
+    {/* 右下角添加按钮 */}
+    <button
+      onClick={() => setShowAddMenu(true)}
+      className="fixed bottom-24 right-6 w-16 h-16 bg-[#ff8800] rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-40 active:scale-90 transition-transform"
+    >
+      <Plus size={36} strokeWidth={3} />
+    </button>
 
-            <div className="space-y-5">
-              <div>
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">年份</label>
-                <select
-                  value={tempYear}
-                  onChange={(e) => setTempYear(parseInt(e.target.value))}
-                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
-                >
-                  {yearOptions.map(year => (
-                    <option key={year} value={year}>{year}年</option>
-                  ))}
-                </select>
+    {/* 底部菜单：选择收入/支出 */}
+    {showAddMenu && (
+      <>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity" onClick={() => setShowAddMenu(false)} />
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-8 pb-12 transition-transform duration-500 ease-in-out transform translate-y-0">
+          <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-8" />
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">选择类型</h3>
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={() => handleSelectType('income')}
+              className="flex items-center justify-between p-5 bg-green-50 dark:bg-green-900/30 rounded-[28px] border border-green-100 dark:border-green-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-green-200 dark:shadow-green-900/20">
+                  <TrendingUp size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-green-900 dark:text-green-300 text-lg">收入</p>
+                  <p className="text-xs text-green-600/70 dark:text-green-400/70 font-medium">工资、理财、红包等</p>
+                </div>
               </div>
-
-              <div>
-                <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">月份</label>
-                <select
-                  value={tempMonth + 1}
-                  onChange={(e) => setTempMonth(parseInt(e.target.value) - 1)}
-                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
-                >
-                  {monthOptions.map(month => (
-                    <option key={month} value={month}>{month}月</option>
-                  ))}
-                </select>
+              <ChevronRight className="text-green-300 dark:text-green-500 group-active:translate-x-1 transition-transform" />
+            </button>
+            <button
+              onClick={() => handleSelectType('expense')}
+              className="flex items-center justify-between p-5 bg-red-50 dark:bg-red-900/30 rounded-[28px] border border-red-100 dark:border-red-800 group active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-red-600 p-3 rounded-2xl text-white shadow-lg shadow-red-200 dark:shadow-red-900/20">
+                  <TrendingDown size={24} />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-red-900 dark:text-red-300 text-lg">支出</p>
+                  <p className="text-xs text-red-600/70 dark:text-red-400/70 font-medium">餐饮、购物、交通等</p>
+                </div>
               </div>
-
-              <button
-                onClick={confirmMonth}
-                className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
-              >
-                确认
-              </button>
-            </div>
+              <ChevronRight className="text-red-300 dark:text-red-500 group-active:translate-x-1 transition-transform" />
+            </button>
           </div>
-        </>
-      )}
-    </main>
-  );
+        </div>
+      </>
+    )}
+
+    {/* 账户选择浮层 */}
+    {showAccountSelector && (
+      <>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowAccountSelector(false)} />
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 max-h-[70vh] overflow-y-auto transition-transform duration-500">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择账户</h3>
+            <button onClick={() => setShowAccountSelector(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+              <X size={24} className="text-gray-500" />
+            </button>
+          </div>
+          {loadingAccounts ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl animate-pulse">
+                  <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                  </div>
+                  <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </div>
+              ))}
+            </div>
+          ) : accounts.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-gray-500 dark:text-gray-400">暂无收支账户</p>
+              <p className="text-xs text-gray-400 mt-1">请先在资产管理中添加收支账户</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {accounts.map(acc => (
+                <button
+                  key={acc.symbol}
+                  onClick={() => handleSelectAccount(acc)}
+                  className="w-full flex items-center gap-3 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                >
+                  <div className="w-10 h-10 flex items-center justify-center">
+                    {acc.logoUrl ? (
+                      <Image src={acc.logoUrl} alt={acc.name} width={40} height={40} className="object-contain rounded-2xl" />
+                    ) : (
+                      <Banknote size={32} className="text-orange-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-bold text-gray-900 dark:text-gray-100">{acc.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      余额 {currencySymbol}{acc.marketValue.toFixed(2)}
+                    </p>
+                  </div>
+                  <ChevronRight size={20} className="text-gray-400" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    )}
+
+    {/* 添加表单浮层 */}
+    {showAddForm && selectedAccount && (
+      <>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowAddForm(false)} />
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 max-h-[85vh] overflow-y-auto transition-transform duration-500">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              {addType === 'income' ? '记收入' : '记支出'}
+            </h3>
+            <button onClick={() => setShowAddForm(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+              <X size={24} className="text-gray-500" />
+            </button>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">账户</label>
+              <div className="flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-2xl p-3">
+                <div className="w-8 h-8 flex items-center justify-center">
+                  {selectedAccount.logoUrl ? (
+                    <Image src={selectedAccount.logoUrl} alt="" width={32} height={32} className="object-contain rounded-xl" />
+                  ) : (
+                    <Banknote size={24} className="text-orange-600" />
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-gray-100">{selectedAccount.name}</p>
+                  <p className="text-xs text-gray-500">余额 {currencySymbol}{selectedAccount.marketValue.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">金额</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{currencySymbol}</span>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  value={formAmount}
+                  onChange={(e) => setFormAmount(e.target.value)}
+                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-4 pl-8 pr-4 text-xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+                  step="0.01"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">分类</label>
+              <button
+                onClick={() => setShowCategorySelector(true)}
+                className="w-full text-left bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ring-orange-500"
+              >
+                {formCategory || '点击选择分类'}
+              </button>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">日期</label>
+              <input
+                type="date"
+                value={formDate}
+                onChange={(e) => setFormDate(e.target.value)}
+                className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">备注（可选）</label>
+              <input
+                type="text"
+                placeholder="例如：午餐、工资"
+                value={formNote}
+                onChange={(e) => setFormNote(e.target.value)}
+                className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+              />
+            </div>
+
+            <button
+              onClick={handleAddTransaction}
+              className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
+            >
+              确认添加
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+
+    {/* 分类选择器浮层 */}
+    {showCategorySelector && (
+      <CategorySelector
+        type={addType}
+        onSelect={handleSelectCategory}
+        onClose={() => setShowCategorySelector(false)}
+      />
+    )}
+
+    {/* 月份选择弹窗 (ActionSheet) */}
+    {showMonthPicker && (
+      <>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowMonthPicker(false)} />
+        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 transition-transform duration-500 transform translate-y-0">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">选择月份</h3>
+            <button onClick={() => setShowMonthPicker(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+              <X size={24} className="text-gray-500" />
+            </button>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">年份</label>
+              <select
+                value={tempYear}
+                onChange={(e) => setTempYear(parseInt(e.target.value))}
+                className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+              >
+                {yearOptions.map(year => (
+                  <option key={year} value={year}>{year}年</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">月份</label>
+              <select
+                value={tempMonth + 1}
+                onChange={(e) => setTempMonth(parseInt(e.target.value) - 1)}
+                className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+              >
+                {monthOptions.map(month => (
+                  <option key={month} value={month}>{month}月</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={confirmMonth}
+              className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
+            >
+              确认
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+  </main>
+);
 }
