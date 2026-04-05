@@ -413,7 +413,7 @@ export default function SummaryCard() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 mt-4">
-        <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
+        <div className="bg-[#ff8306] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
           <span className="text-xs font-medium text-white">资产</span>
           {isAmountHidden ? (
             <span className="text-lg font-SF text-white leading-tight">****</span>
@@ -423,7 +423,7 @@ export default function SummaryCard() {
             </span>
           )}
         </div>
-        <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
+        <div className="bg-[#ff8306] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
           <span className="text-xs font-medium text-white">负债</span>
           {isAmountHidden ? (
             <span className="text-lg font-SF text-white leading-tight">****</span>

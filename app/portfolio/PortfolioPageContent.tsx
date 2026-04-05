@@ -19,7 +19,7 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';  //
 import AssetDetailDrawer from './AssetDetailDrawer';
 import BrandSelector from './BrandSelector';
 import IconSelector from './IconSelector';
-import { useAssetRefresh } from '@/src/hooks/useAssetRefresh';
+import SortFilterMenu from '@/components/SortFilterMenu';
 
 // ---------- 缓存机制 ----------
 // 按用户ID缓存资产数据，有效期15分钟
@@ -88,8 +88,6 @@ export default function PortfolioPage() {
   const SORT_ORDER_KEY = 'portfolio_sortOrder';
   const HIDDEN_TYPES_KEY = 'portfolio_hiddenTypes';
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [sortExpanded, setSortExpanded] = useState(false);
-  const [filterExpanded, setFilterExpanded] = useState(false);
   const [isLoadingMetal, setIsLoadingMetal] = useState(false);
   const [metalError, setMetalError] = useState<string | null>(null);
   const [realEstateName, setRealEstateName] = useState('');
@@ -2359,182 +2357,74 @@ if (selectedAssetType === 'custom_asset') {
 </header>
 
       {/* 排序菜单 */}
-      {showSortMenu && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)} />
-          <div className="absolute right-4 top-20 z-50 bg-white dark:bg-[#1a1a1a] rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-2 w-[160px] sm:min-w-[200px] max-w-[90vw]">
-            {/* 排序方式标题行 */}
-            <div
-              className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-              onClick={() => setSortExpanded(!sortExpanded)}
-            >
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">排序方式</span>
-              <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${sortExpanded ? '' : '-rotate-90'}`} />
-            </div>
-            {sortExpanded && (
-  <>
-    {/* 持有额 */}
-    <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-      <span 
-        onClick={() => {
-          if (sortBy === 'marketValue') {
-            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-          } else {
-            setSortBy('marketValue');
-            setSortOrder('desc');
-          }
-        }}
-        className="cursor-pointer"
-      >
-        持有额
-      </span>
-      <button
-        onClick={() => {
-          if (sortBy === 'marketValue') {
-            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-          } else {
-            setSortBy('marketValue');
-            setSortOrder('desc');
-          }
-        }}
-        className="cursor-pointer p-0 focus:outline-none"
-      >
-        {sortBy === 'marketValue' && sortOrder === 'asc' ? (
-          <ChevronUp size={16} className="text-[#ff8800]" />
-        ) : sortBy === 'marketValue' && sortOrder === 'desc' ? (
-          <ChevronDown size={16} className="text-[#ff8800]" />
-        ) : (
-          <ChevronDown size={16} className="text-gray-400 hover:text-gray-600" />
-        )}
-      </button>
-    </div>
-
-    {/* 盈亏率 */}
-    <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-      <span 
-        onClick={() => {
-          if (sortBy === 'changePercent') {
-            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-          } else {
-            setSortBy('changePercent');
-            setSortOrder('desc');
-          }
-        }}
-        className="cursor-pointer"
-      >
-        盈亏率
-      </span>
-      <button
-        onClick={() => {
-          if (sortBy === 'changePercent') {
-            setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-          } else {
-            setSortBy('changePercent');
-            setSortOrder('desc');
-          }
-        }}
-        className="cursor-pointer p-0 focus:outline-none"
-      >
-        {sortBy === 'changePercent' && sortOrder === 'asc' ? (
-          <ChevronUp size={16} className="text-[#ff8800]" />
-        ) : sortBy === 'changePercent' && sortOrder === 'desc' ? (
-          <ChevronDown size={16} className="text-[#ff8800]" />
-        ) : (
-          <ChevronDown size={16} className="text-gray-400 hover:text-gray-600" />
-        )}
-      </button>
-    </div>
-  </>
-)}
-
-            <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-            {/* 筛选资产标题行 */}
-            <div
-              className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-              onClick={() => setFilterExpanded(!filterExpanded)}
-            >
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">展示设置</span>
-              <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${filterExpanded ? '' : '-rotate-90'}`} />
-            </div>
-            {filterExpanded && (
-              <div className="mt-2 space-y-1">
-                {allAssetTypes.length > 0 ? (
-                  allAssetTypes.map(type => {
-                    const config = ASSET_TYPE_CONFIG[type] || { name: type };
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => {
-                          const newHidden = new Set(hiddenAssetTypes);
-                          if (newHidden.has(type)) {
-                            newHidden.delete(type);
-                          } else {
-                            newHidden.add(type);
-                          }
-                          setHiddenAssetTypes(newHidden);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                          hiddenAssetTypes.has(type)
-                            ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                            : 'bg-[#ff8800] text-white hover:bg-[#e07a00] dark:bg-[#ff8800] dark:hover:bg-[#e07a00]'
-                        }`}
-                      >
-                        {config.name}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 px-3 py-2">暂无资产</div>
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+<SortFilterMenu
+  show={showSortMenu}
+  onClose={() => setShowSortMenu(false)}
+  sortBy={sortBy}
+  sortOrder={sortOrder}
+  onSortChange={(by, order) => {
+    setSortBy(by);
+    setSortOrder(order);
+  }}
+  hiddenAssetTypes={hiddenAssetTypes}
+  allAssetTypes={allAssetTypes}
+  onToggleHiddenType={(type) => {
+    const newHidden = new Set(hiddenAssetTypes);
+    if (newHidden.has(type)) {
+      newHidden.delete(type);
+    } else {
+      newHidden.add(type);
+    }
+    setHiddenAssetTypes(newHidden);
+  }}
+/>
 
       {/* 资产卡片列表 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {(loadingAssets || convertingAssets) ? (
-           // 骨架屏：5个占位卡片
-            Array(5).fill(0).map((_, i) => (
-             <div key={i} className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden">
-               <div className="flex justify-between items-start gap-1.5">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                 <div className="w-6 h-6 rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse" />
-                  <div className="flex-1">
-                   <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse mb-1" />
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse" />
-                  </div>
-                </div>
-                 <div className="text-right flex-shrink-0">
-                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse mb-1" />
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-pulse" />
-                 </div>
-                </div>
-               <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse" />
-             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 animate-pulse" />
+<div className="flex flex-col">
+  {(loadingAssets || convertingAssets) ? (
+    // 骨架屏：5个占位行（无边框，与 AssetCard 结构一致）
+    Array(5).fill(0).map((_, i) => (
+      <div key={i} className="px-2 py-3 animate-pulse">
+        <div className="flex items-start justify-between">
+          {/* 左侧图标和文字占位 */}
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12" />
+              </div>
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 mt-1" />
             </div>
+          </div>
+          {/* 右侧金额和涨跌幅占位 */}
+          <div className="flex items-start gap-2 ml-2">
+            <div className="text-right">
+              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16 mb-1" />
+              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-10" />
             </div>
-         ))
-        ) : filteredAndSortedAssets.length > 0 ? (
-filteredAndSortedAssets.map(asset => (
-  <AssetCard
-    key={asset.symbol}
-    asset={asset}
-    onClick={openAssetDetail}
-  />
-))
-) : (
-  // 空状态保持不变
-  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
-    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
-    <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
-      点击右下方加号开始追踪您的投资
-    </p >
-  </div>
-)}
+          </div>
+        </div>
       </div>
+    ))
+  ) : filteredAndSortedAssets.length > 0 ? (
+    filteredAndSortedAssets.map(asset => (
+      <AssetCard
+        key={asset.symbol}
+        asset={asset}
+        onClick={openAssetDetail}
+      />
+    ))
+  ) : (
+    // 空状态
+    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+      <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-3">目前没有任何资产</h2>
+      <p className="text-gray-500 dark:text-gray-400 mb-2 max-w-md">
+        点击右下方加号开始追踪您的投资
+      </p >
+    </div>
+  )}
+</div>
 
       {/* 菜单浮层 */}
       {showMenu && (

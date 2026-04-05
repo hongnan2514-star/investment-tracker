@@ -1,4 +1,5 @@
 // app/ledger/page.tsx
+// app/ledger/page.tsx
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -23,6 +24,7 @@ import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import Image from 'next/image';
 import CategorySelector from '@/components/CategorySelector';
+import TransactionList from '@/components/TransactionList';
 
 type Transaction = {
   id: string;
@@ -46,6 +48,33 @@ interface AccountAsset {
   currency: string;
   logoUrl?: string;
   type: string;
+}
+
+// 交易列表骨架屏组件
+function TransactionSkeleton() {
+  return (
+    <div className="space-y-3 mb-20">
+      {[1, 2, 3, 4, 5].map(i => (
+        <div key={i} className="bg-white dark:bg-[#0a0a0a] rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 animate-pulse">
+          <div className="flex justify-between items-start">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" />
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+                </div>
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32 mt-1" />
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-24 mt-1" />
+              </div>
+            </div>
+            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16" />
+          </div>
+          <div className="mt-2 h-3 bg-gray-200 dark:bg-gray-700 rounded w-32 ml-auto" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function LedgerPage() {
@@ -75,6 +104,7 @@ export default function LedgerPage() {
 
   const [accounts, setAccounts] = useState<AccountAsset[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(true); // 新增交易加载状态
   const [selectedAccount, setSelectedAccount] = useState<AccountAsset | null>(null);
   const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -118,8 +148,10 @@ export default function LedgerPage() {
     const userId = getCurrentUserId();
     if (!userId || accounts.length === 0) {
       setAllTransactions([]);
+      setLoadingTransactions(false);
       return;
     }
+    setLoadingTransactions(true);
     try {
       const fetchPromises = accounts.map(account =>
         fetch(`/api/transaction?assetSymbol=${encodeURIComponent(account.symbol)}`, {
@@ -165,6 +197,8 @@ export default function LedgerPage() {
     } catch (err) {
       console.error('加载交易记录失败', err);
       setAllTransactions([]);
+    } finally {
+      setLoadingTransactions(false);
     }
   }, [accounts]);
 
@@ -177,6 +211,7 @@ export default function LedgerPage() {
       loadAllTransactions();
     } else {
       setAllTransactions([]);
+      setLoadingTransactions(false);
     }
   }, [accounts, loadAllTransactions]);
 
@@ -294,7 +329,7 @@ export default function LedgerPage() {
 
   const handleSelectType = (type: 'income' | 'expense') => {
     setAddType(type);
-    setFormCategory(''); // 清空分类
+    setFormCategory('');
     setShowAddMenu(false);
     setShowAccountSelector(true);
     if (accounts.length === 0) {
@@ -305,7 +340,7 @@ export default function LedgerPage() {
   const handleSelectAccount = (account: AccountAsset) => {
     setSelectedAccount(account);
     setShowAccountSelector(false);
-    setShowAddForm(true); // 直接打开记账表单，不自动打开分类选择器
+    setShowAddForm(true);
   };
 
   const handleSelectCategory = (category: string) => {
@@ -376,53 +411,16 @@ export default function LedgerPage() {
           <BudgetPieChart budget={MONTHLY_BUDGET} spent={totalExpense} currencySymbol={currencySymbol} />
         </div>
 
-        {/* 交易列表 */}
-        <div className="space-y-3 mb-20">
-          {sortedTransactions.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400 dark:text-gray-500 font-medium">暂无收支记录</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">点击右下角 + 记录收支</p>
-            </div>
-          ) : (
-            sortedTransactions.map(tx => (
-              <div key={tx.id} className="bg-white dark:bg-[#0a0a0a] rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-                      {tx.accountLogoUrl ? (
-                        <Image src={tx.accountLogoUrl} alt={tx.accountName} width={32} height={32} className="object-contain rounded-full" />
-                      ) : (
-                        <Banknote size={20} className="text-orange-600" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center flex-wrap gap-x-2">
-                        <span className="font-bold text-gray-900 dark:text-gray-100">{tx.category}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{tx.accountName}</span>
-                      </div>
-                      {tx.note && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{tx.note}</p>}
-                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-                        余额 {currencySymbol}{tx.accountBalanceAfter.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                  <p className={`font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                    {tx.type === 'income' ? '+' : '-'}{currencySymbol}{tx.amount.toFixed(2)}
-                  </p>
-                </div>
-                <div className="text-right text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-                  {new Date(tx.date).toLocaleString('zh-CN', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        {/* 交易列表区域 - 骨架屏或真实列表 */}
+        {loadingTransactions ? (
+          <TransactionSkeleton />
+        ) : (
+          <TransactionList
+            transactions={sortedTransactions}
+            currencySymbol={currencySymbol}
+            emptyMessage="暂无收支记录"
+          />
+        )}
       </div>
 
       {/* 右下角添加按钮 */}
