@@ -1,8 +1,9 @@
 // app/portfolio/AssetDetailDrawer.tsx
+// app/portfolio/AssetDetailDrawer.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { Asset } from '@/src/constants/types';
 import { getAssetBySymbol, addAsset, getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
@@ -31,17 +32,15 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const [sellPrice, setSellPrice] = useState('');
   const [sellDate, setSellDate] = useState<string>('');
 
-  // 按钮提交状态（用于显示临时成功文字并禁用按钮）
   const [isBuySubmitting, setIsBuySubmitting] = useState(false);
   const [isSellSubmitting, setIsSellSubmitting] = useState(false);
-
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { currency } = useCurrency();
   const { convert } = useCurrencyConverter();
 
-  // 从后端加载资产
+  // 加载资产
   const loadAsset = async () => {
     if (!symbol) return;
     setLoading(true);
@@ -160,12 +159,10 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
       await loadAsset();
       eventBus.emit('assetsUpdated');
 
-      // 清空表单
       setBuyQuantity('');
       setBuyPrice('');
       setBuyDate('');
 
-      // 保存交易记录
       await fetch('/api/transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
@@ -179,8 +176,6 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
         }),
       });
       setRefreshKey(prev => prev + 1);
-
-      // 2秒后恢复按钮文字
       setTimeout(() => setIsBuySubmitting(false), 2000);
     } catch (err) {
       console.error('加仓失败', err);
@@ -190,51 +185,32 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   };
 
   const formatDateMask = (value: string): string => {
-  // 移除非数字字符
-  const digits = value.replace(/\D/g, '');
-  // 限制最大长度 8 位（年4+月2+日2）
-  const limited = digits.slice(0, 8);
-  
-  let formatted = '';
-  for (let i = 0; i < limited.length; i++) {
-    if (i === 4 || i === 6) {
-      formatted += '/';
+    const digits = value.replace(/\D/g, '');
+    const limited = digits.slice(0, 8);
+    let formatted = '';
+    for (let i = 0; i < limited.length; i++) {
+      if (i === 4 || i === 6) formatted += '/';
+      formatted += limited[i];
     }
-    formatted += limited[i];
-  }
-  return formatted;
-};
+    return formatted;
+  };
 
-// 将 yyyy/MM/dd 字符串转换为 Date 对象（用于校验）
-const parseDateString = (dateStr: string): Date | null => {
-  if (!dateStr) return null;
-  // 支持 yyyy/MM/dd 或 yyyy-MM-dd
-  const normalized = dateStr.replace(/\//g, '-');
-  const [year, month, day] = normalized.split('-');
-  if (!year || !month || !day) return null;
-  const date = new Date(Number(year), Number(month) - 1, Number(day));
-  if (isNaN(date.getTime())) return null;
-  return date;
-};
-
-// 处理输入变化
-const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
-  const raw = e.target.value;
-  // 如果用户删除到空，直接清空
-  if (raw === '') {
-    setter('');
-    return;
-  }
-  const formatted = formatDateMask(raw);
-  setter(formatted);
-};
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<string>>) => {
+    const raw = e.target.value;
+    if (raw === '') {
+      setter('');
+      return;
+    }
+    const formatted = formatDateMask(raw);
+    setter(formatted);
+  };
 
   const handleSell = async () => {
     if (!asset) return;
     const qty = parseFloat(sellQuantity);
     const price = parseFloat(sellPrice);
     const userId = getCurrentUserId();
-    const transactionDate = buyDate.replace(/\//g, '-');
+    const transactionDate = sellDate.replace(/\//g, '-');
     if (!userId) {
       setMessage({ type: 'error', text: '请先登录' });
       return;
@@ -242,7 +218,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
     if (isNaN(qty) || qty <= 0 || qty > asset.holdings || isNaN(price) || price < 0) {
       setMessage({ type: 'error', text: '卖出数量无效或超过持仓' });
       return;
-    } 
+    }
 
     setIsSellSubmitting(true);
     try {
@@ -277,12 +253,44 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         }),
       });
       setRefreshKey(prev => prev + 1);
-
       setTimeout(() => setIsSellSubmitting(false), 2000);
     } catch (err) {
       console.error('卖出失败', err);
       setMessage({ type: 'error', text: '卖出失败，请重试' });
       setIsSellSubmitting(false);
+    }
+  };
+
+  // 删除资产函数
+  const handleDelete = async () => {
+    if (!asset) return;
+    const confirmed = window.confirm(`确定要删除资产“${asset.name}”吗？此操作不可撤销。`);
+    if (!confirmed) return;
+
+    try {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        alert('请先登录');
+        return;
+      }
+      const res = await fetch('/api/asset', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify({ symbol: asset.symbol }),
+      });
+      if (res.ok) {
+        eventBus.emit('assetsUpdated');
+        onClose();
+      } else {
+        console.error('删除失败');
+        alert('删除失败，请稍后重试');
+      }
+    } catch (err) {
+      console.error('删除资产失败', err);
+      alert('删除失败，请检查网络');
     }
   };
 
@@ -315,24 +323,31 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
   }
 
   const displayAsset = convertedAsset || asset;
-  const cachedLogo = getCachedLogo(asset.symbol);
-  const currencySymbol = asset.currency === 'CNY' ? '¥' : asset.currency === 'USD' ? '$' : asset.currency;
 
   return (
     <div className={`fixed inset-0 bg-white dark:bg-black z-50 overflow-y-auto transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
       <div className="p-4">
-        <button
-          onClick={onClose}
-          className="text-gray-500 dark:text-gray-400 mb-6 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-          aria-label="返回"
-        >
-          <ArrowLeft size={24} />
-        </button>
+        {/* 头部：返回按钮 + 删除按钮 */}
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={onClose}
+            className="text-gray-500 dark:text-gray-400 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            aria-label="返回"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <button
+            onClick={handleDelete}
+            className="text-red-500 dark:text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+            aria-label="删除资产"
+          >
+            <Trash2 size={22} />
+          </button>
+        </div>
 
         <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
           <div className="flex justify-between items-start gap-4 max-w-full">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              {/* 图标和名称部分保持不变 */}
               {(() => {
                 const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
                 const code = isAStock ? asset.symbol.split('.')[0] : null;
@@ -423,7 +438,6 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         <div className="rounded-3xl p-3 md:p-6 mt-6 mb-6">
           <div className="flex flex-row gap-2">
             <div className="w-3/5">
-              {/* 加仓/卖出表单保持不变 */}
               <div className="relative flex bg-gray-200 dark:bg-gray-700 rounded-lg mb-2">
                 <div
                   className={`absolute top-0 bottom-0 w-1/2 rounded-lg transition-all duration-300 ease-in-out ${
@@ -459,7 +473,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         onChange={(e) => setBuyQuantity(e.target.value)}
         placeholder="数量"
         className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
-                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   text-[11px]! font-bold rounded-lg text-gray-900 dark:text-gray-100 
                    outline-none focus:border-blue-500 box-border"
       />
     </div>
@@ -473,7 +487,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         onChange={(e) => setBuyPrice(e.target.value)}
         placeholder="价格"
         className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
-                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   text-[11px]! font-bold rounded-lg text-gray-900 dark:text-gray-100 
                    outline-none focus:border-blue-500 box-border"
       />
     </div>
@@ -485,7 +499,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         onChange={(e) => handleDateChange(e, setBuyDate)}
         placeholder="年/月/日"
         className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
-                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   text-[11px]! font-bold rounded-lg text-gray-900 dark:text-gray-100 
                    outline-none focus:border-blue-500 box-border"
       />
     </div>
@@ -511,7 +525,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         onChange={(e) => setSellQuantity(e.target.value)}
         placeholder="数量"
         className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
-                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   text-[11px]! font-bold rounded-lg text-gray-900 dark:text-gray-100 
                    outline-none focus:border-blue-500 box-border"
       />
     </div>
@@ -525,7 +539,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         onChange={(e) => setSellPrice(e.target.value)}
         placeholder="价格"
         className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
-                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   text-[11px]! font-bold rounded-lg text-gray-900 dark:text-gray-100 
                    outline-none focus:border-blue-500 box-border"
       />
     </div>
@@ -537,7 +551,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
         onChange={(e) => handleDateChange(e, setSellDate)} 
         placeholder="年/月/日"
         className="w-full h-8 appearance-none bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-700 p-2 
-                   text-[10px]! font-normal rounded-lg text-gray-900 dark:text-gray-100 
+                   text-[11px]! font-bold rounded-lg text-gray-900 dark:text-gray-100 
                    outline-none focus:border-blue-500 box-border"
       />
     </div>
@@ -566,7 +580,6 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
           </div>
         </div>
 
-        {/* 仅显示错误消息，成功时不显示圆框 */}
         {message && message.type === 'error' && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-bold bg-red-600 text-white">
             {message.text}
@@ -577,6 +590,7 @@ const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.
   );
 }
 
+// 骨架屏组件（不含删除按钮）
 const AssetDetailSkeleton = ({ onClose }: { onClose: () => void }) => {
   const skeletonBlockClass = "relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded-xl";
   const shimmerClass = "before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent";
@@ -584,13 +598,11 @@ const AssetDetailSkeleton = ({ onClose }: { onClose: () => void }) => {
   return (
     <div className="fixed inset-0 bg-white dark:bg-black z-50 overflow-y-auto">
       <div className="p-4">
-        <button
-          onClick={onClose}
-          className="text-gray-500 dark:text-gray-400 mb-6 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-          aria-label="返回"
-        >
-          <ArrowLeft size={24} />
-        </button>
+        {/* 骨架屏头部只显示返回按钮占位 */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse opacity-0" /> {/* 占位保持对称 */}
+        </div>
 
         <div className="rounded-3xl pb-6 pt-0 px-6 mb-6">
           <div className="flex justify-between items-start gap-4 max-w-full">
@@ -630,7 +642,7 @@ const AssetDetailSkeleton = ({ onClose }: { onClose: () => void }) => {
                 <div className={`h-8 w-full ${skeletonBlockClass} ${shimmerClass}`} />
                 <div className={`h-8 w-full ${skeletonBlockClass} ${shimmerClass}`} />
               </div>
-            </div> 
+            </div>
           </div>
         </div>
       </div>

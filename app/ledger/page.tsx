@@ -22,6 +22,7 @@ import BudgetPieChart from '@/components/dashboard/BudgetPieChart';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import Image from 'next/image';
+import CategorySelector from '@/components/CategorySelector';
 
 type Transaction = {
   id: string;
@@ -36,8 +37,6 @@ type Transaction = {
   accountBalanceAfter: number;
 };
 
-const INCOME_CATEGORIES = ['工资', '兼职', '理财', '红包', '其他'];
-const EXPENSE_CATEGORIES = ['餐饮', '购物', '交通', '娱乐', '医疗', '房租', '其他'];
 const MONTHLY_BUDGET = 565;
 
 interface AccountAsset {
@@ -70,6 +69,9 @@ export default function LedgerPage() {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [tempYear, setTempYear] = useState(currentYear);
   const [tempMonth, setTempMonth] = useState(currentMonth);
+
+  // 分类选择器
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
 
   const [accounts, setAccounts] = useState<AccountAsset[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -196,14 +198,12 @@ export default function LedgerPage() {
   const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const netBalance = totalIncome - totalExpense;
 
-  // 打开月份选择器
   const openMonthPicker = () => {
     setTempYear(currentYear);
     setTempMonth(currentMonth);
     setShowMonthPicker(true);
   };
 
-  // 确认选择月份
   const confirmMonth = () => {
     setCurrentYear(tempYear);
     setCurrentMonth(tempMonth);
@@ -294,7 +294,7 @@ export default function LedgerPage() {
 
   const handleSelectType = (type: 'income' | 'expense') => {
     setAddType(type);
-    setFormCategory(type === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
+    setFormCategory(''); // 清空分类
     setShowAddMenu(false);
     setShowAccountSelector(true);
     if (accounts.length === 0) {
@@ -305,7 +305,12 @@ export default function LedgerPage() {
   const handleSelectAccount = (account: AccountAsset) => {
     setSelectedAccount(account);
     setShowAccountSelector(false);
-    setShowAddForm(true);
+    setShowAddForm(true); // 直接打开记账表单，不自动打开分类选择器
+  };
+
+  const handleSelectCategory = (category: string) => {
+    setFormCategory(category);
+    setShowCategorySelector(false);
   };
 
   const sortedTransactions = [...currentMonthTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -578,23 +583,15 @@ export default function LedgerPage() {
                 </div>
               </div>
 
+              {/* 分类选择框 - 点击打开分类选择器 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">分类</label>
-                <div className="flex flex-wrap gap-2">
-                  {(addType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setFormCategory(cat)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                        formCategory === cat
-                          ? 'bg-orange-600 text-white'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  onClick={() => setShowCategorySelector(true)}
+                  className="w-full text-left bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ring-orange-500"
+                >
+                  {formCategory || '点击选择分类'}
+                </button>
               </div>
 
               <div>
@@ -629,6 +626,15 @@ export default function LedgerPage() {
         </>
       )}
 
+      {/* 分类选择器浮层 */}
+      {showCategorySelector && (
+        <CategorySelector
+          type={addType}
+          onSelect={handleSelectCategory}
+          onClose={() => setShowCategorySelector(false)}
+        />
+      )}
+
       {/* 月份选择弹窗 (ActionSheet) */}
       {showMonthPicker && (
         <>
@@ -642,7 +648,6 @@ export default function LedgerPage() {
             </div>
 
             <div className="space-y-5">
-              {/* 年份选择 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">年份</label>
                 <select
@@ -656,7 +661,6 @@ export default function LedgerPage() {
                 </select>
               </div>
 
-              {/* 月份选择 */}
               <div>
                 <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">月份</label>
                 <select
@@ -674,7 +678,7 @@ export default function LedgerPage() {
                 onClick={confirmMonth}
                 className="w-full bg-[#ff8800] text-white font-black py-4 rounded-2xl mt-4 active:scale-[0.98] transition"
               >
-                确认 
+                确认
               </button>
             </div>
           </div>

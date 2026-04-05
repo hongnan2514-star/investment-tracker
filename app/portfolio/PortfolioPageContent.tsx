@@ -14,7 +14,7 @@ import { getCurrentUserId, setCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { cacheLogo, getCachedLogo, removeCachedLogo } from '@/src/utils/logoCache';
 import { useTheme } from '../ThemeProvider';
-import Link from 'next/link';
+import AssetCard from '@/components/AssetCard';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';  // 计价单位
 import AssetDetailDrawer from './AssetDetailDrawer';
 import BrandSelector from './BrandSelector';
@@ -509,36 +509,6 @@ const sortedAssets = useMemo(() => {
 }, [assets, sortBy, sortOrder]);
   
   const abortControllerRef = useRef<AbortController | null>(null);
-
-const handleDeleteAsset = async (symbol: string) => {
-  try {
-    const userId = getCurrentUserId();
-    if (!userId) {
-      console.warn('用户未登录');
-      return;
-    }
-    const res = await fetch('/api/asset', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': userId,
-      },
-      body: JSON.stringify({ symbol }),
-    });
-    if (res.ok) {
-      setAssets(prev => {
-        const newAssets = prev.filter(asset => asset.symbol !== symbol);
-        if (userId) assetCache.delete(userId);
-        eventBus.emit('assetsUpdated', newAssets);
-        return newAssets;
-      });
-    } else {
-      console.error('删除失败');
-    }
-  } catch (err) {
-    console.error('删除资产失败', err);
-  }
-};
 
   const formatLargeNumber = (num: number): string => {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -2371,7 +2341,7 @@ if (selectedAssetType === 'custom_asset') {
 
   return (
   <>
-    <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
+    <main className="min-h-screen bg-white dark:bg-black p-4 relative">
 <header className="flex justify-between items-center mb-6 px-2">
   <div>
     <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">资产管理</h1>
@@ -2548,201 +2518,13 @@ if (selectedAssetType === 'custom_asset') {
             </div>
          ))
         ) : filteredAndSortedAssets.length > 0 ? (
-filteredAndSortedAssets.map(asset => {
-  console.log(`渲染 ${asset.symbol} 价格: ${asset.price}`);
-  const profitLossColor = getProfitLossColor(asset);
-  const profitLossSmallColor = getProfitLossSmallColor(asset);
-  let displayPercent = Number(asset.changePercent) || 0;
-  let displayPercentSign = displayPercent > 0 ? '+' : '';
-  if (asset.costPrice && asset.costPrice > 0) {
-    const calculatedPercent = ((Number(asset.price) - Number(asset.costPrice)) / Number(asset.costPrice)) * 100;
-    displayPercent = calculatedPercent;
-    displayPercentSign = calculatedPercent > 0 ? '+' : '';
-  }
-
-  const cachedLogo = getCachedLogo(asset.symbol);
-  const logoSrc = cachedLogo || asset.logoUrl;
-
-  // 所有不应显示市价/成本的资产类型
-  const isSimpleAsset = ['car', 'custom', 'liability', 'real_estate', 'receivable', 'custom_asset'].includes(asset.type);
-
-  const safeMarketValue = 
-    asset.marketValue != null && !isNaN(asset.marketValue) && isFinite(asset.marketValue)
-      ? asset.marketValue
-      : asset.holdings * asset.price;
-
-  return (
-    <div
-      key={asset.symbol}
-      onClick={() => openAssetDetail(asset.symbol)}
-      className="cursor-pointer"
-    >
-      <div className="bg-white dark:bg-[#0a0a0a] p-3 rounded-[20px] shadow-sm shadow-blue-200 dark:shadow-black/50 overflow-hidden hover:shadow-md transition-all cursor-pointer">
-        <div className="flex justify-between items-start gap-1.5">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="flex-shrink-0">
-              {(() => {
-                const isAStock = asset.symbol && /^\d{6}\.(SS|SZ)$/.test(asset.symbol);
-                const code = isAStock ? asset.symbol.split('.')[0] : null;
-                const cachedLogo = getCachedLogo(asset.symbol);
-
-                if (isAStock && code) {
-                  const localPath = `/images/company_logos/${code}.png`;
-                  return (
-                    <div className="relative w-6 h-6">
-                      <img
-                        src={localPath}
-                        alt={asset.name}
-                        className="w-6 h-6 object-contain rounded-lg absolute inset-0"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const parent = e.currentTarget.parentElement;
-                          if (parent) {
-                            const icon = parent.querySelector('.stock-fallback-icon');
-                            if (icon) (icon as HTMLElement).style.display = 'block';
-                          }
-                        }}
-                      />
-                      <TrendingUp 
-                        size={16} 
-                        className="stock-fallback-icon w-6 h-6 text-gray-700 dark:text-gray-200 absolute inset-0 hidden"
-                      />
-                    </div>
-                  );
-                }
-
-                if (cachedLogo || asset.logoUrl) {
-                  return (
-                    <img
-                      src={cachedLogo || asset.logoUrl}
-                      alt={asset.name}
-                      className="w-6 h-6 object-contain rounded-lg"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                    />
-                  );
-                }
-
-                if (asset.type === 'car') {
-                  if (asset.logoUrl) {
-                    return (
-                      <img
-                        src={asset.logoUrl}
-                        alt={asset.name}
-                        className="w-6 h-6 object-contain rounded-lg"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    );
-                  }
-                  return <CarFront size={16} className="text-gray-700 dark:text-gray-200" />;
-                }
-                if (asset.type === 'stock') return <Zap size={16} className="text-gray-700 dark:text-gray-200" />;
-                if (asset.type === 'metal') {
-                  return asset.symbol && asset.symbol.includes('Ag') ? (
-                    < img src={`/icons/silver-bar-${theme}.png`} alt="Silver" className="w-6 h-6 object-contain rounded-lg" />
-                  ) : (
-                    < img src={`/icons/gold-bar-${theme}.png`} alt="Gold" className="w-6 h-6 object-contain rounded-lg" />
-                  );
-                }
-                if (asset.type === 'real_estate') return <Hotel size={16} className="text-gray-700 dark:text-gray-200" />;
-                if (asset.type === 'custom') {
-                  if (asset.logoUrl) {
-                    return (
-                      <img
-                        src={asset.logoUrl}
-                        alt=""
-                        className="w-6 h-6 object-contain rounded-lg"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    );
-                  }
-                  return (
-                    <div className="w-6 h-6 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                      <Banknote size={16} className="text-gray-700 dark:text-gray-200" />
-                    </div>
-                  );
-                }
-                if (asset.type === 'receivable') return <Receipt size={16} className="text-gray-700 dark:text-gray-200" />;
-                if (asset.type === 'custom_asset') return <Activity size={16} className="text-gray-700 dark:text-gray-200" />;
-                if (asset.type === 'liability') return <ReceiptText size={16} className="text-gray-700 dark:text-gray-200" />;
-                return <BarChart3 size={16} className="text-gray-700 dark:text-gray-200" />;
-              })()}
-            </div>
-            <div className="text-left min-w-0 flex-1">
-              <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-1 break-words" title={asset.name}>
-                {asset.name}
-              </h4>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={asset.symbol}>
-                {asset.type === 'real_estate' || asset.type === 'car' ? (
-                  (() => {
-                    const lastDashIndex = asset.symbol.lastIndexOf('-');
-                    if (lastDashIndex !== -1) {
-                      const timestampStr = asset.symbol.substring(lastDashIndex + 1);
-                      const timestamp = parseInt(timestampStr, 10);
-                      if (!isNaN(timestamp)) {
-                        const date = new Date(timestamp);
-                        if (!isNaN(date.getTime())) {
-                          return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-                        }
-                      }
-                    }
-                    return asset.symbol;
-                  })()
-                ) : (
-                  asset.symbol
-                )}
-              </p >
-            </div>
-          </div>
-          <div className="text-right flex-shrink-0 max-w-[90px]">
-            <p className={`text-base font-black truncate ${profitLossColor}`} title={`${safeMarketValue.toFixed(2)}`}>
-              {formatLargeNumber(safeMarketValue)}
-            </p >
-            {displayPercent !== 0 && (
-              <p className={`text-[9px] font-bold ${profitLossSmallColor}`}>
-                {displayPercentSign}{isNaN(displayPercent) ? '0.00' : displayPercent.toFixed(2)}%
-              </p >
-            )}
-          </div>
-        </div>
-
-        {/* 份额行（所有资产都显示） */}
-        <div className="flex justify-end mt-0.5">
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate" title={`${typeof asset.holdings === 'number' ? asset.holdings.toFixed(2) : '0.00'}份`}>
-            {typeof asset.holdings === 'number' ? asset.holdings.toFixed(2) : '0.00'}份
-          </p >
-        </div>
-
-        {/* 市价/成本行（所有资产都有此结构，简单资产不显示文字但保持高度） */}
-        <div className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-2 flex justify-between items-center">
-          <div className="flex items-center gap-1 min-w-0 flex-1">
-            {asset.costPrice && !isSimpleAsset ? (
-              <>
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
-                  市价/成本
-                </p >
-                <p className={`text-xs font-bold truncate ${profitLossColor}`} title={`${Number(asset.price).toFixed(2)} / ${Number(asset.costPrice).toFixed(2)}`}>
-                  {Number(asset.price).toFixed(2)} / {Number(asset.costPrice).toFixed(2)}
-                </p >
-              </>
-            ) : (
-              // 简单资产：不可见占位符，确保高度
-              <span className="invisible text-xs">占位</span>
-            )}
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteAsset(asset.symbol);
-            }}
-            className="text-[10px] font-bold text-red-500 dark:text-red-400 hover:underline flex-shrink-0 ml-1"
-          >
-            删除
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-})
+filteredAndSortedAssets.map(asset => (
+  <AssetCard
+    key={asset.symbol}
+    asset={asset}
+    onClick={openAssetDetail}
+  />
+))
 ) : (
   // 空状态保持不变
   <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 col-span-full">
