@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Banknote,
   Loader2,
+  ChevronDown
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { useCurrency } from '@/src/services/currency';
@@ -136,7 +137,7 @@ export default function LedgerPage() {
   const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
   // 生成年份范围（当前年份前后5年）
-  const yearOptions = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
+  const yearOptions = Array.from({ length: 201 }, (_, i) => currentYear - 100 + i);
   const monthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   const loadAccounts = useCallback(async () => {
@@ -380,7 +381,7 @@ export default function LedgerPage() {
   const sortedTransactions = [...currentMonthTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 return (
-  <main className="min-h-screen bg-gray-50 dark:bg-black p-4 relative">
+  <main className="min-h-screen bg-white dark:bg-black p-4 relative">
     <div className="max-w-md mx-auto">
       <div className="flex justify-between items-center mb-4 px-2">
         <div>
@@ -412,7 +413,7 @@ return (
             <span className="text-sm text-gray-500 dark:text-gray-400">{currentYear}年</span>
             <div className="flex items-center gap-0 mt-0.5">
               <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">{monthNames[currentMonth]}</span>
-              <CalendarDays size={18} className="translate-x-1 text-gray-500 dark:text-gray-400 translate-y-2 -m-1" />
+              <ChevronDown size={18} className="translate-x-1 text-gray-500 dark:text-gray-400 translate-y-2 -m-1" />
             </div>
           </div>
           <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>

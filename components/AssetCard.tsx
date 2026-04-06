@@ -2,6 +2,7 @@
 "use client";
 
 import React from 'react';
+import { useRouter } from 'next/navigation'; // 新增
 import {
   Zap, BarChart3, Hotel, CarFront, Banknote, Receipt, Activity, ReceiptText, TrendingUp
 } from 'lucide-react';
@@ -52,6 +53,7 @@ interface AssetCardProps {
 }
 
 export default function AssetCard({ asset, onClick }: AssetCardProps) {
+  const router = useRouter(); // 新增
   const { theme } = useTheme();
 
   const isSimpleAsset = ['car', 'custom', 'liability', 'real_estate', 'receivable', 'custom_asset'].includes(asset.type);
@@ -151,10 +153,19 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
 
   const showCostBlock = asset.costPrice && !isSimpleAsset;
 
+  // 处理点击：现金资产直接跳转账单详情页，其他资产调用父组件的 onClick 打开抽屉
+  const handleClick = () => {
+    if (asset.type === 'custom') {
+      router.push(`/ledger/account/${encodeURIComponent(asset.symbol)}`);
+    } else {
+      onClick(asset.symbol);
+    }
+  };
+
   return (
     <div
-      onClick={() => onClick(asset.symbol)}
-     className="cursor-pointer bg-white dark:bg-[#0a0a0a] rounded-2xl border border-gray-100 dark:border-gray-800 transition-all overflow-hidden"
+      onClick={handleClick}
+      className="cursor-pointer bg-white dark:bg-[#0a0a0a] rounded-2xl border border-gray-100 dark:border-gray-800 transition-all overflow-hidden"
     >
       <div className="p-3">
         <div className="flex items-start justify-between">
