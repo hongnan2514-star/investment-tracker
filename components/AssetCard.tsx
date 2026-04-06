@@ -21,13 +21,13 @@ const getProfitLossColor = (asset: Asset): string => {
     return asset.price > asset.costPrice
       ? 'text-green-600 dark:text-green-400'
       : asset.price < asset.costPrice
-      ? 'text-[#f85050] dark:text-red-400'
+      ? 'text-[#ff0000] dark:text-red-400'
       : 'text-gray-900 dark:text-gray-100';
   }
   return asset.changePercent > 0
     ? 'text-green-600 dark:text-green-400'
     : asset.changePercent < 0
-    ? 'text-[#f85050] dark:text-red-400'
+    ? 'text-[#ff0000] dark:text-red-400'
     : 'text-gray-900 dark:text-gray-100';
 };
 
@@ -160,7 +160,7 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
         <div className="flex items-start justify-between">
           {/* 左侧信息区 */}
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className="flex-shrink-0">{renderIcon()}</div>
+            <div className="flex-shrink-0 mt-1">{renderIcon()}</div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate">
