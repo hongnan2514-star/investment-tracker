@@ -642,7 +642,7 @@ return (
     value={formDate}
     onChange={(e) => setFormDate(e.target.value)}
     placeholder="年/月/日"
-    className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 placeholder:font-bold outline-none"
+    className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 placeholder:font-bold outline-none [appearance:none] [&::-webkit-calendar-picker-indicator]:opacity-50"
   />
 </div>
 
