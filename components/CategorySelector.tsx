@@ -137,7 +137,7 @@ export default function CategorySelector({ type, onSelect, onClose }: CategorySe
             placeholder="搜索分类"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-3xl text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-3xl text-gray-900 dark:text-gray-100 outline-none"
             autoFocus
           />
         </div>

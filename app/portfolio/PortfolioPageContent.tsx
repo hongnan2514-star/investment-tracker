@@ -1,5 +1,4 @@
 // app/portfolio/PortfolioPageContent.tsx
-// app/portfolio/PortfolioPageContent.tsx
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';

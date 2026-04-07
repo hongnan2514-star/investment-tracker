@@ -400,7 +400,7 @@ return (
           placeholder="查找账单"
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
-          className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-3xl py-2 pl-12 pr-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 transition"
+          className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-3xl py-2 pl-12 pr-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none transition"
         />
       </div>
 
@@ -611,10 +611,10 @@ return (
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{currencySymbol}</span>
                 <input
                   type="number"
-                  placeholder="0.00"
+                  placeholder="输入金额"
                   value={formAmount}
                   onChange={(e) => setFormAmount(e.target.value)}
-                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-4 pl-8 pr-4 text-xl font-bold text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
+                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-4 pl-8 pr-4 text-xl font-bold text-gray-900 dark:text-gray-100 outline-none"
                   step="0.01"
                   autoFocus
                 />
@@ -623,34 +623,39 @@ return (
 
             <div>
               <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">分类</label>
-              <button
-                onClick={() => setShowCategorySelector(true)}
-                className="w-full text-left bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 ring-orange-500"
-              >
-                {formCategory || '点击选择分类'}
-              </button>
+<button
+  onClick={() => setShowCategorySelector(true)}
+  className="w-full text-left bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 focus:outline-none"
+>
+  {formCategory ? (
+    <span className="text-gray-900 dark:text-gray-100">{formCategory}</span>
+  ) : (
+    <span className="text-gray-400 dark:text-gray-500">点击选择分类</span>
+  )}
+</button>
             </div>
 
-            <div>
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">日期</label>
-              <input
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-                className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
-              />
-            </div>
+<div>
+  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">日期</label>
+  <input
+    type="date"
+    value={formDate}
+    onChange={(e) => setFormDate(e.target.value)}
+    placeholder="年/月/日"
+    className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 placeholder:font-bold outline-none"
+  />
+</div>
 
-            <div>
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">备注（可选）</label>
-              <input
-                type="text"
-                placeholder="例如：午餐、工资"
-                value={formNote}
-                onChange={(e) => setFormNote(e.target.value)}
-                className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-orange-500"
-              />
-            </div>
+<div>
+  <label className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-1">备注（可选）</label>
+  <input
+    type="text"
+    placeholder="输入备注"
+    value={formNote}
+    onChange={(e) => setFormNote(e.target.value)}
+    className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl py-3 px-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 placeholder:font-bold outline-none"
+  />
+</div>
 
             <button
               onClick={handleAddTransaction}
