@@ -2,11 +2,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Smartphone, Send, Settings, BadgeCheck } from 'lucide-react';
+import { User, Smartphone, Send, Settings, BadgeCheck, Info } from 'lucide-react';
 import Image from 'next/image';
 import { setCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
-import { AiFillRedditCircle } from "react-icons/ai";
+import { AiFillRedditCircle, AiOutlineX } from "react-icons/ai";
 
 interface ProfileDrawerProps {
   isOpen: boolean;
@@ -46,9 +46,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
         setIsLoggedIn(false);
       }
     };
-
     loadUser();
-
     const handleUserChange = () => loadUser();
     window.addEventListener('user-changed', handleUserChange);
     return () => window.removeEventListener('user-changed', handleUserChange);
@@ -238,7 +236,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     setOtpSent(false);
     setRegisterStep(false);
     setRegisterPassword('');
-    onClose(); // 登录成功后关闭抽屉
+    onClose();
   };
 
   const resetForm = () => {
@@ -500,86 +498,79 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     );
   };
 
-return (
-  <div className="fixed inset-0 z-50" style={{ visibility: isOpen ? 'visible' : 'hidden' }}>
-    {/* 遮罩层 */}
-    <div className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
-    {/* 抽屉内容 */}
-    <div className={`absolute right-0 top-0 h-full w-5/6 bg-white dark:bg-black shadow-xl transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="flex flex-col h-full overflow-y-auto">
-        <div className="flex-1 p-4 pt-8">
-          {isLoggedIn ? (
-            <>
-              {/* 用户信息区域 */}
-              <div onClick={() => { router.push('/profile/edit'); onClose(); }} className="flex flex-col items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl -mx-2 p-4 transition">
-                <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {user?.avatarUrl ? <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="object-cover" /> : <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{user?.name?.charAt(0).toUpperCase() || '?'}</span>}
-                </div>
-                <div className="mt-3">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
-                  <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1"><Smartphone size={14} /><span>{user?.phone}</span></div>
-                </div>
-              </div>
+// 公共按钮组件
+  const ActionButtons = () => (
+    <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+      <button onClick={() => { router.push('/subscription'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4">
+        <BadgeCheck size={20} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <span>订阅</span>
+      </button>
+      <button onClick={() => { router.push('/settings'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
+        <Settings size={20} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <span>设置与隐私</span>
+      </button>
+      <button onClick={() => { alert('投资追踪 v1.0.0'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
+        <Info size={20} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <span>关于我们</span>
+      </button>
+      <button onClick={() => { window.open('https://www.reddit.com/r/investment', '_blank'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
+        <AiFillRedditCircle size={20} className="text-black dark:text-white flex-shrink-0" />
+        <span>Reddit</span>
+      </button>
+      <button onClick={() => { window.open('https://twitter.com/investment', '_blank'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
+        <AiOutlineX size={20} className="text-black dark:text-white flex-shrink-0" />
+        <span>X</span>
+      </button>
+    </div>
+  );
 
-              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-                {/* 订阅按钮 */}
-                <button onClick={() => { router.push('/subscription'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4">
-                  <BadgeCheck size={20} className="text-gray-500 dark:text-gray-400" />
-                  <span>订阅</span>
-                </button>
-                {/* 设置与隐私按钮 */}
-                <button onClick={() => { router.push('/settings'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
-                  <Settings size={20} className="text-gray-500 dark:text-gray-400" />
-                  <span>设置与隐私</span>
-                </button>
-                {/* 新增 Reddit 按钮 */}
-                <button
-                  onClick={() => { window.open('https://www.reddit.com/r/investment', '_blank'); onClose(); }}
-                  className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2"
-                >
-                  <AiFillRedditCircle size={24} className="text-black dark:text-white" />
-                  <span>Reddit</span>
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* 未登录时的登录/注册入口 */}
-              {!showLoginForm && !showForgotPassword ? (
-                <button onClick={() => setShowLoginForm(true)} className="w-full flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/30 rounded-2xl border border-orange-100 dark:border-orange-800">
-                  <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center"><User size={20} className="text-orange-600 dark:text-orange-400" /></div><div className="text-left"><p className="font-bold text-orange-900 dark:text-orange-300">登录/注册</p><p className="text-xs text-orange-600/70 dark:text-orange-400/70 font-medium">使用手机号验证码或密码登录</p></div></div>
-                </button>
-              ) : showForgotPassword ? (
-                renderForgotPassword()
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-2"><h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">手机号登录</h3><button onClick={() => { setShowLoginForm(false); resetForm(); setPhoneNumber(''); setPassword(''); }} className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">取消</button></div>
-                  <div className="flex border-b border-gray-200 dark:border-gray-700">
-                    <button className={`flex-1 py-2 text-sm font-medium ${loginMethod === 'otp' ? 'text-[#ff8800] dark:text-[#ff8800] border-b-2 border-[#ff8800] dark:border-orange-400' : 'text-gray-400 dark:text-gray-500'}`} onClick={() => setLoginMethod('otp')}>验证码登录</button>
-                    <button className={`flex-1 py-2 text-sm font-medium ${loginMethod === 'password' ? 'text-[#ff8800] dark:text-[#ff8800] border-b-2 border-orange-600 dark:border-orange-400' : 'text-gray-400 dark:text-gray-500'}`} onClick={() => setLoginMethod('password')}>密码登录</button>
+  return (
+    <div className="fixed inset-0 z-50" style={{ visibility: isOpen ? 'visible' : 'hidden' }}>
+      {/* 遮罩层 */}
+      <div className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
+      {/* 抽屉内容 */}
+      <div className={`absolute right-0 top-0 h-full w-5/6 bg-white dark:bg-black shadow-xl transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex flex-col h-full overflow-y-auto">
+          <div className="flex-1 p-4 pt-8">
+            {isLoggedIn ? (
+              <>
+                {/* 用户信息区域 */}
+                <div onClick={() => { router.push('/profile/edit'); onClose(); }} className="flex flex-col items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl -mx-2 p-4 transition">
+                  <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {user?.avatarUrl ? <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="object-cover" /> : <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{user?.name?.charAt(0).toUpperCase() || '?'}</span>}
                   </div>
-                  {renderLoginForm()}
+                  <div className="mt-3">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
+                    <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1"><Smartphone size={14} /><span>{user?.phone}</span></div>
+                  </div>
                 </div>
-              )}
-              {/* 未登录状态下的设置与隐私及 Reddit 按钮 */}
-              <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-                <button onClick={() => { router.push('/settings'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4">
-                  <Settings size={20} className="text-gray-500 dark:text-gray-400" />
-                  <span>设置与隐私</span>
-                </button>
-                <button
-                  onClick={() => { window.open('https://www.reddit.com/r/investment', '_blank'); onClose(); }}
-                  className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2"
-                >
-                  <AiFillRedditCircle size={24} className="text-orange-600 dark:text-orange-400" />
-                  <span>Reddit 社区</span>
-                </button>
-              </div>
-            </>
-          )}
+                <ActionButtons />
+              </>
+            ) : (
+              <>
+                {/* 未登录时的登录/注册入口 */}
+                {!showLoginForm && !showForgotPassword ? (
+                  <button onClick={() => setShowLoginForm(true)} className="w-full flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-900/30 rounded-2xl border border-orange-100 dark:border-orange-800">
+                    <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center"><User size={20} className="text-orange-600 dark:text-orange-400" /></div><div className="text-left"><p className="font-bold text-orange-900 dark:text-orange-300">登录/注册</p><p className="text-xs text-orange-600/70 dark:text-orange-400/70 font-medium">使用手机号验证码或密码登录</p></div></div>
+                  </button>
+                ) : showForgotPassword ? (
+                  renderForgotPassword()
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-2"><h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">手机号登录</h3><button onClick={() => { setShowLoginForm(false); resetForm(); setPhoneNumber(''); setPassword(''); }} className="text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">取消</button></div>
+                    <div className="flex border-b border-gray-200 dark:border-gray-700">
+                      <button className={`flex-1 py-2 text-sm font-medium ${loginMethod === 'otp' ? 'text-[#ff8800] dark:text-[#ff8800] border-b-2 border-[#ff8800] dark:border-orange-400' : 'text-gray-400 dark:text-gray-500'}`} onClick={() => setLoginMethod('otp')}>验证码登录</button>
+                      <button className={`flex-1 py-2 text-sm font-medium ${loginMethod === 'password' ? 'text-[#ff8800] dark:text-[#ff8800] border-b-2 border-orange-600 dark:border-orange-400' : 'text-gray-400 dark:text-gray-500'}`} onClick={() => setLoginMethod('password')}>密码登录</button>
+                    </div>
+                    {renderLoginForm()}
+                  </div>
+                )}
+                <ActionButtons />
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }

@@ -103,17 +103,6 @@ export default function SettingsPage() {
           </div>
         </button>
 
-        <button
-          onClick={() => alert('投资追踪 v1.0.0')}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl"
-        >
-          <div className="flex items-center gap-3">
-            <Info size={20} className="text-gray-500 dark:text-gray-400" />
-            <span className="text-gray-700 dark:text-gray-300">关于我们</span>
-          </div>
-          <ChevronRight size={18} className="text-gray-400 dark:text-gray-500" />
-        </button>
-
         {isLoggedIn && (
           <div className="pt-4 mt-4">
             <button
