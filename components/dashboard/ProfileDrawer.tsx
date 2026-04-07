@@ -33,6 +33,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const [resetCountdown, setResetCountdown] = useState(0);
   const [registerStep, setRegisterStep] = useState(false);
   const [registerPassword, setRegisterPassword] = useState('');
+  const [assetsCount, setAssetsCount] = useState<number>(0); // 新增持仓数量状态
 
   // 加载用户信息
   useEffect(() => {
@@ -500,7 +501,7 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
 
 // 公共按钮组件
   const ActionButtons = () => (
-    <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+    <div className="mt-0 pt-6 border-t border-gray-100 dark:border-gray-700">
       <button onClick={() => { router.push('/subscription'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4">
         <BadgeCheck size={20} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
         <span>订阅</span>
@@ -524,6 +525,40 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     </div>
   );
 
+  // 加载资产数量（不计负债）
+  const loadAssetsCount = async () => {
+    const userId = localStorage.getItem('currentUserId');
+    if (!userId) {
+      setAssetsCount(0);
+      return;
+    }
+    try {
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // 过滤掉负债类型（liability）
+        const nonLiabilityAssets = data.filter((asset: any) => asset.type !== 'liability');
+        setAssetsCount(nonLiabilityAssets.length);
+      } else {
+        setAssetsCount(0);
+      }
+    } catch (err) {
+      console.error('加载资产数量失败', err);
+      setAssetsCount(0);
+    }
+  };
+
+  // 监听资产更新事件，刷新持仓数量
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadAssetsCount();
+      const unsubscribe = eventBus.subscribe('assetsUpdated', () => loadAssetsCount());
+      return () => unsubscribe();
+    }
+  }, [isLoggedIn]);
+
   return (
     <div className="fixed inset-0 z-50" style={{ visibility: isOpen ? 'visible' : 'hidden' }}>
       {/* 遮罩层 */}
@@ -532,20 +567,27 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
       <div className={`absolute right-0 top-0 h-full w-5/6 bg-white dark:bg-black shadow-xl transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="flex flex-col h-full overflow-y-auto">
           <div className="flex-1 p-4 pt-8">
-            {isLoggedIn ? (
-              <>
-                {/* 用户信息区域 */}
-                <div onClick={() => { router.push('/profile/edit'); onClose(); }} className="flex flex-col items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl -mx-2 p-4 transition">
-                  <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {user?.avatarUrl ? <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="object-cover" /> : <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{user?.name?.charAt(0).toUpperCase() || '?'}</span>}
-                  </div>
-                  <div className="mt-3">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
-                    <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1"><Smartphone size={14} /><span>{user?.phone}</span></div>
-                  </div>
-                </div>
-                <ActionButtons />
-              </>
+{isLoggedIn ? (
+  <>
+    <div onClick={() => { router.push('/profile/edit'); onClose(); }} className="flex flex-col items-start cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] rounded-xl -mx-2 p-4 transition">
+      <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+        {user?.avatarUrl ? <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="object-cover" /> : <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{user?.name?.charAt(0).toUpperCase() || '?'}</span>}
+      </div>
+      <div className="mt-3">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
+        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1">
+          <Smartphone size={14} />
+          <span>{user?.phone}</span>
+        </div>
+        {/* 持仓：上下布局 */}
+        <div className="flex flex-col items-center mt-4 -ml-16">
+          <span className="text-lg font-bold text-gray-700 dark:text-gray-400">持仓</span>
+          <span className="text-3sm font-medium text-gray-900 dark:text-gray-100">{assetsCount}</span>
+        </div>
+      </div>
+    </div>
+    <ActionButtons />
+  </>
             ) : (
               <>
                 {/* 未登录时的登录/注册入口 */}

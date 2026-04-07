@@ -1,7 +1,7 @@
 // app/ledger/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -121,6 +121,7 @@ export default function LedgerPage() {
   const [formCategory, setFormCategory] = useState('');
   const [formNote, setFormNote] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
+  const [monthlyBudget, setMonthlyBudget] = useState(MONTHLY_BUDGET);
 
   // 月份选择弹窗
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -243,6 +244,20 @@ export default function LedgerPage() {
     }
   }, [accounts, loadAllTransactions]);
 
+  // 加载预算（从 localStorage）
+useEffect(() => {
+  const savedBudget = localStorage.getItem('monthly_budget');
+  if (savedBudget) {
+    setMonthlyBudget(parseFloat(savedBudget));
+  }
+}, []);
+
+// 保存预算
+const handleBudgetUpdate = (newBudget: number) => {
+  setMonthlyBudget(newBudget);
+  localStorage.setItem('monthly_budget', newBudget.toString());
+};
+
   useEffect(() => {
     const handleUserChange = () => loadAccounts();
     window.addEventListener('user-changed', handleUserChange);
@@ -257,6 +272,18 @@ export default function LedgerPage() {
     const [year, month] = t.date.split('-');
     return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
   });
+
+  const expenseByCategory = useMemo(() => {
+  const map = new Map<string, number>();
+  currentMonthTransactions.forEach(t => {
+    if (t.type === 'expense') {
+      const category = t.category;
+      map.set(category, (map.get(category) || 0) + t.amount);
+    }
+  });
+  return Array.from(map.entries()).map(([category, amount]) => ({ category, amount }));
+}, [currentMonthTransactions]);
+
   const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const netBalance = totalIncome - totalExpense;
@@ -447,7 +474,14 @@ return (
         {loadingTransactions ? (
           <PieChartSkeleton />
         ) : (
-          <BudgetPieChart budget={MONTHLY_BUDGET} spent={totalExpense} currencySymbol={currencySymbol} />
+<BudgetPieChart 
+  budget={monthlyBudget} 
+  spent={totalExpense} 
+  currencySymbol={currencySymbol}
+  expenseByCategory={expenseByCategory}
+  totalExpense={totalExpense}
+  onBudgetUpdate={handleBudgetUpdate}
+/>
         )}
       </div>
 
