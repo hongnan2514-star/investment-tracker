@@ -498,21 +498,21 @@ return (
     <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p >
   </div>
-  {isSelectMode ? (
-    <button
-      onClick={() => {
-        setIsSelectMode(false);
-        setSelectedTransactionIds(new Set());
-      }}
-      className="text-[#ff8800] font-bold"
-    >
-      取消
-    </button>
-  ) : (
-    <button onClick={() => setShowSelectMenu(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
-      <ListFilterPlus size={20} className="text-gray-600 dark:text-gray-400" />
-    </button>
-  )}
+{isSelectMode ? (
+  <button
+    onClick={() => {
+      setIsSelectMode(false);
+      setSelectedTransactionIds(new Set());
+    }}
+    className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+  >
+    <X size={24} className="text-gray-600 dark:text-gray-400" />
+  </button>
+) : (
+  <button onClick={() => setShowSelectMenu(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
+    <ListFilterPlus size={24} className="text-gray-600 dark:text-gray-400" />
+  </button>
+)}
 </div>
 
       <div className="relative mb-6 px-2">

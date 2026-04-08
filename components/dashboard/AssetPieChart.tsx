@@ -9,27 +9,29 @@ import { useCurrency, useCurrencyConverter, CurrencyCode } from '@/src/services/
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { usePathname } from 'next/navigation';
 
-const ASSET_TYPE_CONFIG: Record<string, { name: string; color: string }> = {
-  stock: { name: '股票', color: '#1e67f7' },
-  fund: { name: '基金', color: '#320bcd' },
-  crypto: { name: '数字货币', color: '#ec4899' },
-  metal: { name: '贵金属', color: '#f59e0b' },
-  car: { name: '车辆', color: '#06b6d4' },
-  real_estate: { name: '不动产', color: '#f97316' },
-  custom: { name: '现金', color: '#1db81f' },
-  receivable: { name: '应收款', color: 'rgb(13, 16, 226)' },
-  liability: { name: '负债', color: 'rgb(223, 11, 11)' },
-  custom_asset: { name: '自定义', color: 'rgb(114, 116, 127)' }
+// 仅保留类型名称，颜色动态生成
+const ASSET_TYPE_CONFIG: Record<string, { name: string }> = {
+  stock: { name: '股票' },
+  fund: { name: '基金' },
+  crypto: { name: '数字货币' },
+  metal: { name: '贵金属' },
+  car: { name: '车辆' },
+  real_estate: { name: '不动产' },
+  custom: { name: '现金' },
+  receivable: { name: '应收款' },
+  liability: { name: '负债' },
+  custom_asset: { name: '自定义' }
 };
 
-const getColorForUnknownType = (type: string): string => {
-  const fallbackColors = ['#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4', '#f97316'];
+// 基于字符串生成稳定的颜色（色相0-360，饱和度70%，亮度60%）
+const getColorForType = (type: string): string => {
   let hash = 0;
   for (let i = 0; i < type.length; i++) {
     hash = ((hash << 5) - hash) + type.charCodeAt(i);
     hash |= 0;
   }
-  return fallbackColors[Math.abs(hash) % fallbackColors.length];
+  const hue = Math.abs(hash % 360);
+  return `hsl(${hue}, 70%, 60%)`;
 };
 
 const SkeletonLine = ({ className = "w-24 h-6" }: { className?: string }) => (
@@ -127,7 +129,7 @@ export default function AssetPieChart() {
           name: config?.name || type,
           value,
           percent: ((value / total) * 100).toFixed(1) + '%',
-          color: config?.color || getColorForUnknownType(type),
+          color: getColorForType(type),
         };
       })
       .sort((a, b) => b.value - a.value);

@@ -407,7 +407,7 @@ const toggleSelect = (id: number) => {
           </button>
           <button
             onClick={handleDelete}
-            className="text-red-500 dark:text-red-400 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+            className="text-gray-500 dark:text-red-400 p-1 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded-full transition-colors"
             aria-label="删除资产"
           >
             <Trash2 size={22} />

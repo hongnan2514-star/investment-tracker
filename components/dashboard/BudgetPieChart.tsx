@@ -1,8 +1,8 @@
 // components/dashboard/BudgetPieChart.tsx
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { ChevronUp, ChevronDown, X } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useTheme } from '@/app/ThemeProvider';
 import { eventBus } from '@/src/utils/eventBus';
 
@@ -12,8 +12,24 @@ interface BudgetPieChartProps {
   currencySymbol: string;
   expenseByCategory?: { category: string; amount: number }[];
   totalExpense?: number;
-  onBudgetUpdate?: (newBudget: number) => void; // 新增：预算更新回调
+  onBudgetUpdate?: (newBudget: number) => void;
 }
+
+// 基于字符串生成稳定的颜色（色相0-360，饱和度70%，亮度60%）
+const getColorForType = (type: string): string => {
+  let h1 = 0xdeadbeef ^ 0;
+  let h2 = 0x41c6ce57 ^ 0;
+  for (let i = 0; i < type.length; i++) {
+    const ch = type.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  const hue = Math.abs(hash % 360);
+  return `hsl(${hue}, 70%, 60%)`;
+};
 
 export default function BudgetPieChart({ 
   budget, 
@@ -28,7 +44,7 @@ export default function BudgetPieChart({
   const [outerRadius, setOuterRadius] = useState(45);
   const [isMobile, setIsMobile] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showBudgetMenu, setShowBudgetMenu] = useState(false); // 预算编辑菜单
+  const [showBudgetMenu, setShowBudgetMenu] = useState(false);
   const [tempBudget, setTempBudget] = useState<string>(budget.toString());
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -78,9 +94,14 @@ export default function BudgetPieChart({
     remainingPercentForChart = 1 - spentPercentForChart;
   }
 
+  // 支出切片使用稳定随机色，剩余切片使用固定灰色（根据主题）
+  const expenseColor = getColorForType('expense');
+  const remainingColor = theme === 'dark' ? '#374151' : '#e5e7eb';
+
+  // 小饼图数据（总支出 vs 剩余）
   const pieData = [
-    { name: '支出', value: spentPercentForChart, color: '#f97316' },
-    { name: '剩余', value: remainingPercentForChart, color: theme === 'dark' ? '#374151' : '#e5e7eb' },
+    { name: '支出', value: spentPercentForChart, color: expenseColor },
+    { name: '剩余', value: remainingPercentForChart, color: remainingColor },
   ].filter(item => item.value > 0);
 
   const formatLargeNumber = (num: number): string => {
@@ -96,17 +117,40 @@ export default function BudgetPieChart({
     percent: totalExpense > 0 ? (item.amount / totalExpense) * 100 : 0,
   })).sort((a, b) => b.value - a.value);
 
-  const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#ef4444', '#84cc16', '#a855f7'];
-  const getColor = (index: number) => COLORS[index % COLORS.length];
+  // 大饼图数据：各支出分类 + 剩余预算（如果有）
+  const detailedPieData = (() => {
+    if (budget <= 0) return [];
+    
+    // 各分类占预算的比例
+    const categorySlices = categoryPieData.map(cat => ({
+      name: cat.name,
+      value: cat.value / budget,
+      color: getColorForType(cat.name),
+      actualAmount: cat.value,
+    }));
 
-  // 处理预算金额点击
+    // 剩余预算切片
+    const remainingValue = remaining / budget;
+    const slices = [...categorySlices];
+    if (remainingValue > 0.001) {
+      slices.push({
+        name: '剩余预算',
+        value: remainingValue,
+        color: remainingColor,
+        actualAmount: remaining,
+      });
+    }
+
+    // 过滤掉值过小的切片（避免显示问题）
+    return slices.filter(s => s.value > 0.001);
+  })();
+
   const handleBudgetClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // 阻止冒泡，避免触发展开/收起
+    e.stopPropagation();
     setTempBudget(budget.toString());
     setShowBudgetMenu(true);
   };
 
-  // 保存新预算
   const handleSaveBudget = () => {
     const newBudget = parseFloat(tempBudget);
     if (isNaN(newBudget) || newBudget < 0) {
@@ -117,7 +161,6 @@ export default function BudgetPieChart({
     setShowBudgetMenu(false);
   };
 
-  // 清除预算
   const handleClearBudget = () => {
     onBudgetUpdate?.(0);
     setShowBudgetMenu(false);
@@ -138,10 +181,8 @@ export default function BudgetPieChart({
   return (
     <>
       <div className="px-2 mb-2">
-        {/* 可点击区域：展开/收起时显示或隐藏小饼图 */}
         <div className="cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
           <div className="flex flex-row items-center gap-3 justify-start flex-nowrap">
-            {/* 小饼图区域 - 仅在未展开时显示 */}
             {!isExpanded && (
               <div className="flex-shrink-0">
                 <div style={{ width: chartSize, height: chartSize }} className="relative">
@@ -179,7 +220,6 @@ export default function BudgetPieChart({
                 </div>
               </div>
             )}
-            {/* 剩余预算文字和图标始终显示 - 金额部分可点击 */}
             <div className={`flex-1 flex flex-row justify-between items-baseline ${isExpanded ? 'mt-6' : ''}`}>
               <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">本月剩余预算：</span>
               <button
@@ -203,20 +243,19 @@ export default function BudgetPieChart({
           </div>
         </div>
 
-        {/* 展开的详细内容：包含大饼图和分类明细 */}
         <div
           className={`transition-all duration-300 ease-in-out overflow-hidden ${
             isExpanded ? 'max-h-[800px] opacity-100 mt-4' : 'max-h-0 opacity-0'
           }`}
         >
           <div className="bg-white dark:bg-black rounded-2xl p-4">
-            {/* 放大版预算饼图（支出+剩余） */}
+            {/* 放大版预算饼图：展示各支出分类 + 剩余预算 */}
             <div className="flex justify-center mb-6">
               <div style={{ width: 220, height: 220 }} className="relative">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={pieData}
+                      data={detailedPieData}
                       cx="50%"
                       cy="50%"
                       innerRadius={50}
@@ -224,11 +263,36 @@ export default function BudgetPieChart({
                       paddingAngle={2}
                       dataKey="value"
                       stroke="none"
-                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                      label={({ name, value, cx, cy, outerRadius, startAngle, endAngle }) => {
+                        const percentValue = value; // value 已经是相对预算的比例
+                        if (percentValue < 0.03) return null;
+                        const RADIAN = Math.PI / 180;
+                        const midAngle = (startAngle + endAngle) / 2;
+                        const radius = outerRadius + 45;
+                        const x = cx + radius * Math.cos(midAngle * RADIAN);
+                        const y = cy + radius * Math.sin(midAngle * RADIAN);
+                        let textAnchor: 'start' | 'middle' | 'end' = 'middle';
+                        if (midAngle > 270 || midAngle < 90) textAnchor = 'start';
+                        else if (midAngle > 90 && midAngle < 270) textAnchor = 'end';
+                        const labelColor = theme === 'dark' ? '#e5e7eb' : '#1f2937';
+                        return (
+                          <text
+                            x={x}
+                            y={y}
+                            fill={labelColor}
+                            textAnchor={textAnchor}
+                            dominantBaseline="middle"
+                            fontSize={12}
+                            fontWeight="600"
+                          >
+                            {`${name} ${(percentValue * 100).toFixed(1)}%`}
+                          </text>
+                        );
+                      }}
                       labelLine={false}
                     >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {detailedPieData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
                   </PieChart>
@@ -252,10 +316,13 @@ export default function BudgetPieChart({
               <div className="text-center text-gray-400 py-8">暂无支出数据</div>
             ) : (
               <div className="space-y-2">
-                {categoryPieData.map((item, idx) => (
+                {categoryPieData.map((item) => (
                   <div key={item.name} className="flex justify-between items-center text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getColor(idx) }} />
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: getColorForType(item.name) }}
+                      />
                       <span className="text-gray-700 dark:text-gray-300">{item.name}</span>
                     </div>
                     <div className="text-gray-900 dark:text-gray-100 font-medium">

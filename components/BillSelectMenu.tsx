@@ -21,7 +21,7 @@ export default function BillSelectMenu({ show, onClose, onSelect }: BillSelectMe
             onSelect();
             onClose();
           }}
-          className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-900 dark:text-gray-100 font-medium"
+          className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-900 dark:text-gray-100 font-medium text-sm"
         >
           选择账单
         </button>
