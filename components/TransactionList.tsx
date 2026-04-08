@@ -4,6 +4,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { Circle, CheckCircle } from 'lucide-react';
 import { getCategoryIcon } from './CategorySelector';
 
 type Transaction = {
@@ -24,16 +25,31 @@ interface TransactionListProps {
   currencySymbol: string;
   emptyMessage?: string;
   onTransactionClick?: (accountSymbol: string) => void;
+  isSelectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
-export default function TransactionList({ transactions, currencySymbol, emptyMessage = '暂无收支记录', onTransactionClick }: TransactionListProps) {
+export default function TransactionList({
+  transactions,
+  currencySymbol,
+  emptyMessage = '暂无收支记录',
+  onTransactionClick,
+  isSelectMode = false,
+  selectedIds = new Set(),
+  onToggleSelect,
+}: TransactionListProps) {
   const router = useRouter();
 
-  const handleClick = (tx: Transaction) => {
-    if (onTransactionClick) {
-      onTransactionClick(tx.accountSymbol);
+  const handleCardClick = (tx: Transaction) => {
+    if (isSelectMode && onToggleSelect) {
+      onToggleSelect(tx.id);
     } else {
-      router.push(`/ledger/account/${encodeURIComponent(tx.accountSymbol)}`);
+      if (onTransactionClick) {
+        onTransactionClick(tx.accountSymbol);
+      } else {
+        router.push(`/ledger/account/${encodeURIComponent(tx.accountSymbol)}`);
+      }
     }
   };
 
@@ -46,7 +62,6 @@ export default function TransactionList({ transactions, currencySymbol, emptyMes
     );
   }
 
-  // 格式化日期（年月日）
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
@@ -56,17 +71,31 @@ export default function TransactionList({ transactions, currencySymbol, emptyMes
     <div className="space-y-3 mb-20">
       {transactions.map(tx => (
         <div key={tx.id}>
-          {/* 时间显示在卡片外部左上方，只显示年月日 */}
           <div className="text-left text-xs text-gray-400 dark:text-gray-500 mb-1 ml-1">
             {formatDate(tx.date)}
           </div>
-          {/* 卡片 */}
           <div
-            onClick={() => handleClick(tx)}
+            onClick={() => handleCardClick(tx)}
             className="bg-white dark:bg-[#0a0a0a] rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
           >
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-3 flex-1 min-w-0">
+                {/* 选择模式下的复选框 */}
+                {isSelectMode && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSelect?.(tx.id);
+                    }}
+                    className="flex-shrink-0"
+                  >
+                    {selectedIds.has(tx.id) ? (
+                      <CheckCircle size={20} className="text-orange-500" />
+                    ) : (
+                      <Circle size={20} className="text-gray-400" />
+                    )}
+                  </button>
+                )}
                 <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                   {getCategoryIcon(tx.type, tx.category)}
                 </div>

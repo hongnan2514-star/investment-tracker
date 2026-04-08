@@ -1,21 +1,21 @@
 // app/ledger/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search,
   Wallet,
   TrendingUp,
   TrendingDown,
-  MoreVertical,
+  ListFilterPlus,
   CalendarDays,
   Plus,
   X,
   ChevronRight,
   Banknote,
   Loader2,
-  ChevronDown
+  ChevronDown, Circle, CheckCircle,
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
 import { useCurrency } from '@/src/services/currency';
@@ -25,6 +25,7 @@ import { eventBus } from '@/src/utils/eventBus';
 import Image from 'next/image';
 import CategorySelector from '@/components/CategorySelector';
 import TransactionList from '@/components/TransactionList';
+import BillSelectMenu from '@/components/BillSelectMenu';
 
 type Transaction = {
   id: string;
@@ -122,6 +123,14 @@ export default function LedgerPage() {
   const [formNote, setFormNote] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
   const [monthlyBudget, setMonthlyBudget] = useState(MONTHLY_BUDGET);
+  const [showSelectMenu, setShowSelectMenu] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
+  const selectedIdsRef = useRef(selectedTransactionIds);
+
+  useEffect(() => {
+  selectedIdsRef.current = selectedTransactionIds;
+}, [selectedTransactionIds]);
 
   // 月份选择弹窗
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -172,6 +181,57 @@ export default function LedgerPage() {
       setLoadingAccounts(false);
     }
   }, []);
+
+  const handleDeleteSelected = async () => {
+  if (selectedTransactionIds.size === 0) {
+    alert('请先选择要删除的账单');
+    return;
+  }
+  const confirmed = window.confirm(`确定要删除 ${selectedTransactionIds.size} 条账单吗？此操作不可撤销。`);
+  if (!confirmed) return;
+
+  const userId = getCurrentUserId();
+  if (!userId) return;
+
+  try {
+    const res = await fetch('/api/transaction', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ ids: Array.from(selectedTransactionIds) }),
+    });
+    if (res.ok) {
+      // 删除成功后重新加载数据
+      await loadAllTransactions();
+      await loadAccounts(); // 刷新账户余额
+      // 退出选择模式
+      setIsSelectMode(false);
+      setSelectedTransactionIds(new Set());
+      eventBus.emit('selectModeChanged', { isSelectMode: false, selectedCount: 0 });
+    } else {
+      const error = await res.json();
+      alert(error.error || '删除失败');
+    }
+  } catch (err) {
+    console.error('删除失败', err);
+    alert('删除失败，请重试');
+  }
+};
+
+// 监听来自 BottomNav 的删除请求
+useEffect(() => {
+  const handleRequestDelete = () => {
+    if (isSelectMode) {
+      handleDeleteSelected();
+    }
+  };
+  const unsubscribe = eventBus.subscribe('requestDeleteSelected', handleRequestDelete);
+  return () => unsubscribe(); // 使用返回的清理函数
+}, [isSelectMode, selectedTransactionIds]);
+
+// 监听选择模式变化，通知 BottomNav
+useEffect(() => {
+  eventBus.emit('selectModeChanged', { isSelectMode, selectedCount: selectedTransactionIds.size });
+}, [isSelectMode, selectedTransactionIds]);
 
   const loadAllTransactions = useCallback(async () => {
     const userId = getCurrentUserId();
@@ -407,18 +467,53 @@ const handleBudgetUpdate = (newBudget: number) => {
 
   const sortedTransactions = [...currentMonthTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  const sortedTransactionsRef = useRef(sortedTransactions);
+useEffect(() => {
+  sortedTransactionsRef.current = sortedTransactions;
+}, [sortedTransactions]);
+
+useEffect(() => {
+  const handleSelectAll = () => {
+    if (!isSelectMode) return;
+    const allIds = sortedTransactionsRef.current.map(t => t.id);
+    // 如果当前已选中的数量等于总数量且总数大于0，则取消全选
+    if (selectedIdsRef.current.size === allIds.length && allIds.length > 0) {
+      setSelectedTransactionIds(new Set());
+      eventBus.emit('selectModeChanged', { isSelectMode: true, selectedCount: 0 });
+    } else {
+      // 否则全选
+      setSelectedTransactionIds(new Set(allIds));
+      eventBus.emit('selectModeChanged', { isSelectMode: true, selectedCount: allIds.length });
+    }
+  };
+  const unsubscribe = eventBus.subscribe('requestSelectAll', handleSelectAll);
+  return () => unsubscribe();
+}, [isSelectMode]);
+
 return (
   <main className="min-h-screen bg-white dark:bg-black p-4 relative">
     <div className="max-w-md mx-auto">
-      <div className="flex justify-between items-center mb-4 px-2">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p>
-        </div>
-        <button className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
-          <MoreVertical size={20} className="text-gray-600 dark:text-gray-400" />
-        </button>
-      </div>
+<div className="flex justify-between items-center mb-4 px-2">
+  <div>
+    <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
+    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p >
+  </div>
+  {isSelectMode ? (
+    <button
+      onClick={() => {
+        setIsSelectMode(false);
+        setSelectedTransactionIds(new Set());
+      }}
+      className="text-[#ff8800] font-bold"
+    >
+      取消
+    </button>
+  ) : (
+    <button onClick={() => setShowSelectMenu(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
+      <ListFilterPlus size={20} className="text-gray-600 dark:text-gray-400" />
+    </button>
+  )}
+</div>
 
       <div className="relative mb-6 px-2">
         <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
@@ -490,20 +585,39 @@ return (
         <TransactionSkeleton />
       ) : (
         <TransactionList
-          transactions={sortedTransactions}
-          currencySymbol={currencySymbol}
-          emptyMessage="暂无收支记录"
-        />
+  transactions={sortedTransactions}
+  currencySymbol={currencySymbol}
+  emptyMessage="暂无收支记录"
+  isSelectMode={isSelectMode}
+  selectedIds={selectedTransactionIds}
+  onToggleSelect={(id: string) => {
+    setSelectedTransactionIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  }}
+/>
       )}
     </div>
 
+    <BillSelectMenu
+        show={showSelectMenu}
+        onClose={() => setShowSelectMenu(false)}
+        onSelect={() => {
+          setIsSelectMode(true);
+        }}
+      />
+
+
     {/* 右下角添加按钮 */}
-    <button
-      onClick={() => setShowAddMenu(true)}
-      className="fixed bottom-24 right-6 w-16 h-16 bg-[#ff8800] rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-40 active:scale-90 transition-transform"
-    >
-      <Plus size={36} strokeWidth={3} />
-    </button>
+<button
+        onClick={() => setShowAddMenu(true)}
+        className="fixed bottom-24 right-6 w-16 h-16 bg-[#ff8800] rounded-full shadow-2xl shadow-blue-200 dark:shadow-blue-900/30 flex items-center justify-center text-white z-40 active:scale-90 transition-transform"
+      >
+        <Plus size={36} strokeWidth={3} />
+      </button>
 
     {/* 底部菜单：选择收入/支出 */}
     {showAddMenu && (
@@ -760,6 +874,8 @@ return (
         </div>
       </>
     )}
+
+    
   </main>
 );
 }

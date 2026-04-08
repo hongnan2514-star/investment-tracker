@@ -8,19 +8,21 @@ import {
   IoMedicalOutline, IoHomeOutline, IoDocumentTextOutline, IoCashOutline,
   IoBriefcaseOutline, IoGiftOutline, IoBuildOutline, IoCardOutline,
   IoBusinessOutline, IoWalletOutline, IoShirtOutline, IoWaterOutline,
-  IoPhonePortraitOutline, IoPhoneLandscapeOutline, IoConstructOutline,
+  IoPhonePortraitOutline, IoConstructOutline,
   IoBookOutline, IoLaptopOutline, IoFitnessOutline, IoPeopleOutline,
   IoHeartOutline, IoPawOutline, IoAirplaneOutline,
   IoBeerOutline, IoTicketOutline, IoExtensionPuzzleOutline,
 } from "react-icons/io5";
 import {
   FaMoneyBillWave, FaBriefcase, FaChartLine, FaGift, FaTrophy,
-  FaClock, FaHandHoldingUsd, FaPiggyBank, FaLaptopCode, FaTaxi,
+  FaClock, FaHandHoldingUsd, FaPiggyBank, FaLaptopCode,
   FaGem, FaPalette, FaMobileAlt, FaWifi, FaCar, FaGraduationCap,
   FaBuilding, FaFutbol, FaUsers, FaHandshake, FaBabyCarriage,
   FaDog, FaPlane, FaUmbrellaBeach, FaTicketAlt,
-  FaQuestionCircle
+  FaQuestionCircle, FaAppStoreIos
 } from "react-icons/fa";
+import { AiFillPhone } from "react-icons/ai"
+import { TbTax } from "react-icons/tb";
 
 export interface Category {
   name: string;
@@ -36,7 +38,7 @@ export const INCOME_CATEGORIES: Category[] = [
   { name: '公积金', icon: <FaPiggyBank className="text-pink-600" size={24} /> },
   { name: '兼职', icon: <FaBriefcase className="text-indigo-600" size={24} /> },
   { name: '副业', icon: <FaLaptopCode className="text-purple-600" size={24} /> },
-  { name: '退税', icon: <FaTaxi className="text-cyan-600" size={24} /> },
+  { name: '退税', icon: <TbTax className="text-cyan-600" size={24} /> },
   { name: '意外收入', icon: <FaGem className="text-rose-600" size={24} /> },
   { name: '红包', icon: <FaGift className="text-red-500" size={24} /> },
   { name: '其他', icon: <IoDocumentTextOutline className="text-gray-500" size={24} /> },
@@ -46,6 +48,7 @@ export const INCOME_CATEGORIES: Category[] = [
 export const EXPENSE_CATEGORIES: Category[] = [
   { name: '餐饮', icon: <IoFastFood className="text-orange-500" size={24} /> },
   { name: '购物', icon: <IoCartOutline className="text-pink-500" size={24} /> },
+  { name: '通讯', icon: <AiFillPhone className="text-green-500" size={24} /> },
   { name: '交通', icon: <IoCarSportOutline className="text-blue-500" size={24} /> },
   { name: '娱乐', icon: <IoGameControllerOutline className="text-purple-500" size={24} /> },
   { name: '医疗', icon: <IoMedicalOutline className="text-red-500" size={24} /> },
@@ -55,7 +58,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
   { name: '数码', icon: <IoPhonePortraitOutline className="text-gray-700" size={24} /> },
   { name: '美妆', icon: <FaPalette className="text-rose-400" size={24} /> },
   { name: '护肤', icon: <FaMobileAlt className="text-emerald-500" size={24} /> },
-  { name: '应用软件', icon: <IoPhoneLandscapeOutline className="text-blue-600" size={24} /> },
+  { name: '应用软件', icon: <FaAppStoreIos className="text-blue-600" size={24} /> },
   { name: '通讯', icon: <FaWifi className="text-green-600" size={24} /> },
   { name: '汽车', icon: <FaCar className="text-cyan-600" size={24} /> },
   { name: '学习', icon: <IoBookOutline className="text-yellow-700" size={24} /> },

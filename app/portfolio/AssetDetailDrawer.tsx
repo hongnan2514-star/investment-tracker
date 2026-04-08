@@ -293,6 +293,67 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
     }
   };
 
+  const [isSelectMode, setIsSelectMode] = useState(false);
+const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+// 删除选中的交易记录
+const handleDeleteSelectedTransactions = async () => {
+  if (selectedIds.size === 0) return;
+  if (!confirm(`确定要删除 ${selectedIds.size} 条记录吗？此操作不可撤销。`)) return;
+  const userId = getCurrentUserId();
+  if (!userId) return;
+  try {
+    const res = await fetch('/api/transaction', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ ids: Array.from(selectedIds) }),
+    });
+    if (res.ok) {
+      // 删除成功，刷新列表并退出选择模式
+      setRefreshKey(prev => prev + 1);
+      setIsSelectMode(false);
+      setSelectedIds(new Set());
+    } else {
+      const error = await res.json();
+      alert(error.error || '删除失败');
+    }
+  } catch (err) {
+    console.error('删除失败:', err);
+    alert('删除失败，请重试');
+  }
+};
+
+// 切换选择模式
+const toggleSelectMode = () => {
+  if (isSelectMode) {
+    setSelectedIds(new Set());
+  }
+  setIsSelectMode(!isSelectMode);
+};
+
+const handleDocumentClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  if (!isSelectMode) return;
+  const target = e.target as HTMLElement;
+  // 点击删除按钮时不退出
+  if (target.closest('.delete-select-btn')) return;
+  // 点击交易记录区域时不退出（因为点击记录会触发选中切换）
+  if (target.closest('.transaction-history-area')) return;
+  // 其他区域点击退出选择模式
+  setIsSelectMode(false);
+  setSelectedIds(new Set());
+};
+
+// 切换单个记录的选中状态
+const toggleSelect = (id: number) => {
+  const newSet = new Set(selectedIds);
+  if (newSet.has(id)) {
+    newSet.delete(id);
+  } else {
+    newSet.add(id);
+  }
+  setSelectedIds(newSet);
+};
+
   const formatLargeNumber = (num: number): string => {
     if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
     if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
@@ -308,7 +369,8 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 
   if (!asset) {
     return (
-      <div className="fixed inset-0 bg-white dark:bg-black z-50 p-4 overflow-y-auto">
+      <div
+  className={`fixed inset-0 bg-white dark:bg-black z-50 overflow-y-auto transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : 'translate-x-full'}`} onClick={handleDocumentClick}>
         <button onClick={onClose} className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-4">
           <ArrowLeft size={20} />
           <span>返回</span>
@@ -324,7 +386,10 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   const displayAsset = convertedAsset || asset;
 
   return (
-    <div className={`fixed inset-0 bg-white dark:bg-black z-50 overflow-y-auto transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+     <div
+    className={`fixed inset-0 bg-white dark:bg-black z-50 overflow-y-auto transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+    onClick={handleDocumentClick}
+  >
       <div className="p-4">
         {/* 头部：返回按钮 + 删除按钮 */}
         <div className="flex justify-between items-center mb-6">
@@ -566,16 +631,35 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
 )}
             </div>
 
-            <div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2">
-              <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">
-                {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}
-              </h4>
-              <TransactionHistory
-                assetSymbol={asset.symbol}
-                type={activeTab}
-                refreshTrigger={refreshKey}
-              />
-            </div>
+<div className="w-2/5 border-l border-gray-200 dark:border-gray-700 pl-2 transaction-history-area">
+  <div className="flex justify-between items-center mb-1">
+    <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
+      {activeTab === 'buy' ? '最近加仓记录' : '最近卖出记录'}
+    </h4>
+<button
+  onClick={(e) => {
+    e.stopPropagation();
+    if (isSelectMode) {
+      handleDeleteSelectedTransactions();
+    } else {
+      toggleSelectMode();
+    }
+  }}
+  className={`p-1 rounded-full transition-colors delete-select-btn ${isSelectMode ? 'text-red-500 hover:bg-red-50' : 'text-gray-400 hover:text-gray-500'}`}
+  title={isSelectMode ? '删除选中' : '选择'}
+>
+  <Trash2 size={14} />
+</button>
+  </div>
+  <TransactionHistory
+    assetSymbol={asset.symbol}
+    type={activeTab}
+    refreshTrigger={refreshKey}
+    isSelectMode={isSelectMode}
+    selectedIds={selectedIds}
+    onToggleSelect={toggleSelect}
+  />
+</div>
           </div>
         </div>
 

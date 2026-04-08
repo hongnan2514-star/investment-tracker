@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Circle, CheckCircle } from 'lucide-react';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 
@@ -22,9 +22,11 @@ interface TransactionHistoryProps {
   assetSymbol: string;
   type: 'buy' | 'sell';
   refreshTrigger?: any;
+  isSelectMode?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
-// 格式化大数字
 const formatLargeNumber = (num: number): string => {
   if (num >= 1_000_000_000_000) return (num / 1_000_000_000_000).toFixed(2) + 'T';
   if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -33,11 +35,18 @@ const formatLargeNumber = (num: number): string => {
   return num.toFixed(2);
 };
 
-export default function TransactionHistory({ assetSymbol, type, refreshTrigger }: TransactionHistoryProps) {
+export default function TransactionHistory({ 
+  assetSymbol, 
+  type, 
+  refreshTrigger,
+  isSelectMode = false,
+  selectedIds = new Set(),
+  onToggleSelect
+}: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const { currency, symbol: currencySymbol } = useCurrency();
-  const { convert, loading: converting } = useCurrencyConverter();
+  const { convert } = useCurrencyConverter();
   const requestIdRef = useRef(0);
 
   const fetchTransactions = async () => {
@@ -52,7 +61,6 @@ export default function TransactionHistory({ assetSymbol, type, refreshTrigger }
       });
       if (!res.ok) throw new Error('获取记录失败');
       const data = await res.json();
-      // 仅当这是最新的请求时才设置状态
       if (currentRequestId === requestIdRef.current) {
         setTransactions(data);
       }
@@ -69,29 +77,7 @@ export default function TransactionHistory({ assetSymbol, type, refreshTrigger }
     fetchTransactions();
   }, [assetSymbol, type, refreshTrigger]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('确定删除这条记录吗？')) return;
-    const userId = getCurrentUserId();
-    if (!userId) return;
-    try {
-      const res = await fetch(`/api/transaction?id=${id}`, {
-        method: 'DELETE',
-        headers: { 'x-user-id': userId },
-      });
-      if (res.ok) {
-        fetchTransactions(); // 删除成功后刷新
-      } else {
-        alert('删除失败');
-      }
-    } catch (err) {
-      console.error('删除失败:', err);
-      alert('删除失败');
-    }
-  };
-
-  // 转换金额（显示用）
   const [convertedAmounts, setConvertedAmounts] = useState<{ [key: number]: number }>({});
-
   useEffect(() => {
     const convertAll = async () => {
       const newAmounts: { [key: number]: number } = {};
@@ -128,11 +114,22 @@ export default function TransactionHistory({ assetSymbol, type, refreshTrigger }
       {transactions.map((t) => {
         const amount = t.quantity * t.price;
         const displayAmount = convertedAmounts[t.id] ?? amount;
+        const isSelected = selectedIds.has(t.id);
         return (
           <div
             key={t.id}
-            className="grid grid-cols-3 items-center text-[9px] bg-gray-50 dark:bg-[#1a1a1a] p-1 rounded group"
+            className={`grid grid-cols-3 items-center text-[9px] bg-gray-50 dark:bg-[#1a1a1a] p-1 rounded group ${isSelectMode ? 'cursor-pointer' : ''}`}
+            onClick={() => isSelectMode && onToggleSelect?.(t.id)}
           >
+            {isSelectMode && (
+              <div className="flex items-center justify-start w-4">
+                {isSelected ? (
+                  <CheckCircle size={12} className="text-orange-500" />
+                ) : (
+                  <Circle size={12} className="text-gray-400" />
+                )}
+              </div>
+            )}
             <span className="text-gray-600 dark:text-gray-400 text-left">
               {t.transaction_date.slice(5, 10)}
             </span>
