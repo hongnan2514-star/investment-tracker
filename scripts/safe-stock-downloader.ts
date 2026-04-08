@@ -10,7 +10,7 @@ config({ path: '.env.local' });
 // ==================== 配置 ====================
 const PROXY_URL = 'http://your-proxy-address:port'; // 仍保留代理选项，若不使用请留空
 const PROXY_AUTH = 'username:password'; 
-const SYMBOLS = [ 'TSLA' ]; // 'AAPL', 'MSFT', 'GOOGL', 'NVDA' 已下载
+const SYMBOLS = [ 'INTC' ]; // 'AAPL', 'MSFT', 'GOOGL', 'NVDA' 已下载
 const RESOLUTIONS = ['1d'] as const; // Tiingo免费套餐主要支持日线，先只下载日线
 type Resolution = typeof RESOLUTIONS[number];
 const LIMITS: Record<Resolution, number> = { '1d': 365 }; // 这个 limit 现在作为每次拉取的最大条数限制（安全上限）

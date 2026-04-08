@@ -67,7 +67,7 @@ async function ensureTables() {
 
 // ========== 常见股票列表（可自行扩展） ==========
 const COMMON_STOCKS = [
-  '159859.SZ',
+  '000815.SZ',
 ];
 
 // 需要下载的分辨率列表

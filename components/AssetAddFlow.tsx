@@ -75,6 +75,20 @@ const carBrands: CarBrand[] = [
   { id: '阿维塔', name: '阿维塔', firstLetter: 'A', logoUrl: '/images/car_logos/阿维塔.png'},
   { id: '埃尚', name: '埃尚', firstLetter: 'A', logoUrl: '/images/car_logos/埃尚.png'},
   { id: 'ICONIO', name: 'ICONIO', firstLetter: 'A', logoUrl: '/images/car_logos/ICONIO.png'},
+  { id: '爱驰', name: '爱驰', firstLetter: 'A', logoUrl: '/images/car_logos/爱驰.png'},
+  { id: '安徽猎豹', name: '安徽猎豹', firstLetter: 'A', logoUrl: '/images/car_logos/安徽猎豹.png'},
+  { id: '安凯客车', name: '安凯客车', firstLetter: 'A', logoUrl: '/images/car_logos/安凯客车.png'},
+  { id: 'aria', name: 'aria', firstLetter: 'A', logoUrl: '/images/car_logos/aria.png'},
+  { id: 'ARIEL', name: 'ARIEL', firstLetter: 'A', logoUrl: '/images/car_logos/ariel.png'},
+  { id: 'ASPARK', name: 'ASPARK', firstLetter: 'A', logoUrl: '/images/car_logos/aspark.png'},
+  { id: 'aria', name: 'aria', firstLetter: 'A', logoUrl: '/images/car_logos/aria.png'},
+  { id: 'ATLIS', name: 'ATLIS', firstLetter: 'A', logoUrl: '/images/car_logos/atlis.png'},
+  { id: 'ats', name: 'ats', firstLetter: 'A', logoUrl: '/images/car_logos/ats.png'},
+  { id: 'AURUS', name: 'AURUS', firstLetter: 'A', logoUrl: '/images/car_logos/aurus.png'},
+  { id: 'AUXUN傲旋', name: 'AUXUN傲旋', firstLetter: 'A', logoUrl: '/images/car_logos/auxun傲旋.png'},
+  { id: 'AVIAR', name: 'AVIAR', firstLetter: 'A', logoUrl: '/images/car_logos/aviar.png'},
+  { id: 'AZNOM', name: 'AZNOM', firstLetter: 'A', logoUrl: '/images/car_logos/aznom.png'},
+
 
   // B
   { id: 'BMW', name: 'BMW', firstLetter: 'B', logoUrl: '/images/car_logos/BMW.png' },
