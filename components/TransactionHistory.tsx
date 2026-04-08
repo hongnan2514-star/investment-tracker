@@ -110,7 +110,7 @@ export default function TransactionHistory({
   }
 
   return (
-    <div className="space-y-1 max-h-24 overflow-y-auto">
+    <div className="space-y-1 max-h-64 overflow-y-auto">
       {transactions.map((t) => {
         const amount = t.quantity * t.price;
         const displayAmount = convertedAmounts[t.id] ?? amount;

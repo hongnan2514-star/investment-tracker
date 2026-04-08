@@ -298,7 +298,12 @@ const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
 // 删除选中的交易记录
 const handleDeleteSelectedTransactions = async () => {
-  if (selectedIds.size === 0) return;
+  if (selectedIds.size === 0) {
+    // 没有选中任何记录时，退出选择模式
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+    return;
+  }
   if (!confirm(`确定要删除 ${selectedIds.size} 条记录吗？此操作不可撤销。`)) return;
   const userId = getCurrentUserId();
   if (!userId) return;
