@@ -395,7 +395,7 @@ const toggleSelect = (id: number) => {
     className={`fixed inset-0 bg-white dark:bg-black z-50 overflow-y-auto transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
     onClick={handleDocumentClick}
   >
-      <div className="p-4">
+      <div className="p-4"> 
         {/* 头部：返回按钮 + 删除按钮 */}
         <div className="flex justify-between items-center mb-6">
           <button
