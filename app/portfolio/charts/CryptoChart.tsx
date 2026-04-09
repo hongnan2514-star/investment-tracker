@@ -120,7 +120,7 @@ export default function CryptoChart({ symbol, changePercent, purchaseDate, costP
       <div className="flex-1 w-full min-h-0">
         {loading ? (
           <div className="w-full h-full flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-blue-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400 dark:text-gray-400" />
           </div>
         ) : data.length < 2 ? (
           <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">

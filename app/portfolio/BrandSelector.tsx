@@ -47,18 +47,19 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
   }, [filteredBrands]);
 
   return (
-    <div className="fixed inset-0 bg-white dark:bg-black z-50 flex flex-col overflow-hidden">
-      {/* 头部：返回按钮带灰色圆框（默认可见） */}
-<div className="flex items-center p-4">
-  <button
-    onClick={onClose}
-    className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full"
-  >
-    <ArrowLeft size={20} className="text-gray-700 dark:text-gray-300" />
-  </button>
-</div>
+    // 页面背景：浅色模式为灰色 (bg-gray-100)，深色模式保持黑色
+    <div className="fixed inset-0 bg-gray-100 dark:bg-black z-50 flex flex-col overflow-hidden">
+      {/* 头部：返回按钮 */}
+      <div className="flex items-center p-4">
+        <button
+          onClick={onClose}
+          className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-800 transition-colors"
+        >
+          <ArrowLeft size={20} className="text-gray-700 dark:text-gray-300" />
+        </button>
+      </div>
 
-      {/* 搜索框 */}
+      {/* 搜索框：浅色模式白色背景 */}
       <div className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -67,7 +68,7 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
             placeholder="搜索品牌"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-gray-100 dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-3xl text-gray-900 dark:text-gray-100 outline-none"
+            className="w-full bg-white dark:bg-[#1a1a1a] border-0 p-3 pl-10 rounded-3xl text-gray-900 dark:text-gray-100 outline-none"
             autoFocus
           />
         </div>
@@ -85,14 +86,14 @@ export default function BrandSelector({ brands, onSelect, onClose }: BrandSelect
                 <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 ml-1">
                   {letter}
                 </div>
-                {/* 大背景框 */}
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-3xl p-4">
+                {/* 分组背景框：浅色模式白色背景 */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl p-4">
                   <div className="grid grid-cols-4 gap-4">
                     {grouped.groups[letter].map(brand => (
                       <button
                         key={brand.id}
                         onClick={() => onSelect(brand)}
-                        className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-900 transition-colors"
+                        className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
                       >
                         {brand.logoUrl ? (
                           <img

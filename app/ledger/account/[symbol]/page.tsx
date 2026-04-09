@@ -4,11 +4,11 @@
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, ChevronDown, Repeat, X } from 'lucide-react';
-import Image from 'next/image';
 import { useCurrency } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import TransactionList from '@/components/TransactionList';
 import { eventBus } from '@/src/utils/eventBus';
+import { useTheme } from '@/app/ThemeProvider';
 
 function formatLargeNumber(num: number): string {
   if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
@@ -71,11 +71,29 @@ function AccountDetailSkeleton() {
   );
 }
 
+const getIconPath = (logoUrl: string | undefined, theme: string) => {
+  if (!logoUrl) return null;
+  // 完整 URL（如 https://...）直接返回
+  if (logoUrl.startsWith('http')) return logoUrl;
+
+  // 提取文件名（去掉可能存在的路径前缀）
+  let fileName = logoUrl.split('/').pop() || logoUrl;
+  // 移除可能的查询参数
+  fileName = fileName.split('?')[0];
+
+  // 提取基础 key：去掉 _light/_dark 后缀和 .png 扩展名
+  const key = fileName.replace(/_(light|dark)\.png$/, '').replace(/\.png$/, '');
+
+  const suffix = theme === 'dark' ? 'dark' : 'light';
+  return `/icons/payment/${key}_${suffix}.png`;
+};
+
 export default function AccountDetailPage() {
   const params = useParams();
   const router = useRouter();
   const symbol = params.symbol as string;
   const { symbol: currencySymbol, currency } = useCurrency();
+  const { theme } = useTheme();
 
   const [account, setAccount] = useState<AccountInfo | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -207,10 +225,10 @@ export default function AccountDetailPage() {
   const currentAmount = showExpense ? totalExpense : totalIncome;
   const currentLabel = showExpense ? '总支出' : '总收入';
 
-  return (
+return (
     <div className="min-h-screen bg-white dark:bg-black p-4">
       <div className="max-w-md mx-auto">
-        {/* 第一行：返回按钮 + 账户logo + 账户名称（居中） */}
+        {/* 头部区域 */}
         <div className="relative flex items-center justify-center mb-4">
           <button onClick={goBack} className="absolute left-0 text-gray-600 dark:text-gray-300">
             <ArrowLeft size={24} />
@@ -218,7 +236,13 @@ export default function AccountDetailPage() {
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 flex items-center justify-center">
               {account?.logoUrl ? (
-                <Image src={account.logoUrl} alt={account.name} width={32} height={32} className="object-contain rounded-full" />
+                <img
+                  src={getIconPath(account.logoUrl, theme) || ''}
+                  alt={account.name}
+                  className="w-8 h-8 object-contain rounded-full"
+                  style={{ backgroundColor: 'transparent' }}
+                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                />
               ) : (
                 <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
                   <span className="text-lg font-bold text-gray-600">💰</span>

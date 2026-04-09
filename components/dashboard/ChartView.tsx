@@ -416,11 +416,11 @@ export default function ChartView({
         onTouchEnd={handleTouchEnd}
         onTouchStart={(e) => e.preventDefault()}
       >
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-20">
-            <Loader2 className="animate-spin text-blue-600" size={32} />
-          </div>
-        )}
+{loading && (
+  <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/50 z-20">
+    <Loader2 className="animate-spin text-gray-400 dark:text-gray-500" size={32} />
+  </div>
+)}
         {error && (
           <div className="absolute inset-0 flex items-center justify-center text-red-500 z-20">
             {error}
