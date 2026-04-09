@@ -81,7 +81,6 @@ const carBrands: CarBrand[] = [
   { id: 'aria', name: 'aria', firstLetter: 'A', logoUrl: '/images/car_logos/aria.png'},
   { id: 'ARIEL', name: 'ARIEL', firstLetter: 'A', logoUrl: '/images/car_logos/ariel.png'},
   { id: 'ASPARK', name: 'ASPARK', firstLetter: 'A', logoUrl: '/images/car_logos/aspark.png'},
-  { id: 'aria', name: 'aria', firstLetter: 'A', logoUrl: '/images/car_logos/aria.png'},
   { id: 'ATLIS', name: 'ATLIS', firstLetter: 'A', logoUrl: '/images/car_logos/atlis.png'},
   { id: 'ats', name: 'ats', firstLetter: 'A', logoUrl: '/images/car_logos/ats.png'},
   { id: 'AURUS', name: 'AURUS', firstLetter: 'A', logoUrl: '/images/car_logos/aurus.png'},
