@@ -4,8 +4,13 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Zap, BarChart3, Hotel, CarFront, Banknote, Receipt, Activity, ReceiptText, TrendingUp
+  Zap, BarChart3, Banknote, Receipt, Activity, ReceiptText, TrendingUp
 } from 'lucide-react';
+import { IoCarSport, IoReceipt } from "react-icons/io5";
+import { FaHouse } from "react-icons/fa6";
+import { AiOutlineStock } from "react-icons/ai";
+import { MdOutlineReceiptLong } from "react-icons/md"
+
 import { Asset } from '@/src/constants/types';
 import { getCachedLogo } from '@/src/utils/logoCache';
 import { useTheme } from '@/app/ThemeProvider';
@@ -175,11 +180,11 @@ const extractIconKey = (logoUrl: string): string => {
     // 默认图标
     let IconComponent;
     switch (asset.type) {
-      case 'car': IconComponent = CarFront; break;
-      case 'stock': IconComponent = Zap; break;
-      case 'real_estate': IconComponent = Hotel; break;
+      case 'car': IconComponent = IoCarSport; break;
+      case 'stock': IconComponent = AiOutlineStock; break;
+      case 'real_estate': IconComponent = FaHouse; break;
       case 'custom': IconComponent = Banknote; break;
-      case 'receivable': IconComponent = Receipt; break;
+      case 'receivable': IconComponent = IoReceipt; break;
       case 'custom_asset': IconComponent = Activity; break;
       case 'liability': IconComponent = ReceiptText; break;
       default: IconComponent = BarChart3;

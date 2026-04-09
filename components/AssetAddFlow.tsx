@@ -3,10 +3,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Plus, Zap, Home, BarChart3, Hotel, X, ChevronRight, Search,
-  Loader2, AlertCircle, ArrowLeft, TrendingUp, PieChart, Bitcoin, Activity, CarFront, Blocks,
-  ChevronDown, Banknote, Receipt, ReceiptText
+  Plus, Hotel, ChevronRight, Search, Loader2, AlertCircle, ArrowLeft, 
+  Activity, CarFront, ChevronDown, Banknote, Receipt, ReceiptText, 
 } from 'lucide-react';
+import { FaBitcoin, FaCar, } from "react-icons/fa";
+import { RiStockFill, RiFundsFill } from "react-icons/ri";
+import { AiFillGold, AiOutlineStock, AiOutlineFund, } from "react-icons/ai";
+import { MdRealEstateAgent } from "react-icons/md";
+import { IoMdCash } from "react-icons/io";
+import { BsCurrencyBitcoin, BsLightningChargeFill } from "react-icons/bs";
+import { GiMetalBar } from "react-icons/gi";
+import { IoReceipt } from "react-icons/io5";
+
 import { AShareNameMap } from '@/src/constants/shareNames';
 import { Asset } from '@/src/constants/types';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
@@ -785,21 +793,21 @@ const handleAddCashAsset = async () => {
           <>
             <button onClick={() => handleAssetTypeClick('stock')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all">
               <div className="flex items-center gap-4">
-                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><TrendingUp size={24} /></div>
+                <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><RiStockFill size={24} /></div>
                 <div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">股票</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">美股、A股、港股、ETF</p></div>
               </div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
             <button onClick={() => handleAssetTypeClick('fund')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all">
-              <div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white"><PieChart size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">基金</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">场外基金、指数基金</p></div></div>
+              <div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white"><RiFundsFill size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">基金</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">场外基金、指数基金</p></div></div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
             <button onClick={() => handleAssetTypeClick('crypto')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all">
-              <div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white"><Bitcoin size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">加密货币</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">BTC、ETH、主流币</p></div></div>
+              <div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white"><FaBitcoin size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">加密货币</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">BTC、ETH、主流币</p></div></div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
             <button onClick={() => handleAssetTypeClick('metal')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all">
-              <div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white"><Blocks size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">贵金属</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">黄金、白银 (Au999, XAU)</p></div></div>
+              <div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white"><AiFillGold size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">贵金属</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">黄金、白银 (Au999, XAU)</p></div></div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
           </>
@@ -807,18 +815,18 @@ const handleAddCashAsset = async () => {
         {selectedMainCategory === 'fixed' && (
           <>
             <button onClick={() => handleAssetTypeClick('real_estate')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all">
-              <div className="flex items-center gap-4"><div className="bg-yellow-600 p-3 rounded-2xl text-white"><Home size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">不动产</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">住宅、商铺</p></div></div>
+              <div className="flex items-center gap-4"><div className="bg-yellow-600 p-3 rounded-2xl text-white"><MdRealEstateAgent size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">不动产</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">住宅、商铺</p></div></div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
             <button onClick={() => handleAssetTypeClick('car')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all">
-              <div className="flex items-center gap-4"><div className="bg-yellow-600 p-3 rounded-2xl text-white"><CarFront size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">汽车</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">品牌选择 + 手动输入</p></div></div>
+              <div className="flex items-center gap-4"><div className="bg-yellow-600 p-3 rounded-2xl text-white"><FaCar size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">汽车</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">品牌选择 + 手动输入</p></div></div>
               <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
             </button>
           </>
         )}
         {selectedMainCategory === 'custom' && (
           <button onClick={() => handleAssetTypeClick('custom')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all">
-            <div className="flex items-center gap-4"><div className="bg-green-600 p-3 rounded-2xl text-white"><Banknote size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款</p></div></div>
+            <div className="flex items-center gap-4"><div className="bg-green-600 p-3 rounded-2xl text-white"><IoMdCash size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款</p></div></div>
             <ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" />
           </button>
         )}
@@ -944,14 +952,14 @@ const renderCashForm = () => {
   ];
   const getAssetTypeIcon = (type: string, size: number = 24) => {
     switch (type) {
-      case 'stock': return <TrendingUp size={size} className="text-blue-600" />;
-      case 'fund': return <PieChart size={size} className="text-green-600" />;
-      case 'crypto': return <Bitcoin size={size} className="text-purple-600" />;
-      case 'metal': return <Blocks size={size} className="text-yellow-600" />;
+      case 'stock': return <AiOutlineStock size={size} className="text-blue-600" />;
+      case 'fund': return <AiOutlineFund size={size} className="text-green-600" />;
+      case 'crypto': return <BsCurrencyBitcoin size={size} className="text-purple-600" />;
+      case 'metal': return <GiMetalBar size={size} className="text-yellow-600" />;
       case 'real_estate': return <Hotel size={size} className="text-orange-600" />;
       case 'car': return <CarFront size={size} className="text-cyan-600" />;
-      case 'custom': return <Banknote size={size} className="text-green-600" />;
-      case 'receivable': return <Receipt size={size} className="text-indigo-600" />;
+      case 'custom': return <IoMdCash size={size} className="text-green-600" />;
+      case 'receivable': return <IoReceipt size={size} className="text-indigo-600" />;
       case 'custom_asset': return <Activity size={size} className="text-purple-600" />;
       case 'liability': return <ReceiptText size={size} className="text-red-600" />;
       default: return null;
@@ -1051,9 +1059,9 @@ const renderCashForm = () => {
           <>
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">添加资产类别</h3>
             <div className="flex flex-col gap-4">
-              <button onClick={() => handleMainCategoryClick('liquid')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"><div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><Zap size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">流动资产</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">股票、基金、加密货币、贵金属</p></div></div><ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" /></button>
-              <button onClick={() => handleMainCategoryClick('fixed')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"><div className="flex items-center gap-4"><div className="bg-yellow-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><Home size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">固定资产</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">房产、汽车、其他固定资产</p></div></div><ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" /></button>
-              <button onClick={() => handleMainCategoryClick('custom')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"><div className="flex items-center gap-4"><div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><Banknote size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金/收支账户</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款、收支账户</p></div></div><ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" /></button>
+              <button onClick={() => handleMainCategoryClick('liquid')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"><div className="flex items-center gap-4"><div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><BsLightningChargeFill size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">流动资产</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">股票、基金、加密货币、贵金属</p></div></div><ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" /></button>
+              <button onClick={() => handleMainCategoryClick('fixed')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"><div className="flex items-center gap-4"><div className="bg-yellow-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><MdRealEstateAgent size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">固定资产</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">房产、汽车、其他固定资产</p></div></div><ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" /></button>
+              <button onClick={() => handleMainCategoryClick('custom')} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"><div className="flex items-center gap-4"><div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><IoMdCash size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">现金/收支账户</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">现金、活期存款、收支账户</p></div></div><ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" /></button>
               <button onClick={() => { setSelectedAssetType('custom_asset'); setView('search'); setSearchQuery(''); setFoundAsset(null); setSearchError(null); setHoldings(""); setPurchaseDate(""); setCostPrice(""); setCustomAssetType(''); setCustomAssetName(''); setCustomAssetAmount(''); setCustomAssetOrderDate(''); setCustomAssetNotes(''); setCustomAssetIncludeInChart(true); setBrandsList([]); setSelectedBrandId(''); setSelectedBrandName(''); }} className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-900/30 rounded-[28px] border border-blue-100 dark:border-blue-800 group active:scale-[0.98] transition-all"><div className="flex items-center gap-4"><div className="bg-purple-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20"><Activity size={24} /></div><div className="text-left"><p className="font-bold text-blue-900 dark:text-blue-300 text-lg">自定义</p><p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">负债、应收款、收藏品、其他</p></div></div><ChevronRight className="text-blue-300 dark:text-blue-500 group-active:translate-x-1 transition-transform" /></button>
             </div>
           </>

@@ -872,5 +872,16 @@ return (
     </div>
   </>
 )}
+
+{/* 分类选择器浮层 */}
+{showCategorySelector && (
+  <div className="fixed inset-0 z-[60]">
+    <CategorySelector
+      type={addType}
+      onSelect={handleSelectCategory}
+      onClose={() => setShowCategorySelector(false)}
+    />
+  </div>
+)}
 </main>
 )}

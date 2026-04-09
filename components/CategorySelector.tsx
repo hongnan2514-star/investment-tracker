@@ -5,13 +5,10 @@ import React, { useState } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import {
   IoFastFood, IoCartOutline, IoCarSportOutline, IoGameControllerOutline,
-  IoMedicalOutline, IoHomeOutline, IoDocumentTextOutline, IoCashOutline,
-  IoBriefcaseOutline, IoGiftOutline, IoBuildOutline, IoCardOutline,
-  IoBusinessOutline, IoWalletOutline, IoShirtOutline, IoWaterOutline,
-  IoPhonePortraitOutline, IoConstructOutline,
+  IoMedicalOutline, IoHomeOutline, IoDocumentTextOutline, IoWalletOutline, 
+  IoShirtOutline, IoWaterOutline,IoPhonePortraitOutline, IoConstructOutline,
   IoBookOutline, IoLaptopOutline, IoFitnessOutline, IoPeopleOutline,
-  IoHeartOutline, IoPawOutline, IoAirplaneOutline,
-  IoBeerOutline, IoTicketOutline, IoExtensionPuzzleOutline,
+  IoHeartOutline,IoAirplaneOutline,IoPawOutline, IoBeerOutline, IoTicketOutline, IoExtensionPuzzleOutline,
 } from "react-icons/io5";
 import {
   FaMoneyBillWave, FaBriefcase, FaChartLine, FaGift, FaTrophy,
@@ -23,6 +20,7 @@ import {
 } from "react-icons/fa";
 import { AiFillPhone } from "react-icons/ai"
 import { TbTax } from "react-icons/tb";
+import { GiLipstick } from "react-icons/gi";
 
 export interface Category {
   name: string;
@@ -56,7 +54,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
   { name: '服饰', icon: <IoShirtOutline className="text-indigo-500" size={24} /> },
   { name: '日用', icon: <IoWaterOutline className="text-sky-500" size={24} /> },
   { name: '数码', icon: <IoPhonePortraitOutline className="text-gray-700" size={24} /> },
-  { name: '美妆', icon: <FaPalette className="text-rose-400" size={24} /> },
+  { name: '美妆', icon: <GiLipstick className="text-rose-400" size={24} /> },
   { name: '护肤', icon: <FaMobileAlt className="text-emerald-500" size={24} /> },
   { name: '应用软件', icon: <FaAppStoreIos className="text-blue-600" size={24} /> },
   { name: '通讯', icon: <FaWifi className="text-green-600" size={24} /> },
