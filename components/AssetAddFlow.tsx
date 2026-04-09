@@ -94,7 +94,21 @@ const carBrands: CarBrand[] = [
   { id: 'BUGATTI', name: 'BUGATTI', firstLetter: 'B', logoUrl: '/images/car_logos/布加迪.png'},
   { id: 'Porsche', name: 'Porsche', firstLetter:'P', logoUrl:'/images/car_logos/Porsche.png' },
   { id: 'Bentley', name: 'Bentley', firstLetter:'B', logoUrl:'/images/car_logos/宾利.png' },
-  { id: 'Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
+  { id: 'BUFITE', name: 'BUFITE', firstLetter:'B', logoUrl:'/images/car_logos/巴菲特汽车.png' },
+  { id: '百度apollo', name: '百度apollo', firstLetter:'B', logoUrl:'/images/car_logos/百度apollo.png' },
+  { id: '百智新能源', name: '百智新能源', firstLetter:'B', logoUrl:'/images/car_logos/百智新能源.png' },
+  { id: '佰斯威', name: '佰斯威', firstLetter:'B', logoUrl:'/images/car_logos/佰斯威.png' },
+  { id: '拜腾', name: '拜腾', firstLetter:'B', logoUrl:'/images/car_logos/拜腾.png' },
+  { id: '宝骏', name: '宝骏', firstLetter:'B', logoUrl:'/images/car_logos/宝骏.png' },
+  { id: '宝骐汽车', name: '宝骐汽车', firstLetter:'B', logoUrl:'/images/car_logos/宝骐汽车.png' },
+  { id: '宝腾', name: '宝腾', firstLetter:'B', logoUrl:'/images/car_logos/宝腾.png' },
+  { id: '宝沃', name: '宝沃', firstLetter:'B', logoUrl:'/images/car_logos/宝沃.png' },
+  { id: 'Bufori', name: 'Bufori', firstLetter:'B', logoUrl:'/images/car_logos/保斐利.png' },
+  { id: '北方房车', name: '北方房车', firstLetter:'B', logoUrl:'/images/car_logos/北方房车.png' },
+  { id: '北京汽车', name: '北京汽车', firstLetter:'B', logoUrl:'/images/car_logos/北京汽车.png' },
+  { id: 'BAW', name: 'BAW', firstLetter:'B', logoUrl:'/images/car_logos/北京汽车制造厂.png' },
+  
+  
 
   // H
   { id: 'HONDA', name: 'HONDA', firstLetter: 'H', logoUrl: '/images/car_logos/HONDA.png'},
@@ -110,6 +124,7 @@ const carBrands: CarBrand[] = [
   { id: 'MANSORY', name: 'MANSORY', firstLetter: 'M', logoUrl: '/images/car_logos/MANSORY.png' },
   
   // L
+  { id: 'Lamborghini', name: 'Lamborghini', firstLetter:' L', logoUrl:'/images/car_logos/Lamborghini.png' },
   { id: '理想', name: '理想', firstLetter:'L', logoUrl:'/images/car_logos/理想.png'},
   { id: 'Land Rover', name: 'Land Rover', firstLetter:'L', logoUrl:'/images/car_logos/路虎.png'},
   
@@ -134,21 +149,24 @@ const metalOptions = [
 ];
 
 const networkIcons = [
-  { name: '支付宝', file: 'alipay.png' },
-  { name: '微信', file: 'wechat.png' },
-  { name: 'Apple', file: 'applepay.png' },
-  { name: 'PayPal', file: 'paypal.png' },
-  { name: 'e-CNY', file: 'e-CNY.png' },
+  { key: 'alipay', name: '支付宝', lightFile: 'alipay_light.png', darkFile: 'alipay_dark.png' },
+  { key: 'wechat', name: '微信', lightFile: 'wechat_light.png', darkFile: 'wechat_dark.png' },
+  { key: 'applepay', name: 'Apple', lightFile: 'applepay_light.png', darkFile: 'applepay_dark.png' },
+  { key: 'paypal', name: 'PayPal', lightFile: 'paypal_light.png', darkFile: 'paypal_dark.png' },
+  { key: 'e-CNY', name: 'e-CNY', lightFile: 'e-CNY_light.png', darkFile: 'e-CNY_dark.png' },
 ];
 
 const bankIcons = [
-  { name: 'ICBC', file: 'icbc.png' },
-  { name: 'ABC', file: 'abc.png'},
-  { name: 'BOC', file: 'boc.png'},
-  { name: 'CCB', file: 'ccb.png'},
-  { name: 'CMB', file: 'cmb.png'},
-  { name: 'PAB', file: 'pab.png'},
+  { key: 'icbc', name: 'ICBC', lightFile: 'icbc_light.png', darkFile: 'icbc_dark.png' },
+  { key: 'abc', name: 'ABC', lightFile: 'abc_light.png', darkFile: 'abc_dark.png' },
+  { key: 'boc', name: 'BOC', lightFile: 'boc_light.png', darkFile: 'boc_dark.png' },
+  { key: 'ccb', name: 'CCB', lightFile: 'ccb_light.png', darkFile: 'ccb_dark.png' },
+  { key: 'cmb', name: 'CMB', lightFile: 'cmb_light.png', darkFile: 'cmb_dark.png' },
+  { key: 'pab', name: 'PAB', lightFile: 'pab_light.png', darkFile: 'pab_dark.png' },
+  { key: 'bob', name: 'BOB', lightFile: 'bob_light.png', darkFile: 'bob_dark.png' },
+  { key: 'bod', name: 'BOD', lightFile: 'bod_light.png', darkFile: 'bod_dark.png' },
 ];
+
 const allIcons = [...networkIcons, ...bankIcons];
 const iconGroups = [
   { title: '网络账户', icons: networkIcons },
@@ -504,28 +522,29 @@ export default function AssetAddFlow({ onAssetAdded, currencySymbolMap }: AssetA
   };
 
   // 添加现金
-  const handleAddCashAsset = async () => {
-    const name = cashName.trim() || '现金';
-    const amount = parseFloat(holdings) || 0;
-    if (amount <= 0) {
-      alert('请输入有效的金额');
-      return;
-    }
+const handleAddCashAsset = async () => {
+  const name = cashName.trim() || '现金';
+  const amount = parseFloat(holdings) || 0;
+  if (amount <= 0) {
+    alert('请输入有效的金额');
+    return;
+  }
 
-    const newAsset: Asset = {
-      symbol: `CASH-${Date.now()}`,
-      name: name,
-      price: amount,
-      holdings: 1,
-      marketValue: amount,
-      currency: currency,
-      lastUpdated: new Date().toISOString(),
-      type: 'custom',
-      changePercent: 0,
-      purchaseDate: purchaseDate || undefined,
-      costPrice: amount,
-      logoUrl: selectedIcon ? `/icons/payment/${selectedIcon}` : undefined,
-    };
+  // selectedIcon 已经是 key（如 'alipay'）
+  const newAsset: Asset = {
+    symbol: `CASH-${Date.now()}`,
+    name: name,
+    price: amount,
+    holdings: 1,
+    marketValue: amount,
+    currency: currency,
+    lastUpdated: new Date().toISOString(),
+    type: 'custom',
+    changePercent: 0,
+    purchaseDate: purchaseDate || undefined,
+    costPrice: amount,
+    logoUrl: selectedIcon || undefined,   // 存储 key
+  };
 
     const userId = getCurrentUserId();
     if (!userId) {
@@ -853,20 +872,65 @@ export default function AssetAddFlow({ onAssetAdded, currencySymbolMap }: AssetA
     </div>
   );
 
-  // 现金表单
-  const renderCashForm = () => (
+
+// 现金表单
+const renderCashForm = () => {
+  // 根据 selectedIcon (key) 查找图标数据
+  const selectedIconData = allIcons.find(icon => icon.key === selectedIcon);
+  
+  // 根据主题决定显示的图片文件名
+  const displayIconFile = selectedIconData 
+    ? (theme === 'dark' ? selectedIconData.darkFile : selectedIconData.lightFile)
+    : null;
+
+  return (
     <div className="bg-white dark:bg-[#0a0a0a] border-2 border-blue-500 p-6 rounded-[32px] shadow-xl shadow-blue-50 dark:shadow-blue-900/20 animate-in zoom-in-95 duration-300">
-      <div className="flex flex-col gap-2 mb-6"><div className="flex items-center gap-2"><span className="bg-green-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">现金</span></div>
-      <div className="space-y-4">
-        <div><label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">名称（可选）</label><input type="text" placeholder="默认为现金" className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none" value={cashName} onChange={(e) => setCashName(e.target.value)} /></div>
-        <div><label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">选择图标（可选）</label><button onClick={() => setShowIconPage(true)} className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-left text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 flex items-center justify-between"><div className="flex items-center gap-2">{selectedIcon ? <img src={`/icons/payment/${selectedIcon}`} alt="" className="w-6 h-6 object-contain rounded-lg" onError={(e) => (e.currentTarget.style.display = 'none')} /> : <Banknote size={20} className="text-gray-500" />}<span className="truncate">{selectedIcon ? allIcons.find(i => i.file === selectedIcon)?.name || '已选择' : '点击选择图标'}</span></div><ChevronDown size={20} className="text-gray-500 flex-shrink-0" /></button></div>
-        <div><label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">金额</label><input type="number" placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none" value={holdings} onChange={(e) => setHoldings(e.target.value)} step="0.01" min="0" /></div>
-        <div><label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">存入日期</label><input type="date" className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none appearance-none" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} /></div>
-      </div></div>
-      <div className="pt-4 border-t border-gray-100 dark:border-gray-800"><button onClick={handleAddCashAsset} disabled={!holdings || parseFloat(holdings) <= 0} className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed">确认添加</button></div>
+      <div className="flex flex-col gap-2 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="bg-green-600 text-[10px] text-white px-2 py-0.5 rounded-md font-bold uppercase">现金</span>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">名称（可选）</label>
+            <input type="text" placeholder="默认为现金" className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none" value={cashName} onChange={(e) => setCashName(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">选择图标（可选）</label>
+            <button onClick={() => setShowIconPage(true)} className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-left text-gray-900 dark:text-gray-100 outline-none focus:ring-2 ring-blue-500 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {selectedIconData && displayIconFile ? (
+                  <img 
+                    src={`/icons/payment/${displayIconFile}`} 
+                    alt="" 
+                    className="w-6 h-6 object-contain rounded-lg" 
+                    onError={(e) => (e.currentTarget.style.display = 'none')} 
+                  />
+                ) : (
+                  <Banknote size={20} className="text-gray-500" />
+                )}
+                <span className="truncate">
+                  {selectedIconData ? selectedIconData.name : '点击选择图标'}
+                </span>
+              </div>
+              <ChevronDown size={20} className="text-gray-500 flex-shrink-0" />
+            </button>
+          </div>
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">金额</label>
+            <input type="number" placeholder="0.00" className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none" value={holdings} onChange={(e) => setHoldings(e.target.value)} step="0.01" min="0" />
+          </div>
+          <div>
+            <label className="text-[12px] font-black text-gray-400 dark:text-gray-500 uppercase ml-1">存入日期</label>
+            <input type="date" className="w-full bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl mt-1 font-bold text-gray-900 dark:text-gray-100 outline-none appearance-none" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+          </div>
+        </div>
+      </div>
+      <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+        <button onClick={handleAddCashAsset} disabled={!holdings || parseFloat(holdings) <= 0} className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-200 dark:shadow-blue-900/20 active:scale-[0.98] transition-all disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed">确认添加</button>
+      </div>
     </div>
   );
-
+};
   // 自定义资产表单
   const assetTypeOptions = [
     { value: '', label: '点击选择类型', disabled: true },

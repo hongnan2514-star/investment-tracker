@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { useRouter } from 'next/navigation'; // 新增
+import { useRouter } from 'next/navigation';
 import {
   Zap, BarChart3, Hotel, CarFront, Banknote, Receipt, Activity, ReceiptText, TrendingUp
 } from 'lucide-react';
@@ -53,7 +53,7 @@ interface AssetCardProps {
 }
 
 export default function AssetCard({ asset, onClick }: AssetCardProps) {
-  const router = useRouter(); // 新增
+  const router = useRouter();
   const { theme } = useTheme();
 
   const isSimpleAsset = ['car', 'custom', 'liability', 'real_estate', 'receivable', 'custom_asset'].includes(asset.type);
@@ -96,7 +96,20 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
     return asset.symbol;
   };
 
+  // 从可能包含 _light/_dark 后缀的字符串中提取基础 key
+const extractIconKey = (logoUrl: string): string => {
+  // 提取文件名（去掉路径前缀）
+  const fileName = logoUrl.split('/').pop() || logoUrl;
+  // 如果已经是纯 key（不含 _light/_dark 且无 .png），直接返回
+  if (!fileName.includes('_light') && !fileName.includes('_dark') && !fileName.includes('.png')) {
+    return fileName;
+  }
+  // 否则去掉 _light/_dark 和 .png 后缀
+  return fileName.replace(/_(light|dark)\.png$/, '').replace(/\.png$/, '');
+};
+
   const renderIcon = () => {
+    // A股本地Logo
     if (isAStock && aStockCode) {
       const localPath = `/images/company_logos/${aStockCode}.png`;
       return (
@@ -119,10 +132,37 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
       );
     }
 
+    // 现金资产的自定义图标（支持主题切换，兼容旧数据）
+    if (asset.type === 'custom' && asset.logoUrl) {
+      const iconKey = extractIconKey(asset.logoUrl);
+      const fileName = `${iconKey}_${theme === 'dark' ? 'dark' : 'light'}.png`;
+      return (
+        <div className="relative w-8 h-8">
+          <img
+            src={`/icons/payment/${fileName}`}
+            alt="cash"
+            className="w-8 h-8 object-contain rounded-lg"
+            style={{ backgroundColor: 'transparent' }}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                const fallback = parent.querySelector('.cash-fallback-icon');
+                if (fallback) (fallback as HTMLElement).style.display = 'block';
+              }
+            }}
+          />
+          <Banknote size={20} className="cash-fallback-icon absolute inset-0 m-auto text-gray-500 hidden" />
+        </div>
+      );
+    }
+
+    // 其他有 logoUrl 的资产
     if (logoSrc) {
       return < img src={logoSrc} alt={asset.name} className="w-8 h-8 object-contain rounded-lg" />;
     }
 
+    // 贵金属
     if (asset.type === 'metal') {
       const isSilver = asset.symbol && asset.symbol.includes('Ag');
       return isSilver ? (
@@ -132,6 +172,7 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
       );
     }
 
+    // 默认图标
     let IconComponent;
     switch (asset.type) {
       case 'car': IconComponent = CarFront; break;
@@ -153,7 +194,6 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
 
   const showCostBlock = asset.costPrice && !isSimpleAsset;
 
-  // 处理点击：现金资产直接跳转账单详情页，其他资产调用父组件的 onClick 打开抽屉
   const handleClick = () => {
     if (asset.type === 'custom') {
       router.push(`/ledger/account/${encodeURIComponent(asset.symbol)}`);
@@ -169,7 +209,6 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
     >
       <div className="p-3">
         <div className="flex items-start justify-between">
-          {/* 左侧信息区 */}
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <div className="flex-shrink-0 mt-1">{renderIcon()}</div>
             <div className="min-w-0 flex-1">
@@ -187,7 +226,6 @@ export default function AssetCard({ asset, onClick }: AssetCardProps) {
             </div>
           </div>
 
-          {/* 右侧信息区 */}
           <div className="flex items-start gap-2 flex-shrink-0 ml-2">
             {showCostBlock && (
               <div className="flex flex-col items-end text-xs mt-1">
