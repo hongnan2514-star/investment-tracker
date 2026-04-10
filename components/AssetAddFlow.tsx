@@ -173,6 +173,7 @@ const bankIcons = [
   { key: 'pab', name: 'PAB', lightFile: 'pab_light.png', darkFile: 'pab_dark.png' },
   { key: 'bob', name: 'BOB', lightFile: 'bob_light.png', darkFile: 'bob_dark.png' },
   { key: 'bod', name: 'BOD', lightFile: 'bod_light.png', darkFile: 'bod_dark.png' },
+  { key: 'ceb', name: 'CEB', lightFile: 'ceb_light.png', darkFile: 'ceb_dark.png' },
 ];
 
 const allIcons = [...networkIcons, ...bankIcons];
@@ -351,60 +352,77 @@ export default function AssetAddFlow({ onAssetAdded, currencySymbolMap }: AssetA
   }, [holdings, foundAsset?.price]);
 
   // 添加资产（股票、基金、加密货币、贵金属）
-  const handleAddAsset = async () => {
-    if (!foundAsset || !holdings) return;
-    if (foundAsset.price == null || isNaN(foundAsset.price)) {
-      alert('获取价格失败，请稍后重试');
+const handleAddAsset = async () => {
+  if (!foundAsset || !holdings) return;
+  if (foundAsset.price == null || isNaN(foundAsset.price)) {
+    alert('获取价格失败，请稍后重试');
+    return;
+  }
+
+  const holdingsNum = parseFloat(holdings);
+  const finalMarketValue = !isNaN(holdingsNum) && holdingsNum > 0 ? holdingsNum * foundAsset.price : 0;
+
+  const newAsset: Asset = {
+    symbol: foundAsset.symbol,
+    name: foundAsset.name,
+    price: foundAsset.price ?? 0,
+    holdings: holdingsNum,
+    marketValue: finalMarketValue,
+    currency: foundAsset.currency,
+    lastUpdated: new Date().toISOString(),
+    type: foundAsset.type || selectedAssetType || 'stock',
+    changePercent: foundAsset.changePercent || 0,
+    logoUrl: foundAsset.logoUrl,
+    purchaseDate: purchaseDate || undefined,
+    costPrice: costPrice ? parseFloat(costPrice) : undefined,
+  };
+
+  const userId = getCurrentUserId();
+  if (!userId) {
+    alert('请先登录');
+    return;
+  }
+
+  try {
+    // 1. 保存资产
+    const res = await fetch('/api/asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify(newAsset),
+    });
+    if (!res.ok) {
+      alert('添加资产失败');
       return;
     }
 
-    const holdingsNum = parseFloat(holdings);
-    const finalMarketValue = !isNaN(holdingsNum) && holdingsNum > 0 ? holdingsNum * foundAsset.price : 0;
-
-    const newAsset: Asset = {
-      symbol: foundAsset.symbol,
-      name: foundAsset.name,
-      price: foundAsset.price ?? 0,
-      holdings: holdingsNum,
-      marketValue: finalMarketValue,
+    // 2. 插入买入交易记录（仅当用户填写了买入价或买入日期时）
+    const transactionData = {
+      assetSymbol: foundAsset.symbol,
+      transactionType: 'buy',
+      quantity: holdingsNum,
+      price: costPrice ? parseFloat(costPrice) : foundAsset.price,  // 优先使用买入价
+      transactionDate: purchaseDate || new Date().toISOString().split('T')[0],
       currency: foundAsset.currency,
-      lastUpdated: new Date().toISOString(),
-      type: foundAsset.type || selectedAssetType || 'stock',
-      changePercent: foundAsset.changePercent || 0,
-      logoUrl: foundAsset.logoUrl,
-      purchaseDate: purchaseDate || undefined,
-      costPrice: costPrice ? parseFloat(costPrice) : undefined,
+      category: 'buy',
+      note: '',
     };
 
-    const userId = getCurrentUserId();
-    if (!userId) {
-      alert('请先登录');
-      return;
+    const txRes = await fetch('/api/transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify(transactionData),
+    });
+
+    if (!txRes.ok) {
+      console.warn('交易记录添加失败，但资产已保存');
     }
 
-    try {
-      const res = await fetch('/api/asset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify(newAsset),
-      });
-      if (res.ok) {
-        eventBus.emit('assetsUpdated');
-        onAssetAdded();  // 通知父组件刷新
-        resetForm();
-        setShowMenu(false);
-      } else {
-        alert('添加失败');
-      }
-    } catch (err) {
-      console.error('添加资产失败', err);
-      alert('添加失败');
-    }
-
+    // 缓存 logo
     if (foundAsset.logoUrl) {
       cacheLogo(foundAsset.symbol, foundAsset.logoUrl).catch(console.warn);
     }
 
+    // 拉取历史数据（股票/ETF）
     if (newAsset.type === 'stock' || newAsset.type === 'etf') {
       fetch('/api/history/update', {
         method: 'POST',
@@ -412,7 +430,16 @@ export default function AssetAddFlow({ onAssetAdded, currencySymbolMap }: AssetA
         body: JSON.stringify({ asset: { type: newAsset.type, symbol: newAsset.symbol } })
       }).catch(err => console.error(`拉取 ${newAsset.symbol} 历史数据失败:`, err));
     }
-  };
+
+    eventBus.emit('assetsUpdated');
+    onAssetAdded();
+    resetForm();
+    setShowMenu(false);
+  } catch (err) {
+    console.error('添加资产失败', err);
+    alert('添加失败');
+  }
+};
 
   // 添加汽车
   const handleAddCarAsset = async () => {
