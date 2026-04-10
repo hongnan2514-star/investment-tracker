@@ -1,7 +1,6 @@
 // app/api/user/profile/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongoose';
-import User from '@/models/User';
+import { query } from '@/lib/neon';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,31 +9,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少手机号' }, { status: 400 });
     }
 
-    await connectDB();
+    // 动态构建更新语句
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
 
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
-    if (preferredCurrency !== undefined) updateData.preferredCurrency = preferredCurrency;
-    updateData.updatedAt = new Date();
+    if (name !== undefined) {
+      updates.push(`name = $${paramIndex++}`);
+      values.push(name);
+    }
+    if (avatarUrl !== undefined) {
+      updates.push(`avatar_url = $${paramIndex++}`);
+      values.push(avatarUrl);
+    }
+    if (preferredCurrency !== undefined) {
+      updates.push(`preferred_currency = $${paramIndex++}`);
+      values.push(preferredCurrency);
+    }
+    
+    // 总是更新 updated_at
+    updates.push(`updated_at = NOW()`);
 
-    const user = await User.findOneAndUpdate(
-      { phone },
-      { $set: updateData },
-      { returnDocument: 'after' }
-    );
+    if (updates.length === 0) {
+      return NextResponse.json({ error: '没有要更新的字段' }, { status: 400 });
+    }
 
-    if (!user) {
+    // 添加 phone 作为 WHERE 条件的参数
+    values.push(phone);
+
+    const updateQuery = `
+      UPDATE users
+      SET ${updates.join(', ')}
+      WHERE phone = $${paramIndex}
+      RETURNING phone, name, avatar_url AS "avatarUrl", preferred_currency AS "preferredCurrency"
+    `;
+
+    const result = await query(updateQuery, values);
+
+    if (result.rowCount === 0) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 });
     }
+
+    const updatedUser = result.rows[0];
 
     return NextResponse.json({
       success: true,
       user: {
-        phone: user.phone,
-        name: user.name,
-        avatarUrl: user.avatarUrl,
-        preferredCurrency: user.preferredCurrency,
+        phone: updatedUser.phone,
+        name: updatedUser.name,
+        avatarUrl: updatedUser.avatarUrl,
+        preferredCurrency: updatedUser.preferredCurrency,
       },
     });
   } catch (error) {
