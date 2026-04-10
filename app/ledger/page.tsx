@@ -206,7 +206,7 @@ const getIconPath = (logoUrl: string | undefined, theme: string) => {
     alert('请先选择要删除的账单');
     return;
   }
-  const confirmed = window.confirm(`确定要删除 ${selectedTransactionIds.size} 条账单吗？此操作不可撤销。`);
+  const confirmed = window.confirm(`确定要删除 ${selectedTransactionIds.size} 条账单吗?此操作不可撤销。`);
   if (!confirmed) return;
 
   const userId = getCurrentUserId();

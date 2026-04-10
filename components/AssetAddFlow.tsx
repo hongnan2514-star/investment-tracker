@@ -115,6 +115,11 @@ const carBrands: CarBrand[] = [
   { id: '北方房车', name: '北方房车', firstLetter:'B', logoUrl:'/images/car_logos/北方房车.png' },
   { id: '北京汽车', name: '北京汽车', firstLetter:'B', logoUrl:'/images/car_logos/北京汽车.png' },
   { id: 'BAW', name: 'BAW', firstLetter:'B', logoUrl:'/images/car_logos/北京汽车制造厂.png' },
+  { id: '北京清行', name: '北京清行', firstLetter:'B', logoUrl:'/images/car_logos/北京清行.png' },
+  { id: '北京越野', name: '北京越野', firstLetter:'B', logoUrl:'/images/car_logos/北京越野.png' },
+  { id: '北汽昌河', name: '北汽昌河', firstLetter:'B', logoUrl:'/images/car_logos/北汽昌河.png' },
+  { id: '北汽道达', name: '北汽道达', firstLetter:'B', logoUrl:'/images/car_logos/北汽道达.png' },
+  
   
   
 

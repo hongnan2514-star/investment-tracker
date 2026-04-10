@@ -263,7 +263,7 @@ export default function AssetDetailDrawer({ symbol, onClose, isOpen }: AssetDeta
   // 删除资产函数
   const handleDelete = async () => {
     if (!asset) return;
-    const confirmed = window.confirm(`确定要删除资产“${asset.name}”吗？此操作不可撤销。`);
+    const confirmed = window.confirm(`确定要删除资产“${asset.name}”吗?此操作同时也会清楚交易记录,且不可撤销。`);
     if (!confirmed) return;
 
     try {
