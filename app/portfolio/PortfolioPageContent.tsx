@@ -176,21 +176,28 @@ export default function PortfolioPage() {
   }, [currency, convertAll]);
 
   // 监听资产更新事件
-  useEffect(() => {
-    const handleUpdate = (updatedAssets?: Asset[]) => {
-      if (updatedAssets) setAssets([...updatedAssets]);
-      else loadAssets();
-    };
-    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleUpdate);
-    const unsubscribeUser = eventBus.subscribe('userChanged', () => {
+useEffect(() => {
+  const handleUpdate = (updatedAssets?: Asset[]) => {
+    const userId = getCurrentUserId();
+    if (updatedAssets) {
+      setAssets([...updatedAssets]);
+      if (userId) assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
+    } else {
+      // 资产变更事件：清除缓存，强制重新加载
+      if (userId) assetCache.delete(userId);
       loadAssets();
-      convertAll();
-    });
-    return () => {
-      unsubscribeAssets();
-      unsubscribeUser();
-    };
-  }, [convertAll, loadAssets]);
+    }
+  };
+  const unsubscribeAssets = eventBus.subscribe('assetsUpdated', handleUpdate);
+  const unsubscribeUser = eventBus.subscribe('userChanged', () => {
+    loadAssets();
+    convertAll();
+  });
+  return () => {
+    unsubscribeAssets();
+    unsubscribeUser();
+  };
+}, [convertAll, loadAssets]);
 
   // 计算盈亏率
   const getProfitPercent = (asset: Asset): number => {
