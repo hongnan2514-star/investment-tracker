@@ -8,7 +8,7 @@ import { setCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { AiFillRedditCircle, AiOutlineX } from "react-icons/ai";
 
-interface ProfileDrawerProps {
+interface ProfileDrawerProps { 
   isOpen: boolean;
   onClose: () => void;
 }
