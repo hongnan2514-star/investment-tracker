@@ -134,40 +134,77 @@ export default function AccountDetailPage() {
     }
   };
 
-  const loadTransactions = async () => {
-    const userId = getCurrentUserId();
-    if (!userId || !symbol) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/transaction?assetSymbol=${encodeURIComponent(symbol)}`, {
-        headers: { 'x-user-id': userId },
+const loadTransactions = async () => {
+  const userId = getCurrentUserId();
+  if (!userId || !symbol) return;
+  setLoading(true);
+  try {
+    // 1. 获取当前账户信息（需要最新的 marketValue）
+    const assetRes = await fetch('/api/asset', {
+      headers: { 'x-user-id': userId },
+    });
+    if (!assetRes.ok) throw new Error('获取账户余额失败');
+    const assets = await assetRes.json();
+    const currentAccount = assets.find((a: any) => a.symbol === symbol);
+    const currentMarketValue = currentAccount ? Number(currentAccount.marketValue) : 0;
+
+    // 2. 获取该账户的所有交易记录
+    const txRes = await fetch(`/api/transaction?assetSymbol=${encodeURIComponent(symbol)}`, {
+      headers: { 'x-user-id': userId },
+    });
+    if (!txRes.ok) throw new Error('加载交易记录失败');
+    const rawTxs = await txRes.json();
+
+    // 3. 按交易日期正序排列（从旧到新）
+    const sortedAsc = [...rawTxs].sort(
+      (a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
+    );
+
+    // 4. 从当前余额倒推每笔交易后的余额
+    //    正序遍历，计算交易后的余额
+    let runningBalance = currentMarketValue;
+    // 为了从后向前填充，我们需要知道每笔交易对余额的影响方向
+    // 买入（buy）增加资产，卖出（sell）减少资产
+    // 但注意我们存储的 transaction_type: 'buy' 对应收入（增加余额），'sell' 对应支出（减少余额）
+    // 然而在计算余额时，需要从当前余额倒推：对于每一笔交易，如果是收入，则交易前的余额 = 交易后余额 - 金额；如果是支出，则交易前的余额 = 交易后余额 + 金额
+    // 因此我们正序遍历时，可以计算交易后的余额，但需要知道初始余额（当前余额减去所有交易的影响）
+    // 更简单的方法：复制一份倒序数组，从当前余额开始累减/累加
+    const reversed = [...sortedAsc].reverse();
+    const enriched: Transaction[] = [];
+    let balance = currentMarketValue;
+    for (const tx of reversed) {
+      const isIncome = tx.transaction_type === 'buy';
+      const amount = Number(tx.price);
+      // 当前这笔交易发生后的余额就是 balance
+      const balanceAfter = balance;
+      // 根据交易类型回退到交易前的余额
+      if (isIncome) {
+        balance = balance - amount;
+      } else {
+        balance = balance + amount;
+      }
+      enriched.push({
+        id: tx.id.toString(),
+        type: isIncome ? 'income' : 'expense',
+        amount: amount,
+        category: tx.category || '其他',
+        note: tx.note || '',
+        date: tx.transaction_date,
+        accountSymbol: symbol,
+        accountName: account?.name || '',
+        accountLogoUrl: account?.logoUrl,
+        accountBalanceAfter: balanceAfter,
       });
-      if (!res.ok) throw new Error('加载交易记录失败');
-      const txs = await res.json();
-      const enriched: Transaction[] = txs.map((tx: any) => {
-        const isIncome = tx.transaction_type === 'buy';
-        return {
-          id: tx.id.toString(),
-          type: isIncome ? 'income' : 'expense',
-          amount: Number(tx.price),
-          category: tx.category || '其他',
-          note: tx.note || '',
-          date: tx.transaction_date,
-          accountSymbol: symbol,
-          accountName: account?.name || '',
-          accountLogoUrl: account?.logoUrl,
-          accountBalanceAfter: 0,
-        };
-      });
-      enriched.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setTransactions(enriched);
-    } catch (err) {
-      console.error('加载交易记录失败', err);
-      setTransactions([]);
-    } finally {
-      setLoading(false);
     }
-  };
+    // 由于我们是从当前余额倒推，得到的 enriched 顺序是倒序（最新的在前），正合需求
+    setTransactions(enriched);
+  } catch (err) {
+    console.error('加载交易记录失败', err);
+    setTransactions([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (symbol) loadAccountInfo();

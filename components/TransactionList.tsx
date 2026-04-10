@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Circle, CheckCircle } from 'lucide-react';
 import { getCategoryIcon } from './CategorySelector';
+import { useTheme } from '@/app/ThemeProvider';
 
 type Transaction = {
   id: string;
@@ -30,6 +31,16 @@ interface TransactionListProps {
   onToggleSelect?: (id: string) => void;
 }
 
+const getIconPath = (logoUrl: string | undefined, theme: string) => {
+  if (!logoUrl) return null;
+  if (logoUrl.startsWith('http')) return logoUrl;
+  let fileName = logoUrl.split('/').pop() || logoUrl;
+  fileName = fileName.split('?')[0];
+  const key = fileName.replace(/_(light|dark)\.png$/, '').replace(/\.png$/, '');
+  const suffix = theme === 'dark' ? 'dark' : 'light';
+  return `/icons/payment/${key}_${suffix}.png`;
+};
+
 export default function TransactionList({
   transactions,
   currencySymbol,
@@ -40,6 +51,7 @@ export default function TransactionList({
   onToggleSelect,
 }: TransactionListProps) {
   const router = useRouter();
+  const { theme } = useTheme();
 
   const handleCardClick = (tx: Transaction) => {
     if (isSelectMode && onToggleSelect) {
@@ -116,13 +128,12 @@ export default function TransactionList({
                 </p >
                 {tx.accountLogoUrl && (
                   <div className="mt-1">
-                    <Image
-                      src={tx.accountLogoUrl}
-                      alt={tx.accountName}
-                      width={16}
-                      height={16}
-                      className="object-contain rounded-full opacity-70"
-                    />
+                     <img
+                    src={getIconPath(tx.accountLogoUrl, theme) || ''}
+                    alt={tx.accountName}
+                    className="w-4 h-4 object-contain rounded-full opacity-70"
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                  />
                   </div>
                 )}
               </div>

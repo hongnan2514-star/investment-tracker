@@ -506,23 +506,23 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const ActionButtons = () => (
     <div className="mt-0 pt-6 border-t border-gray-100 dark:border-gray-700">
       <button onClick={() => { router.push('/subscription'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4">
-        <BadgeCheck size={20} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <BadgeCheck size={26} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
         <span>订阅</span>
       </button>
-      <button onClick={() => { router.push('/settings'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
-        <IoIosSettings size={24} className="relative -left-[3px] text-gray-500 dark:text-gray-400 flex-shrink-0" />
+      <button onClick={() => { router.push('/settings'); onClose(); }} className="w-full flex items-center gap-2 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
+        <IoIosSettings size={30} className="relative -left-[3px] text-gray-500 dark:text-gray-400 flex-shrink-0" />
         <span>设置与隐私</span>
       </button>
       <button onClick={() => { alert('投资追踪 v1.0.0'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
-        <ImInfo size={20} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+        <ImInfo size={26} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
         <span>关于我们</span>
       </button>
       <button onClick={() => { window.open('https://www.reddit.com/r/investment', '_blank'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
-        <AiFillRedditCircle size={20} className="text-black dark:text-white flex-shrink-0" />
+        <AiFillRedditCircle size={26} className="text-black dark:text-white flex-shrink-0" />
         <span>Reddit</span>
       </button>
       <button onClick={() => { window.open('https://twitter.com/investment', '_blank'); onClose(); }} className="w-full flex items-center gap-3 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition px-4 mt-2">
-        <AiOutlineX size={20} className="text-black dark:text-white flex-shrink-0" />
+        <AiOutlineX size={26} className="text-black dark:text-white flex-shrink-0" />
         <span>X</span>
       </button>
     </div>
