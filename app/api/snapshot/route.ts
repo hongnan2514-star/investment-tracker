@@ -15,34 +15,43 @@ export async function POST(request: NextRequest) {
 
     let assetList: any[] = [];
 
-    // 优先使用传入的资产列表（前端调用时可能传）
+    // 优先使用传入的资产列表
     if (providedAssets && Array.isArray(providedAssets)) {
       assetList = providedAssets;
     } else {
-      // 否则从 assets 明细表读取最新数据
-      const result = await sql`
-        SELECT symbol, name, price, holdings, market_value, currency, type, cost_price, purchase_date, notes, include_in_chart
-        FROM assets WHERE user_id = ${userId}
-      `;
-      assetList = result;
+      try {
+        const result = await sql`
+          SELECT symbol, name, price, holdings, market_value, currency, type, cost_price, purchase_date, notes, include_in_chart
+          FROM assets WHERE user_id = ${userId}
+        `;
+        assetList = result;
+      } catch (dbError) {
+        console.error('[快照] 查询 assets 表失败:', dbError);
+        throw new Error(`数据库查询失败: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
+      }
     }
 
+    // 无资产，净值为 0
     if (assetList.length === 0) {
-      // 无资产，净值为0
       const netWorth = 0;
       const now = new Date();
       const beijingTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
       const snapshotHour = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate(), beijingTime.getHours(), 0, 0);
       const snapshotTimeUTC = new Date(snapshotHour.getTime() - 8 * 60 * 60 * 1000).toISOString();
 
-      const existing = await sql`
-        SELECT id FROM snapshots WHERE user_id = ${userId} AND snapshot_time = ${snapshotTimeUTC}
-      `;
-      if (existing.length === 0) {
-        await sql`
-          INSERT INTO snapshots (user_id, snapshot_time, total_assets, total_liabilities, net_worth)
-          VALUES (${userId}, ${snapshotTimeUTC}, 0, 0, 0)
+      try {
+        const existing = await sql`
+          SELECT id FROM snapshots WHERE user_id = ${userId} AND snapshot_time = ${snapshotTimeUTC}
         `;
+        if (existing.length === 0) {
+          await sql`
+            INSERT INTO snapshots (user_id, snapshot_time, total_assets, total_liabilities, net_worth)
+            VALUES (${userId}, ${snapshotTimeUTC}, 0, 0, 0)
+          `;
+        }
+      } catch (dbError) {
+        console.error('[快照] 写入零值快照失败:', dbError);
+        // 不中断流程，仅记录错误
       }
       return NextResponse.json({ success: true, totalAssets: 0, totalLiabilities: 0, netWorth: 0 });
     }
@@ -51,38 +60,40 @@ export async function POST(request: NextRequest) {
     let totalLiabilities = 0;
 
     for (const asset of assetList) {
-      // 1. 检查 market_value 是否有效
-      let value = asset.market_value;
-      if (value == null || isNaN(Number(value))) {
-        console.warn(`[快照] 资产 ${asset.symbol} 的 market_value 无效: ${value}，跳过`);
-        continue;
-      }
-      value = Number(value);
-
-      // 2. 处理货币
-      let fromCurrency = (asset.currency || 'USD').toUpperCase();
-      // 将 USDT 映射为 USD，因为汇率服务不支持 USDT
-      if (fromCurrency === 'USDT') fromCurrency = 'USD';
-
-      // 3. 转换到 CNY（如果需要）
-      if (fromCurrency !== 'CNY') {
-        try {
-          value = await convertAmount(value, fromCurrency as CurrencyCode, 'CNY');
-          if (isNaN(value)) {
-            console.error(`[快照] 资产 ${asset.symbol} 货币转换后为 NaN，跳过`);
-            continue;
-          }
-        } catch (err) {
-          console.error(`[快照] 资产 ${asset.symbol} 货币转换失败:`, err);
+      try {
+        let value = asset.market_value;
+        if (value == null || isNaN(Number(value))) {
+          console.warn(`[快照] 资产 ${asset.symbol} 的 market_value 无效: ${value}，跳过`);
           continue;
         }
-      }
+        value = Number(value);
 
-      // 4. 累加
-      if (asset.type === 'liability') {
-        totalLiabilities += Math.abs(value);
-      } else {
-        totalAssets += value;
+        let fromCurrency = (asset.currency || 'USD').toUpperCase();
+        if (fromCurrency === 'USDT') fromCurrency = 'USD';
+
+        // 货币转换
+        if (fromCurrency !== 'CNY') {
+          try {
+            value = await convertAmount(value, fromCurrency as CurrencyCode, 'CNY');
+            if (isNaN(value)) {
+              console.error(`[快照] 资产 ${asset.symbol} 货币转换后为 NaN，跳过`);
+              continue;
+            }
+          } catch (convertErr) {
+            console.error(`[快照] 资产 ${asset.symbol} 货币转换失败:`, convertErr);
+            continue;
+          }
+        }
+
+        // 累加
+        if (asset.type === 'liability') {
+          totalLiabilities += Math.abs(value);
+        } else {
+          totalAssets += value;
+        }
+      } catch (assetErr) {
+        console.error(`[快照] 处理资产 ${asset.symbol} 时发生未知错误:`, assetErr);
+        // 继续处理下一个资产
       }
     }
 
@@ -94,19 +105,24 @@ export async function POST(request: NextRequest) {
     const snapshotHour = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), beijingTime.getDate(), beijingTime.getHours(), 0, 0);
     const snapshotTimeUTC = new Date(snapshotHour.getTime() - 8 * 60 * 60 * 1000).toISOString();
 
-    const existing = await sql`
-      SELECT id FROM snapshots WHERE user_id = ${userId} AND snapshot_time = ${snapshotTimeUTC}
-    `;
-    if (existing.length === 0) {
-      await sql`
-        INSERT INTO snapshots (user_id, snapshot_time, total_assets, total_liabilities, net_worth)
-        VALUES (${userId}, ${snapshotTimeUTC}, ${totalAssets}, ${totalLiabilities}, ${netWorth})
+    try {
+      const existing = await sql`
+        SELECT id FROM snapshots WHERE user_id = ${userId} AND snapshot_time = ${snapshotTimeUTC}
       `;
+      if (existing.length === 0) {
+        await sql`
+          INSERT INTO snapshots (user_id, snapshot_time, total_assets, total_liabilities, net_worth)
+          VALUES (${userId}, ${snapshotTimeUTC}, ${totalAssets}, ${totalLiabilities}, ${netWorth})
+        `;
+      }
+    } catch (dbError) {
+      console.error('[快照] 写入快照失败:', dbError);
+      throw new Error(`快照写入失败: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
     }
 
     return NextResponse.json({ success: true, totalAssets, totalLiabilities, netWorth });
   } catch (error) {
-    console.error('快照API错误:', error);
+    console.error('[快照API] 全局捕获错误:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json({ error: message }, { status: 500 });
   }

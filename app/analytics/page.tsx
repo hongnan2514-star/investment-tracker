@@ -1,3 +1,4 @@
+// app/analytics/page.tsx
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, AlertCircle, Newspaper, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -7,6 +8,7 @@ import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import AIChatBox from '@/components/AIChatBox';
+import ProfitOverview from '@/components/ProfitOverview';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
@@ -28,6 +30,76 @@ export default function AnalyticsPage() {
 
   const { currency, symbol } = useCurrency();
   const { convert, loading: converting } = useCurrencyConverter();
+
+const [todayMidnightValue, setTodayMidnightValue] = useState<number | null>(null);
+const [yesterdayMidnightValue, setYesterdayMidnightValue] = useState<number | null>(null);
+
+const fetchMidnightValues = useCallback(async () => {
+  const userId = getCurrentUserId();
+  if (!userId) return;
+
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(today.getDate() - 7);
+
+  const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+  // 获取今日、昨日、7天前快照
+  const [todayRes, yesterdayRes] = await Promise.all([
+    fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(today)}`),
+    fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(yesterday)}`),
+  ]);
+
+  const todayData = await todayRes.json();
+  const yesterdayData = await yesterdayRes.json();
+  const todayVal = todayData.netWorth;
+  const yesterdayVal = yesterdayData.netWorth;
+
+  // 寻找实际可用的“7天前”快照（若不存在则向前回溯）
+  let actualSevenDaysVal = null;
+  let attemptDate = new Date(sevenDaysAgo);
+  const maxAttempts = 30; // 最多向前回溯30天，避免无限循环
+  let attempts = 0;
+
+  while (actualSevenDaysVal === null && attempts < maxAttempts) {
+    const dateStr = formatDate(attemptDate);
+    const res = await fetch(`/api/snapshot/midnight?userId=${userId}&date=${dateStr}`);
+    const data = await res.json();
+    if (data.netWorth !== null) {
+      actualSevenDaysVal = data.netWorth;
+      break;
+    }
+    attemptDate.setDate(attemptDate.getDate() - 1); // 向前推一天
+    attempts++;
+  }
+
+  // 昨日收益
+  if (todayVal !== null && yesterdayVal !== null) {
+    setYesterdayProfit(todayVal - yesterdayVal);
+  } else {
+    setYesterdayProfit(0);
+  }
+
+  // 本周收益 & 收益率（使用实际找到的快照）
+  if (todayVal !== null && actualSevenDaysVal !== null) {
+    const profit = todayVal - actualSevenDaysVal;
+    setWeekProfit(profit);
+    if (actualSevenDaysVal !== 0) {
+      setWeekReturnRate((profit / actualSevenDaysVal) * 100);
+    } else {
+      setWeekReturnRate(0);
+    }
+  } else {
+    setWeekProfit(0);
+    setWeekReturnRate(0);
+  }
+}, []);
+
+useEffect(() => {
+  fetchMidnightValues();
+}, [fetchMidnightValues]);
 
   // 获取快照历史并计算收益
   const fetchSnapshotHistory = useCallback(async () => {
@@ -71,25 +143,7 @@ export default function AnalyticsPage() {
 
       // 昨日收益：最近一天（如果今天有快照，取今天与昨天差值；否则取最近两天）
       if (returns.length > 0) {
-        const lastReturn = returns[returns.length - 1];
-        setYesterdayProfit(lastReturn.value);
-      } else {
         setYesterdayProfit(0);
-      }
-
-      // 本周收益：最近7天的收益累加
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekReturns = returns.filter(r => new Date(r.date) >= weekAgo);
-      const weekSum = weekReturns.reduce((sum, r) => sum + r.value, 0);
-      setWeekProfit(weekSum);
-
-      // 近7天收益率：本周收益 / 7天前的净值
-      const weekStartNetWorth = dailyNetWorth.find(d => d.date === weekAgo.toISOString().split('T')[0])?.netWorth;
-      if (weekStartNetWorth && weekStartNetWorth !== 0) {
-        setWeekReturnRate((weekSum / weekStartNetWorth) * 100);
-      } else {
-        setWeekReturnRate(0);
       }
     } catch (err) {
       console.error('获取快照数据失败', err);
@@ -172,32 +226,12 @@ export default function AnalyticsPage() {
       </header>
 
       {/* 收益总览卡片 */}
-      <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <TrendingUp size={20} className="text-blue-600 dark:text-blue-400" />
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">收益总览</h2>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">昨日收益</p>
-            <p className={`text-xl font-black ${yesterdayProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {yesterdayProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(yesterdayProfit))}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">本周收益</p>
-            <p className={`text-xl font-black ${weekProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {weekProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(weekProfit))}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">近7天收益率</p>
-            <p className={`text-xl font-black ${weekReturnRate >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {weekReturnRate >= 0 ? '+' : ''}{formatPercent(weekReturnRate)}%
-            </p>
-          </div>
-        </div>
-      </div>
+<ProfitOverview
+  yesterdayProfit={yesterdayProfit}
+  weekProfit={weekProfit}
+  weekReturnRate={weekReturnRate}
+  currencySymbol={symbol}
+/>
 
       {/* 收益日历 */}
       <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">

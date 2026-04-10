@@ -119,9 +119,15 @@ const carBrands: CarBrand[] = [
   { id: '北京越野', name: '北京越野', firstLetter:'B', logoUrl:'/images/car_logos/北京越野.png' },
   { id: '北汽昌河', name: '北汽昌河', firstLetter:'B', logoUrl:'/images/car_logos/北汽昌河.png' },
   { id: '北汽道达', name: '北汽道达', firstLetter:'B', logoUrl:'/images/car_logos/北汽道达.png' },
-  
-  
-  
+  { id: '北汽幻速', name: '北汽幻速', firstLetter:'B', logoUrl:'/images/car_logos/北汽幻速.png' },
+  { id: '北汽瑞翔', name: '北汽瑞翔', firstLetter:'B', logoUrl:'/images/car_logos/北汽瑞翔.png' },
+  { id: '北汽泰普', name: '北汽泰普', firstLetter:'B', logoUrl:'/images/car_logos/北汽泰普.png' },
+  { id: '北汽威旺', name: '北汽威旺', firstLetter:'B', logoUrl:'/images/car_logos/北汽威旺.png' },
+  { id: '北汽新能源', name: '北汽新能源', firstLetter:'B', logoUrl:'/images/car_logos/北汽新能源.png' },
+  { id: '奔腾', name: '奔腾', firstLetter:'B', logoUrl:'/images/car_logos/奔腾.png' },
+  { id: '比德文汽车', name: '比德文汽车', firstLetter:'B', logoUrl:'/images/car_logos/比德文汽车.png' },
+
+
 
   // H
   { id: 'HONDA', name: 'HONDA', firstLetter: 'H', logoUrl: '/images/car_logos/HONDA.png'},
