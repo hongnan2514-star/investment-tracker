@@ -1,18 +1,18 @@
+// app/api/cron/update-stocks-daily/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { updateStockHistory } from '@/app/api/history/update/route';
 
-// 创建 SQL 执行实例
 const sql = neon(process.env.POSTGRES_URL!);
 
-// 从 user_assets 表中获取所有唯一的股票/ETF代码
+// 从 assets 表中获取所有唯一的股票/ETF代码
 async function getAllStockSymbols(): Promise<string[]> {
   try {
     const result = await sql`
-      SELECT DISTINCT asset->>'symbol' as symbol
-      FROM user_assets,
-      LATERAL jsonb_array_elements(assets) AS asset
-      WHERE asset->>'type' IN ('stock', 'etf')
+      SELECT DISTINCT symbol
+      FROM assets
+      WHERE type IN ('stock', 'etf')
     `;
     return result.map(row => row.symbol).filter(Boolean);
   } catch (error) {
@@ -21,10 +21,9 @@ async function getAllStockSymbols(): Promise<string[]> {
   }
 }
 
-export const maxDuration = 300; // 5分钟超时
+export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
-  // 验证 CRON_SECRET，防止外部调用
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse('Unauthorized', { status: 401 });
