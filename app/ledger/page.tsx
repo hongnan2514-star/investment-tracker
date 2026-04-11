@@ -38,6 +38,7 @@ type Transaction = {
   accountName: string;
   accountLogoUrl?: string;
   accountBalanceAfter: number;
+  accountType?: string;
 };
 
 const MONTHLY_BUDGET = 565;
@@ -297,6 +298,7 @@ useEffect(() => {
             accountName: account.name,
             accountLogoUrl: account.logoUrl,
             accountBalanceAfter: balanceAfter,
+            accountType: account.type,
           });
         }
       }
@@ -432,20 +434,35 @@ const handleBudgetUpdate = (newBudget: number) => {
     const userId = getCurrentUserId();
     if (userId) {
       try {
-        await fetch('/api/transaction', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-          body: JSON.stringify({
-            assetSymbol: selectedAccount.symbol,
-            transactionType: addType === 'income' ? 'buy' : 'sell',
-            quantity: 1,
-            price: amountNum,
-            transactionDate: formDate,
-            currency: currencySymbol,
-            category: formCategory,
-            note: formNote,
-          }),
-        });
+let transactionDateTime: string;
+if (selectedAccount?.type === 'custom') {
+  // 现金账户：使用当前完整时间（精确到分钟）
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  transactionDateTime = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+} else {
+  // 其他资产：使用用户选择的日期 + 00:00:00
+  transactionDateTime = `${formDate}T00:00:00`;
+}
+
+await fetch('/api/transaction', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+  body: JSON.stringify({
+    assetSymbol: selectedAccount.symbol,
+    transactionType: addType === 'income' ? 'buy' : 'sell',
+    quantity: 1,
+    price: amountNum,
+    transactionDate: transactionDateTime,   // 改为完整时间戳
+    currency: currencySymbol,
+    category: formCategory,
+    note: formNote,
+  }),
+});
         await loadAccounts();
         await loadAllTransactions();
       } catch (err) {

@@ -576,7 +576,6 @@ const handleAddCashAsset = async () => {
     return;
   }
 
-  // selectedIcon 已经是 key（如 'alipay'）
   const newAsset: Asset = {
     symbol: `CASH-${Date.now()}`,
     name: name,
@@ -589,33 +588,58 @@ const handleAddCashAsset = async () => {
     changePercent: 0,
     purchaseDate: purchaseDate || undefined,
     costPrice: amount,
-    logoUrl: selectedIcon || undefined,   // 存储 key
+    logoUrl: selectedIcon || undefined,
   };
 
-    const userId = getCurrentUserId();
-    if (!userId) {
-      alert('请先登录');
+  const userId = getCurrentUserId();
+  if (!userId) {
+    alert('请先登录');
+    return;
+  }
+
+  try {
+    // 1. 保存资产
+    const res = await fetch('/api/asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify(newAsset),
+    });
+    if (!res.ok) {
+      alert('添加资产失败');
       return;
     }
 
-    try {
-      const res = await fetch('/api/asset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify(newAsset),
-      });
-      if (res.ok) {
-        eventBus.emit('assetsUpdated');
-        onAssetAdded();
-        resetForm();
-        setShowMenu(false);
-      } else {
-        console.error('添加失败');
-      }
-    } catch (err) {
-      console.error('添加现金资产失败', err);
+    // 2. 插入买入交易记录（使用当前精确时间）
+    const transactionData = {
+      assetSymbol: newAsset.symbol,
+      transactionType: 'buy',
+      quantity: 1,
+      price: amount,
+      transactionDate: new Date().toISOString(), // 精确到毫秒
+      currency: currency,
+      category: '转账',
+      note: `初始存入${name}`,
+    };
+
+    const txRes = await fetch('/api/transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify(transactionData),
+    });
+
+    if (!txRes.ok) {
+      console.warn('交易记录添加失败，但资产已保存');
     }
-  };
+
+    eventBus.emit('assetsUpdated');
+    onAssetAdded();
+    resetForm();
+    setShowMenu(false);
+  } catch (err) {
+    console.error('添加现金资产失败', err);
+    alert('添加失败');
+  }
+};
 
   // 添加自定义资产
   const handleAddCustomAsset = async () => {

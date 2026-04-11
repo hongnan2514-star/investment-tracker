@@ -5,18 +5,15 @@ import React, { useState } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import {
   IoFastFood, IoCartOutline, IoCarSportOutline, IoGameControllerOutline,
-  IoMedicalOutline, IoHomeOutline, IoDocumentTextOutline, IoWalletOutline, 
-  IoShirtOutline, IoWaterOutline,IoPhonePortraitOutline, IoConstructOutline,
-  IoBookOutline, IoLaptopOutline, IoFitnessOutline, IoPeopleOutline,
+  IoMedicalOutline, IoHomeOutline, IoDocumentTextOutline, IoShirtOutline, 
+  IoWaterOutline,IoPhonePortraitOutline, IoConstructOutline,
+  IoBookOutline, IoFitnessOutline, IoPeopleOutline,
   IoHeartOutline,IoAirplaneOutline,IoPawOutline, IoBeerOutline, IoTicketOutline, IoExtensionPuzzleOutline,
 } from "react-icons/io5";
 import {
-  FaMoneyBillWave, FaBriefcase, FaChartLine, FaGift, FaTrophy,
-  FaClock, FaHandHoldingUsd, FaPiggyBank, FaLaptopCode,
-  FaGem, FaPalette, FaMobileAlt, FaWifi, FaCar, FaGraduationCap,
-  FaBuilding, FaFutbol, FaUsers, FaHandshake, FaBabyCarriage,
-  FaDog, FaPlane, FaUmbrellaBeach, FaTicketAlt,
-  FaQuestionCircle, FaAppStoreIos
+  FaMoneyBillWave, FaBriefcase, FaGift, FaTrophy, FaClock, FaHandHoldingUsd, 
+  FaPiggyBank, FaLaptopCode, FaGem, FaMobileAlt, FaWifi, FaCar, FaBabyCarriage, 
+  FaUmbrellaBeach, FaAppStoreIos
 } from "react-icons/fa";
 import { AiFillPhone } from "react-icons/ai"
 import { TbTax } from "react-icons/tb";
