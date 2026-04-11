@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     await sql`
     INSERT INTO transactions (user_id, asset_symbol, transaction_type, quantity, price, transaction_date, currency, category, note)
     VALUES (${userId}, ${assetSymbol}, ${transactionType}, ${quantity}, ${price}, ${transactionDate}, ${currency}, ${category || null}, ${note || null})
-    2`;
+    `;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('添加交易记录失败:', error);
