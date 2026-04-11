@@ -109,7 +109,7 @@ const formatTransactionTime = (dateStr: string) => {
   );
 
   return (
-    <div className="space-y-4 mb-20">
+    <div className="space-y-4 mb-20"> 
 {sortedDateKeys.map(dateKey => {
   const dayTransactions = groupedTransactions[dateKey];
   return (
