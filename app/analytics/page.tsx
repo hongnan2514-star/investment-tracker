@@ -1,4 +1,5 @@
 // app/analytics/page.tsx
+
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, AlertCircle, Newspaper, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -9,6 +10,7 @@ import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import AIChatBox from '@/components/AIChatBox';
 import ProfitOverview from '@/components/ProfitOverview';
+import ProfitCalendar from '@/components/ProfitCalendar';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
@@ -102,55 +104,25 @@ useEffect(() => {
 }, [fetchMidnightValues]);
 
   // 获取快照历史并计算收益
-  const fetchSnapshotHistory = useCallback(async () => {
-    const userId = getCurrentUserId();
-    if (!userId) return;
-
-    try {
-      const period = '6M'; // 获取半年数据，足够日历使用
-      const assets = getAssets();
-      const res = await fetch('/api/snapshot/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, period, targetCurrency: currency, assets }),
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      let rawData: { timestamp: number; value: number }[] = json.data || [];
-
-      // 按日期分组，取每天最后一个点（净值）
-      const dailyNetWorth: { date: string; netWorth: number }[] = [];
-      const map = new Map<string, number>();
-      for (const point of rawData) {
-        const date = new Date(point.timestamp).toISOString().split('T')[0];
-        map.set(date, point.value);
-      }
-      const sortedDates = Array.from(map.keys()).sort();
-      for (const date of sortedDates) {
-        dailyNetWorth.push({ date, netWorth: map.get(date)! });
-      }
-
-      // 计算每日收益（当日净值 - 昨日净值）
-      const returns: DailyReturn[] = [];
-      for (let i = 1; i < dailyNetWorth.length; i++) {
-        const today = dailyNetWorth[i];
-        const yesterday = dailyNetWorth[i-1];
-        const profit = today.netWorth - yesterday.netWorth;
-        returns.push({ date: today.date, value: profit });
-      }
-
-      setDailyReturns(returns);
-
-      // 昨日收益：最近一天（如果今天有快照，取今天与昨天差值；否则取最近两天）
-      if (returns.length > 0) {
-        setYesterdayProfit(0);
-      }
-    } catch (err) {
-      console.error('获取快照数据失败', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [currency]);
+const fetchSnapshotHistory = useCallback(async () => {
+  const userId = getCurrentUserId();
+  if (!userId) return;
+  try {
+    const res = await fetch('/api/snapshot/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    setDailyReturns(json.data || []);
+  } catch (err) {
+    console.error('获取收益日历失败', err);
+    setDailyReturns([]);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   // 获取资产总价值（用于AI上下文）
   const fetchTotalValue = useCallback(async () => {
@@ -233,59 +205,12 @@ useEffect(() => {
   currencySymbol={symbol}
 />
 
-      {/* 收益日历 */}
-      <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <Calendar size={20} className="text-gray-500 dark:text-gray-400" />
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">收益日历</h3>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => changeMonth(-1)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <span className="text-sm font-medium">
-              {currentMonth.getFullYear()}年 {currentMonth.getMonth()+1}月
-            </span>
-            <button
-              onClick={() => changeMonth(1)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 dark:text-gray-400 mb-2">
-          {['日','一','二','三','四','五','六'].map(day => <div key={day}>{day}</div>)}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {getCalendarDays().map((day, idx) => (
-            <div
-              key={idx}
-              className={`aspect-square flex flex-col items-center justify-center rounded-lg text-xs ${
-                day.profit !== undefined && day.profit !== null
-                  ? day.profit >= 0
-                    ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
-                    : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-                  : 'text-gray-300 dark:text-gray-600'
-              }`}
-            >
-              <span className="font-bold">{day.date ? day.date.split('-')[2] : ''}</span>
-              {day.profit !== undefined && day.profit !== null && (
-                <span className="text-[10px]">
-                  {day.profit >= 0 ? '+' : ''}{formatMoney(Math.abs(day.profit))}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 text-center">
-          每日收益 = 当日净值 - 前日净值
-        </p>
-      </div>
+<ProfitCalendar
+  dailyReturns={dailyReturns}
+  currentMonth={currentMonth}
+  onMonthChange={changeMonth}
+  formatMoney={formatMoney}
+/>
 
       {/* AI 解读卡片 */}
       <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
