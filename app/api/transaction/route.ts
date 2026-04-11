@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
 
   try {
     await sql`
-    INSERT INTO transactions (user_id, asset_symbol, transaction_type, quantity, price, transaction_date, currency, category, note)
-    VALUES (${userId}, ${assetSymbol}, ${transactionType}, ${quantity}, ${price}, ${transactionDate}, ${currency}, ${category || null}, ${note || null})
+      INSERT INTO transactions (user_id, asset_symbol, transaction_type, quantity, price, transaction_date, currency, category, note)
+      VALUES (${userId}, ${assetSymbol}, ${transactionType}, ${quantity}, ${price}, ${transactionDate}, ${currency}, ${category || null}, ${note || null})
     `;
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -77,7 +77,7 @@ export async function DELETE(request: NextRequest) {
     const transactions = await sql`
       SELECT id, asset_symbol, transaction_type, price
       FROM transactions
-      WHERE user_id = ${userId} AND id = ANY(${ids})
+      WHERE user_id = ${userId} AND id = ANY(${ids}::int[])
     `;
 
     if (transactions.length === 0) {
@@ -88,8 +88,8 @@ export async function DELETE(request: NextRequest) {
     const balanceChanges: Record<string, number> = {};
     for (const tx of transactions) {
       const { asset_symbol, transaction_type, price } = tx;
-      // 收入（buy）删除后应减少余额，支出（sell）删除后应增加余额
-      const delta = transaction_type === 'buy' ? -price : price;
+      const priceNum = Number(price); // 确保是数字
+      const delta = transaction_type === 'buy' ? -priceNum : priceNum;
       balanceChanges[asset_symbol] = (balanceChanges[asset_symbol] || 0) + delta;
     }
 
@@ -104,7 +104,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 4. 删除交易记录
-    await sql`DELETE FROM transactions WHERE user_id = ${userId} AND id = ANY(${ids})`;
+    await sql`DELETE FROM transactions WHERE user_id = ${userId} AND id = ANY(${ids}::int[])`;
 
     return NextResponse.json({ success: true });
   } catch (error) {
