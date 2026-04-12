@@ -15,6 +15,7 @@ export default function ProfitOverview({
   yesterdayProfit,
   weekProfit,
   weekReturnRate,
+  currencySymbol,
 }: ProfitOverviewProps) {
   const { currency } = useCurrency();
 
@@ -38,11 +39,11 @@ export default function ProfitOverview({
     return '';
   };
 
-  return (
+return (
     <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 mb-4">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">收益总览</h2>
-        <span className="text-sm text-gray-400 dark:text-gray-500 ml-0.5">
+        <span className="text-sm text-gray-400 dark:text-gray-500">
           ({currency})
         </span>
       </div>
@@ -51,13 +52,13 @@ export default function ProfitOverview({
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400">昨日收益</p >
           <p className={`text-xl font-black ${getValueColorClass(yesterdayProfit)}`}>
-            {getSign(yesterdayProfit)}{formatMoney(Math.abs(yesterdayProfit))}
+            {getSign(yesterdayProfit)}{currencySymbol}{formatMoney(Math.abs(yesterdayProfit))}
           </p >
         </div>
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400">本周收益</p >
           <p className={`text-xl font-black ${getValueColorClass(weekProfit)}`}>
-            {getSign(weekProfit)}{formatMoney(Math.abs(weekProfit))}
+            {getSign(weekProfit)}{currencySymbol}{formatMoney(Math.abs(weekProfit))}
           </p >
         </div>
         <div>

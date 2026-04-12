@@ -29,12 +29,16 @@ export default function AnalyticsPage() {
   const [calendarPeriod, setCalendarPeriod] = useState<Period>('day');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [convertedYesterdayProfit, setConvertedYesterdayProfit] = useState(0);
+  const [convertedWeekProfit, setConvertedWeekProfit] = useState(0);
+  const [convertedTotalValue, setConvertedTotalValue] = useState(0);
 
   const { currency, symbol } = useCurrency();
   const { convert, loading: converting } = useCurrencyConverter();
+  const [convertedDailyReturns, setConvertedDailyReturns] = useState<DailyReturn[]>([]);
 
-const [todayMidnightValue, setTodayMidnightValue] = useState<number | null>(null);
-const [yesterdayMidnightValue, setYesterdayMidnightValue] = useState<number | null>(null);
+  const [todayMidnightValue, setTodayMidnightValue] = useState<number | null>(null);
+  const [yesterdayMidnightValue, setYesterdayMidnightValue] = useState<number | null>(null);
 
 const fetchMidnightValues = useCallback(async () => {
   const userId = getCurrentUserId();
@@ -48,7 +52,7 @@ const fetchMidnightValues = useCallback(async () => {
 
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
-  // 获取今日、昨日、7天前快照
+  // 获取今日、昨日快照
   const [todayRes, yesterdayRes] = await Promise.all([
     fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(today)}`),
     fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(yesterday)}`),
@@ -56,52 +60,72 @@ const fetchMidnightValues = useCallback(async () => {
 
   const todayData = await todayRes.json();
   const yesterdayData = await yesterdayRes.json();
-  const todayVal = todayData.netWorth;
-  const yesterdayVal = yesterdayData.netWorth;
+  const todayValCNY = todayData.netWorth;
+  const yesterdayValCNY = yesterdayData.netWorth;
 
   // 寻找实际可用的“7天前”快照（若不存在则向前回溯）
-  let actualSevenDaysVal = null;
+  let actualSevenDaysValCNY = null;
   let attemptDate = new Date(sevenDaysAgo);
-  const maxAttempts = 30; // 最多向前回溯30天，避免无限循环
+  const maxAttempts = 30;
   let attempts = 0;
 
-  while (actualSevenDaysVal === null && attempts < maxAttempts) {
+  while (actualSevenDaysValCNY === null && attempts < maxAttempts) {
     const dateStr = formatDate(attemptDate);
     const res = await fetch(`/api/snapshot/midnight?userId=${userId}&date=${dateStr}`);
     const data = await res.json();
     if (data.netWorth !== null) {
-      actualSevenDaysVal = data.netWorth;
+      actualSevenDaysValCNY = data.netWorth;
       break;
     }
-    attemptDate.setDate(attemptDate.getDate() - 1); // 向前推一天
+    attemptDate.setDate(attemptDate.getDate() - 1);
     attempts++;
   }
 
-  // 昨日收益
-  if (todayVal !== null && yesterdayVal !== null) {
-    setYesterdayProfit(todayVal - yesterdayVal);
-  } else {
-    setYesterdayProfit(0);
+  // 计算原始 CNY 利润
+  let rawYesterdayProfit = 0;
+  let rawWeekProfit = 0;
+  let rawWeekReturnRate = 0;
+
+  if (todayValCNY !== null && yesterdayValCNY !== null) {
+    rawYesterdayProfit = todayValCNY - yesterdayValCNY;
+  }
+  if (todayValCNY !== null && actualSevenDaysValCNY !== null) {
+    rawWeekProfit = todayValCNY - actualSevenDaysValCNY;
+    rawWeekReturnRate = actualSevenDaysValCNY !== 0 ? (rawWeekProfit / actualSevenDaysValCNY) * 100 : 0;
   }
 
-  // 本周收益 & 收益率（使用实际找到的快照）
-  if (todayVal !== null && actualSevenDaysVal !== null) {
-    const profit = todayVal - actualSevenDaysVal;
-    setWeekProfit(profit);
-    if (actualSevenDaysVal !== 0) {
-      setWeekReturnRate((profit / actualSevenDaysVal) * 100);
-    } else {
-      setWeekReturnRate(0);
-    }
-  } else {
-    setWeekProfit(0);
-    setWeekReturnRate(0);
-  }
-}, []);
+  // 保存原始 CNY 利润（用于后续货币切换时重新转换）
+  setYesterdayProfit(rawYesterdayProfit);
+  setWeekProfit(rawWeekProfit);
+  setWeekReturnRate(rawWeekReturnRate);
+
+  // 转换为当前选择的货币
+  const convertedYesterday = await convert(rawYesterdayProfit, 'CNY', currency);
+  const convertedWeek = await convert(rawWeekProfit, 'CNY', currency);
+  setConvertedYesterdayProfit(convertedYesterday);
+  setConvertedWeekProfit(convertedWeek);
+}, [currency, convert]);
 
 useEffect(() => {
   fetchMidnightValues();
 }, [fetchMidnightValues]);
+
+useEffect(() => {
+  const convertDailyReturns = async () => {
+    if (dailyReturns.length === 0) {
+      setConvertedDailyReturns([]);
+      return;
+    }
+    const converted = await Promise.all(
+      dailyReturns.map(async (item) => ({
+        date: item.date,
+        value: await convert(item.value, 'CNY', currency),
+      }))
+    );
+    setConvertedDailyReturns(converted);
+  };
+  convertDailyReturns();
+}, [dailyReturns, currency, convert]);
 
   // 获取快照历史并计算收益
 const fetchSnapshotHistory = useCallback(async () => {
@@ -124,17 +148,30 @@ const fetchSnapshotHistory = useCallback(async () => {
   }
 }, []);
 
-  // 获取资产总价值（用于AI上下文）
-  const fetchTotalValue = useCallback(async () => {
-    const assets = getAssets();
-    let total = 0;
-    for (const asset of assets) {
-      const fromCurrency = asset.currency || 'USD';
-      const value = await convert(asset.marketValue, fromCurrency as any, currency);
-      total += value;
+useEffect(() => {
+  const convertProfits = async () => {
+    if (yesterdayProfit !== 0 || weekProfit !== 0) {
+      const convertedYesterday = await convert(yesterdayProfit, 'CNY', currency);
+      const convertedWeek = await convert(weekProfit, 'CNY', currency);
+      setConvertedYesterdayProfit(convertedYesterday);
+      setConvertedWeekProfit(convertedWeek);
     }
-    setTotalValue(total);
-  }, [currency, convert]);
+  };
+  convertProfits();
+}, [currency, convert, yesterdayProfit, weekProfit]);
+
+  // 获取资产总价值（用于AI上下文）
+const fetchTotalValue = useCallback(async () => {
+  const assets = getAssets();
+  let total = 0;
+  for (const asset of assets) {
+    const fromCurrency = asset.currency || 'USD';
+    const value = await convert(asset.marketValue, fromCurrency as any, currency);
+    total += value;
+  }
+  setTotalValue(total);
+  setConvertedTotalValue(total);
+}, [currency, convert]);
 
   useEffect(() => {
     fetchSnapshotHistory();
@@ -187,8 +224,8 @@ const fetchSnapshotHistory = useCallback(async () => {
   const generateUserContext = () => {
     if (assets.length === 0) return '';
     const holdings = assets.map(a => `${a.name}(${a.symbol}): ${a.holdings}份, 今日涨跌${a.changePercent?.toFixed(2)}%`).join('；');
-    return `用户当前持仓：${holdings}。昨日收益：${formatMoney(yesterdayProfit)}，本周收益：${formatMoney(weekProfit)}，本周收益率：${formatPercent(weekReturnRate)}%。`;
-  };
+     return `用户当前持仓：${holdings}。昨日收益：${formatMoney(convertedYesterdayProfit)}，本周收益：${formatMoney(convertedWeekProfit)}，本周收益率：${formatPercent(weekReturnRate)}%。`;
+};
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 pb-24">
@@ -199,29 +236,29 @@ const fetchSnapshotHistory = useCallback(async () => {
 
       {/* 收益总览卡片 */}
 <ProfitOverview
-  yesterdayProfit={yesterdayProfit}
-  weekProfit={weekProfit}
+  yesterdayProfit={convertedYesterdayProfit}
+  weekProfit={convertedWeekProfit}
   weekReturnRate={weekReturnRate}
   currencySymbol={symbol}
 />
 
+{/* AI 解读卡片 */}
+<div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
+  <div className="flex items-start gap-2">
+    <AlertCircle size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+    <div className="text-sm text-blue-900 dark:text-blue-300">
+      <p>昨日收益 {convertedYesterdayProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(convertedYesterdayProfit))}，本周累计 {convertedWeekProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(convertedWeekProfit))}，收益率 {weekReturnRate >= 0 ? '+' : ''}{formatPercent(weekReturnRate)}%。</p >
+      <p className="mt-1">根据历史数据，您的资产表现{weekReturnRate >= 0 ? '优于大盘' : '弱于大盘'}，建议关注波动较大的资产。</p >
+    </div>
+  </div>
+</div>
+
 <ProfitCalendar
-  dailyReturns={dailyReturns}
+  dailyReturns={convertedDailyReturns}
   currentMonth={currentMonth}
   onMonthChange={changeMonth}
   formatMoney={formatMoney}
 />
-
-      {/* AI 解读卡片 */}
-      <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
-        <div className="flex items-start gap-2">
-          <AlertCircle size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-900 dark:text-blue-300">
-            <p>昨日收益 {yesterdayProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(yesterdayProfit))}，本周累计 {weekProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(weekProfit))}，收益率 {weekReturnRate >= 0 ? '+' : ''}{formatPercent(weekReturnRate)}%。</p>
-            <p className="mt-1">根据历史数据，您的资产表现{weekReturnRate >= 0 ? '优于大盘' : '弱于大盘'}，建议关注波动较大的资产。</p>
-          </div>
-        </div>
-      </div>
 
       {/* 底部固定 AI 聊天框 */}
       <div className="fixed bottom-16 left-0 right-0 px-4 z-50">
