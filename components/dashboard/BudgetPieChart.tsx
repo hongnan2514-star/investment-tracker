@@ -184,7 +184,7 @@ export default function BudgetPieChart({
     <>
       <div className="px-2 mb-2">
         <div className="cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-          <div className="flex flex-row items-center gap-3 justify-start flex-nowrap">
+          <div className="flex flex-row items-center gap-3 relative">
             {!isExpanded && (
               <div className="flex-shrink-0">
                 <div style={{ width: chartSize, height: chartSize }} className="relative">
@@ -223,35 +223,42 @@ export default function BudgetPieChart({
               </div>
             )}
 <div className={`flex-1 flex flex-col ${isExpanded ? 'mt-6' : ''}`}>
-  <div className="flex flex-row justify-between items-baseline">
-    <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">本月剩余预算：</span>
-    <button
-      onClick={handleBudgetClick}
-      className="text-base font-bold text-gray-700 dark:text-gray-100 whitespace-nowrap hover:opacity-70 transition"
-    >
-      {isAmountHidden ? (
-        <span className="tracking-widest">****</span>
-      ) : (
-        `${currencySymbol}${formatLargeNumber(remaining)}`
-      )}
-    </button>
+<div className="flex items-baseline">
+  <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+    本月剩余预算：
+  </span>
+
+  <button
+    onClick={handleBudgetClick}
+    className="flex-1 text-right text-base font-bold text-gray-700 dark:text-gray-100 whitespace-nowrap hover:opacity-70 transition"
+  >
+    {isAmountHidden ? (
+      <span className="tracking-widest">****</span>
+    ) : (
+      `${currencySymbol}${formatLargeNumber(remaining)}`
+    )}
+  </button>
+</div>
+
+{!isExpanded && avgDailyExpense !== undefined && (
+<div className="flex items-baseline mt-0.5">
+  <span className="text-xs text-gray-500 dark:text-gray-400">
+    日均支出
+  </span>
+
+  <span className="flex-1 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+      {currencySymbol}{formatLargeNumber(avgDailyExpense)}
+    </span>
   </div>
-  {!isExpanded && avgDailyExpense !== undefined && (
-    <div className="flex flex-row justify-between items-baseline mt-0.5">
-      <span className="text-xs text-gray-500 dark:text-gray-400">日均支出</span>
-      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-        {currencySymbol}{formatLargeNumber(avgDailyExpense)}
-      </span>
-    </div>
+)}
+</div>
+<div className="absolute right-0 top-1/2 -translate-y-1/2 translate-y-[24px]">
+  {isExpanded ? (
+    <ChevronUp size={20} className="text-gray-500" />
+  ) : (
+    <ChevronDown size={20} className="text-gray-500" />
   )}
 </div>
-            <div className="flex-shrink-0">
-              {isExpanded ? (
-                <ChevronUp size={20} className="text-gray-500 relative top-3" />
-              ) : (
-                <ChevronDown size={20} className="text-gray-500" />
-              )}
-            </div>
           </div>
         </div>
 
