@@ -18,7 +18,7 @@ import {
   ChevronDown, Circle, CheckCircle,
 } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
-import { useCurrency } from '@/src/services/currency';
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import BudgetPieChart from '@/components/dashboard/BudgetPieChart';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
@@ -31,6 +31,7 @@ type Transaction = {
   id: string;
   type: 'income' | 'expense';
   amount: number;
+  currency: string;
   category: string;
   note: string;
   date: string;
@@ -110,7 +111,8 @@ function TransactionSkeleton() {
 export default function LedgerPage() {
   const router = useRouter();
   const { theme } = useTheme();
-  const { symbol: currencySymbol } = useCurrency();
+  const { symbol: currencySymbol, currency } = useCurrency();
+  const { convert } = useCurrencyConverter();
   const [currentYear, setCurrentYear] = useState(2026);
   const [currentMonth, setCurrentMonth] = useState(3);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -128,6 +130,15 @@ export default function LedgerPage() {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const selectedIdsRef = useRef(selectedTransactionIds);
+  // 新增状态：存储转换后的汇总数值
+  const [convertedTotalIncome, setConvertedTotalIncome] = useState(0);
+  const [convertedTotalExpense, setConvertedTotalExpense] = useState(0);
+  const [convertedNetBalance, setConvertedNetBalance] = useState(0);
+  // 存储转换后的交易列表（用于 TransactionList）
+  const [convertedTransactions, setConvertedTransactions] = useState<Transaction[]>([]);
+  // 存储转换后的账户余额（用于展示）
+  const [convertedAccounts, setConvertedAccounts] = useState<AccountAsset[]>([]);
+  const [convertedBudget, setConvertedBudget] = useState(MONTHLY_BUDGET);
 
   useEffect(() => {
   selectedIdsRef.current = selectedTransactionIds;
@@ -169,6 +180,55 @@ const getIconPath = (logoUrl: string | undefined, theme: string) => {
   const suffix = theme === 'dark' ? 'dark' : 'light';
   return `/icons/payment/${key}_${suffix}.png`;
 };
+useEffect(() => {
+  if (!convert) return;
+  const convertAllValues = async () => {
+    if (accounts.length === 0 && allTransactions.length === 0) {
+      setConvertedTotalIncome(0);
+      setConvertedTotalExpense(0);
+      setConvertedNetBalance(0);
+      setConvertedTransactions([]);
+      setConvertedAccounts([]);
+      return;
+    }
+
+    // 1. 转换账户余额
+    const convertedAccs = await Promise.all(
+      accounts.map(async (acc) => ({
+        ...acc,
+        marketValue: await convert(acc.marketValue, acc.currency as any, currency),
+      }))
+    );
+    setConvertedAccounts(convertedAccs);
+
+    // 2. 转换每笔交易的金额和余额后值
+    const convertedTxs = await Promise.all(
+      allTransactions.map(async (tx) => ({
+        ...tx,
+        amount: await convert(tx.amount, tx.currency as any, currency),
+        accountBalanceAfter: await convert(tx.accountBalanceAfter, tx.currency as any, currency),
+      }))
+    );
+    setConvertedTransactions(convertedTxs);
+
+    // 3. 重新计算当前月份的汇总（使用转换后的交易）
+    const monthTxs = convertedTxs.filter(t => {
+      const [year, month] = t.date.split('-');
+      return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
+    });
+
+    const incomeSum = monthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expenseSum = monthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    setConvertedTotalIncome(incomeSum);
+    setConvertedTotalExpense(expenseSum);
+    setConvertedNetBalance(incomeSum - expenseSum);
+    
+    const convertedBudgetValue = await convert(monthlyBudget, 'CNY', currency);
+    setConvertedBudget(convertedBudgetValue);
+  };
+
+  convertAllValues();
+}, [accounts, allTransactions, currentYear, currentMonth, currency, convert]);
 
   const loadAccounts = useCallback(async () => {
     const userId = getCurrentUserId();
@@ -291,6 +351,7 @@ useEffect(() => {
             id: tx.id.toString(),
             type: isIncome ? 'income' : 'expense',
             amount: amountNum,
+            currency: account.currency,
             category: tx.category || '其他',
             note: tx.note || '',
             date: tx.transaction_date,
@@ -334,9 +395,11 @@ useEffect(() => {
 }, []);
 
 // 保存预算
-const handleBudgetUpdate = (newBudget: number) => {
-  setMonthlyBudget(newBudget);
-  localStorage.setItem('monthly_budget', newBudget.toString());
+const handleBudgetUpdate = async (newBudget: number) => {
+  // 将新预算从当前货币转换回 CNY 存储
+  const budgetInCNY = await convert(newBudget, currency, 'CNY');
+  setMonthlyBudget(budgetInCNY);
+  localStorage.setItem('monthly_budget', budgetInCNY.toString());
 };
 
   useEffect(() => {
@@ -354,16 +417,18 @@ const handleBudgetUpdate = (newBudget: number) => {
     return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
   });
 
-  const expenseByCategory = useMemo(() => {
+const expenseByCategory = useMemo(() => {
   const map = new Map<string, number>();
-  currentMonthTransactions.forEach(t => {
-    if (t.type === 'expense') {
-      const category = t.category;
-      map.set(category, (map.get(category) || 0) + t.amount);
-    }
-  });
+  convertedTransactions
+    .filter(t => {
+      const [year, month] = t.date.split('-');
+      return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1 && t.type === 'expense';
+    })
+    .forEach(t => {
+      map.set(t.category, (map.get(t.category) || 0) + t.amount);
+    });
   return Array.from(map.entries()).map(([category, amount]) => ({ category, amount }));
-}, [currentMonthTransactions]);
+}, [convertedTransactions, currentYear, currentMonth]);
 
   const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
@@ -573,30 +638,30 @@ return (
               <ChevronDown size={18} className="translate-x-1 text-gray-500 dark:text-gray-400 translate-y-2 -m-1" />
             </div>
           </div>
-          <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>
-          <div>
-            <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
-              <span>月结余</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              {currencySymbol}{netBalance.toFixed(2)}
-            </p>
-            <div className="flex gap-4 mt-1 text-sm">
-              <div className="flex items-center gap-1">
-                <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {currencySymbol}{totalExpense.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {currencySymbol}{totalIncome.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+<div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>
+  <div>
+    <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
+      <span>月结余</span>
+    </div>
+    <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+      {currencySymbol}{convertedNetBalance.toFixed(2)}
+    </p >
+    <div className="flex gap-4 mt-1 text-sm">
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">
+          {currencySymbol}{convertedTotalExpense.toFixed(2)}
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">
+          {currencySymbol}{convertedTotalIncome.toFixed(2)}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
       )}
 
       {/* 饼图区域 - 条件渲染 */}
@@ -605,11 +670,11 @@ return (
           <PieChartSkeleton />
         ) : (
 <BudgetPieChart 
-  budget={monthlyBudget} 
-  spent={totalExpense} 
+  budget={convertedBudget} 
+  spent={convertedTotalExpense} 
   currencySymbol={currencySymbol}
   expenseByCategory={expenseByCategory}
-  totalExpense={totalExpense}
+  totalExpense={convertedTotalExpense}
   onBudgetUpdate={handleBudgetUpdate}
 />
         )}
@@ -619,20 +684,21 @@ return (
       {loadingTransactions ? (
         <TransactionSkeleton />
       ) : (
-        <TransactionList
-  transactions={sortedTransactions}
+<TransactionList
+  transactions={convertedTransactions.filter(t => {
+    const [year, month] = t.date.split('-');
+    return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
+  })}
   currencySymbol={currencySymbol}
   emptyMessage="暂无收支记录"
   isSelectMode={isSelectMode}
   selectedIds={selectedTransactionIds}
-  onToggleSelect={(id: string) => {
-    setSelectedTransactionIds(prev => {
+  onToggleSelect={(id: string) => {setSelectedTransactionIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) newSet.delete(id);
       else newSet.add(id);
       return newSet;
-    });
-  }}
+    });}}
 />
       )}
     </div>

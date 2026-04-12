@@ -186,6 +186,7 @@ const bankIcons = [
   { key: 'bod', name: 'BOD', lightFile: 'bod_light.png', darkFile: 'bod_dark.png' },
   { key: 'ceb', name: 'CEB', lightFile: 'ceb_light.png', darkFile: 'ceb_dark.png' },
   { key: 'cgb', name: 'CGB', lightFile: 'cgb_light.png', darkFile: 'cgb_dark.png' },
+  { key: 'gdb', name: 'GDB', lightFile: 'gdb_light.png', darkFile: 'gdb_dark.png' },
 ];
 
 const allIcons = [...networkIcons, ...bankIcons];
