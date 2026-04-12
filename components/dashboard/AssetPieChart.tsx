@@ -12,7 +12,7 @@ import { usePathname } from 'next/navigation';
 // 仅保留类型名称，颜色动态生成
 const ASSET_TYPE_CONFIG: Record<string, { name: string }> = {
   stock: { name: '股票' },
-  fund: { name: '基金' },
+  fund: { name: '基金' }, 
   crypto: { name: '加密货币' },
   metal: { name: '贵金属' },
   car: { name: '车辆' },
