@@ -655,47 +655,54 @@ return (
       </button>
 
     {/* 底部菜单：选择收入/支出 */}
-    {showAddMenu && (
-      <>
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity" onClick={() => setShowAddMenu(false)} />
-        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-8 pb-12 transition-transform duration-500 ease-in-out transform translate-y-0">
-          <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-8" />
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">选择类型</h3>
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={() => handleSelectType('income')}
-              className="flex items-center justify-between p-5 bg-green-50 dark:bg-green-900/30 rounded-[28px] border border-green-100 dark:border-green-800 group active:scale-[0.98] transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-green-200 dark:shadow-green-900/20">
-                  <TrendingUp size={24} />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-green-900 dark:text-green-300 text-lg">收入</p>
-                  <p className="text-xs text-green-600/70 dark:text-green-400/70 font-medium">工资、理财、红包等</p>
-                </div>
-              </div>
-              <ChevronRight className="text-green-300 dark:text-green-500 group-active:translate-x-1 transition-transform" />
-            </button>
-            <button
-              onClick={() => handleSelectType('expense')}
-              className="flex items-center justify-between p-5 bg-red-50 dark:bg-red-900/30 rounded-[28px] border border-red-100 dark:border-red-800 group active:scale-[0.98] transition-all"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-red-600 p-3 rounded-2xl text-white shadow-lg shadow-red-200 dark:shadow-red-900/20">
-                  <TrendingDown size={24} />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-red-900 dark:text-red-300 text-lg">支出</p>
-                  <p className="text-xs text-red-600/70 dark:text-red-400/70 font-medium">餐饮、购物、交通等</p>
-                </div>
-              </div>
-              <ChevronRight className="text-red-300 dark:text-red-500 group-active:translate-x-1 transition-transform" />
-            </button>
-          </div>
+{showAddMenu && (
+  <div
+    className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity duration-300"
+    onClick={() => setShowAddMenu(false)}
+  />
+)}
+
+{/* 菜单面板 - 始终渲染，通过 transform 控制位置 */}
+<div
+  className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-8 pb-12 transition-all duration-300 ease-out transform ${
+    showAddMenu ? 'translate-y-0' : 'translate-y-full'
+  }`}
+>
+  <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-8" />
+  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">选择类型</h3>
+  <div className="flex flex-col gap-4">
+    <button
+      onClick={() => handleSelectType('income')}
+      className="flex items-center justify-between p-5 bg-green-50 dark:bg-green-900/30 rounded-[28px] border border-green-100 dark:border-green-800 group active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-center gap-4">
+        <div className="bg-green-600 p-3 rounded-2xl text-white shadow-lg shadow-green-200 dark:shadow-green-900/20">
+          <TrendingUp size={24} />
         </div>
-      </>
-    )}
+        <div className="text-left">
+          <p className="font-bold text-green-900 dark:text-green-300 text-lg">收入</p >
+          <p className="text-xs text-green-600/70 dark:text-green-400/70 font-medium">工资、理财、红包等</p >
+        </div>
+      </div>
+      <ChevronRight className="text-green-300 dark:text-green-500 group-active:translate-x-1 transition-transform" />
+    </button>
+    <button
+      onClick={() => handleSelectType('expense')}
+      className="flex items-center justify-between p-5 bg-red-50 dark:bg-red-900/30 rounded-[28px] border border-red-100 dark:border-red-800 group active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-center gap-4">
+        <div className="bg-red-600 p-3 rounded-2xl text-white shadow-lg shadow-red-200 dark:shadow-red-900/20">
+          <TrendingDown size={24} />
+        </div>
+        <div className="text-left">
+          <p className="font-bold text-red-900 dark:text-red-300 text-lg">支出</p >
+          <p className="text-xs text-red-600/70 dark:text-red-400/70 font-medium">餐饮、购物、交通等</p >
+        </div>
+      </div>
+      <ChevronRight className="text-red-300 dark:text-red-500 group-active:translate-x-1 transition-transform" />
+    </button>
+  </div>
+</div>
 
     {/* 账户选择浮层 */}
     {showAccountSelector && (

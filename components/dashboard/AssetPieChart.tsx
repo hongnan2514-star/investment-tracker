@@ -13,10 +13,10 @@ import { usePathname } from 'next/navigation';
 const ASSET_TYPE_CONFIG: Record<string, { name: string }> = {
   stock: { name: '股票' },
   fund: { name: '基金' },
-  crypto: { name: '数字货币' },
+  crypto: { name: '加密货币' },
   metal: { name: '贵金属' },
   car: { name: '车辆' },
-  real_estate: { name: '不动产' },
+  real_estate: { name: '不动产' },  
   custom: { name: '现金' },
   receivable: { name: '应收款' },
   liability: { name: '负债' },
