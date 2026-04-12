@@ -27,6 +27,9 @@ import CategorySelector from '@/components/CategorySelector';
 import TransactionList from '@/components/TransactionList';
 import BillSelectMenu from '@/components/BillSelectMenu';
 import LedgerSummary from '@/components/LedgerSummary';
+import LedgerSummarySkeleton from '@/components/ledger/LedgerSummarySkeleton';
+import BudgetPieChartSkeleton from '@/components/ledger/BudgetPieChartSkeleton';
+import TransactionListSkeleton from '@/components/ledger/TransactionListSkeleton';
 
 type Transaction = {
   id: string;
@@ -52,61 +55,6 @@ interface AccountAsset {
   currency: string;
   logoUrl?: string;
   type: string;
-}
-
-// 交易列表骨架屏组件
-function SummarySkeleton() {
-  return (
-    <div className="flex items-start gap-3 mb-6 px-2 animate-pulse">
-      <div className="flex flex-col shrink-0">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2" />
-        <div className="flex items-center gap-0 mt-0.5">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-          <div className="w-5 h-5 bg-gray-200 dark:bg-gray-700 rounded-full ml-1" />
-        </div>
-      </div>
-      <div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center" />
-      <div>
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12 mb-2" />
-        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2" />
-        <div className="flex gap-4 mt-1">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// 饼图骨架屏
-function PieChartSkeleton() {
-  return <div className="h-32 w-full" />;
-}
-// 交易列表骨架屏（已有）
-function TransactionSkeleton() {
-  return (
-    <div className="space-y-3 mb-20">
-      {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} className="bg-white dark:bg-[#0a0a0a] rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800 animate-pulse">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full" />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20" />
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-                </div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-32 mt-1" />
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-24 mt-1" />
-              </div>
-            </div>
-            <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-16" />
-          </div>
-          <div className="mt-2 h-3 bg-gray-200 dark:bg-gray-700 rounded w-32 ml-auto" />
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export default function LedgerPage() {
@@ -140,6 +88,7 @@ export default function LedgerPage() {
   // 存储转换后的账户余额（用于展示）
   const [convertedAccounts, setConvertedAccounts] = useState<AccountAsset[]>([]);
   const [convertedBudget, setConvertedBudget] = useState(MONTHLY_BUDGET);
+  const [conversionReady, setConversionReady] = useState(false);
 
   useEffect(() => {
   selectedIdsRef.current = selectedTransactionIds;
@@ -183,13 +132,16 @@ const getIconPath = (logoUrl: string | undefined, theme: string) => {
 };
 useEffect(() => {
   if (!convert) return;
-  const convertAllValues = async () => {
+  const convertAllValues = async () => { 
+    setConversionReady(false);
+
     if (accounts.length === 0 && allTransactions.length === 0) {
       setConvertedTotalIncome(0);
       setConvertedTotalExpense(0);
       setConvertedNetBalance(0);
       setConvertedTransactions([]);
       setConvertedAccounts([]);
+      setConversionReady(true);
       return;
     }
 
@@ -226,6 +178,7 @@ useEffect(() => {
     
     const convertedBudgetValue = await convert(monthlyBudget, 'CNY', currency);
     setConvertedBudget(convertedBudgetValue);
+    setConversionReady(true);
   };
 
   convertAllValues();
@@ -272,6 +225,8 @@ const avgDailyExpense = useMemo(() => {
       setLoadingAccounts(false);
     }
   }, []);
+
+  const isPageLoading = loadingAccounts || loadingTransactions || !conversionReady;
 
   const handleDeleteSelected = async () => {
   if (selectedTransactionIds.size === 0) {
@@ -603,92 +558,98 @@ useEffect(() => {
 
 return (
   <main className="min-h-screen bg-white dark:bg-black p-4 relative">
-    <div className="max-w-md mx-auto">
-<div className="flex justify-between items-center mb-4 px-2">
-  <div>
-    <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
-    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p >
+<div className="max-w-md mx-auto">
+  {/* 头部 */}
+  <div className="flex justify-between items-center mb-4 px-2">
+    <div>
+      <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">收支</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">管理并添加您的收支状况</p >
+    </div>
+    {isSelectMode ? (
+      <button
+        onClick={() => {
+          setIsSelectMode(false);
+          setSelectedTransactionIds(new Set());
+        }}
+        className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+      >
+        <X size={24} className="text-gray-600 dark:text-gray-400" />
+      </button>
+    ) : (
+      <button onClick={() => setShowSelectMenu(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
+        <ListFilterPlus size={24} className="text-gray-600 dark:text-gray-400" />
+      </button>
+    )}
   </div>
-{isSelectMode ? (
-  <button
-    onClick={() => {
-      setIsSelectMode(false);
-      setSelectedTransactionIds(new Set());
-    }}
-    className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-  >
-    <X size={24} className="text-gray-600 dark:text-gray-400" />
-  </button>
-) : (
-  <button onClick={() => setShowSelectMenu(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition">
-    <ListFilterPlus size={24} className="text-gray-600 dark:text-gray-400" />
-  </button>
-)}
-</div>
 
-      <div className="relative mb-6 px-2">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
-        <input
-          type="text"
-          placeholder="查找账单"
-          value={searchKeyword}
-          onChange={(e) => setSearchKeyword(e.target.value)}
-          className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-3xl py-2 pl-12 pr-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none transition"
+  {/* 搜索框 */}
+  <div className="relative mb-6 px-2">
+    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
+    <input
+      type="text"
+      placeholder="查找账单"
+      value={searchKeyword}
+      onChange={(e) => setSearchKeyword(e.target.value)}
+      className="w-full bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-3xl py-2 pl-12 pr-4 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none transition"
+    />
+  </div>
+
+  {/* 统一加载状态切换 */}
+  {isPageLoading ? (
+    <>
+      <LedgerSummarySkeleton />
+      <div className="-mt-6">
+        <BudgetPieChartSkeleton />
+      </div>
+      <TransactionListSkeleton />
+    </>
+  ) : (
+    <>
+      <LedgerSummary
+        loading={false}
+        currentYear={currentYear}
+        currentMonth={currentMonth}
+        monthNames={monthNames}
+        currencySymbol={currencySymbol}
+        netBalance={convertedNetBalance}
+        totalIncome={convertedTotalIncome}
+        totalExpense={convertedTotalExpense}
+        onMonthClick={openMonthPicker}
+      />
+
+      <div className="-mt-6">
+        <BudgetPieChart
+          budget={convertedBudget}
+          spent={convertedTotalExpense}
+          currencySymbol={currencySymbol}
+          expenseByCategory={expenseByCategory}
+          totalExpense={convertedTotalExpense}
+          avgDailyExpense={avgDailyExpense}
+          onBudgetUpdate={handleBudgetUpdate}
         />
       </div>
 
-      {/* 汇总区域 - 条件渲染 */}
-<LedgerSummary
-  loading={loadingTransactions}
-  currentYear={currentYear}
-  currentMonth={currentMonth}
-  monthNames={monthNames}
-  currencySymbol={currencySymbol}
-  netBalance={convertedNetBalance}
-  totalIncome={convertedTotalIncome}
-  totalExpense={convertedTotalExpense}
-  onMonthClick={openMonthPicker}
-/>
-
-      {/* 饼图区域 - 条件渲染 */}
-      <div className="-mt-6">
-        {loadingTransactions ? (
-          <PieChartSkeleton />
-        ) : (
-<BudgetPieChart 
-  budget={convertedBudget} 
-  spent={convertedTotalExpense} 
-  currencySymbol={currencySymbol}
-  expenseByCategory={expenseByCategory}
-  totalExpense={convertedTotalExpense}
-  avgDailyExpense={avgDailyExpense}  
-  onBudgetUpdate={handleBudgetUpdate}
-/>
-        )}
-      </div>
-
-      {/* 交易列表区域 - 条件渲染 */}
-      {loadingTransactions ? (
-        <TransactionSkeleton />
-      ) : (
-<TransactionList
-  transactions={convertedTransactions.filter(t => {
-    const [year, month] = t.date.split('-');
-    return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
-  })}
-  currencySymbol={currencySymbol}
-  emptyMessage="暂无收支记录"
-  isSelectMode={isSelectMode}
-  selectedIds={selectedTransactionIds}
-  onToggleSelect={(id: string) => {setSelectedTransactionIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) newSet.delete(id);
-      else newSet.add(id);
-      return newSet;
-    });}}
-/>
-      )}
-    </div>
+      <TransactionList
+        transactions={convertedTransactions.filter(t => {
+          const [year, month] = t.date.split('-');
+          return parseInt(year) === currentYear && parseInt(month) === currentMonth + 1;
+        })}
+        currencySymbol={currencySymbol}
+        emptyMessage="暂无收支记录"
+        isSelectMode={isSelectMode}
+        selectedIds={selectedTransactionIds}
+        onToggleSelect={(id: string) => {
+          setSelectedTransactionIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id);
+            else newSet.add(id);
+            return newSet;
+          });
+        }}
+      />
+    </>
+  )}
+</div>
 
     <BillSelectMenu
         show={showSelectMenu}
