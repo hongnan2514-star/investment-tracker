@@ -4,20 +4,23 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import {
-  IoFastFood, IoCartOutline, IoCarSportOutline, IoGameControllerOutline,
-  IoMedicalOutline, IoHomeOutline, IoDocumentTextOutline, IoShirtOutline, 
-  IoWaterOutline,IoPhonePortraitOutline, IoConstructOutline,
-  IoBookOutline, IoFitnessOutline, IoPeopleOutline,
-  IoHeartOutline,IoAirplaneOutline,IoPawOutline, IoBeerOutline, IoTicketOutline, IoExtensionPuzzleOutline,
+  IoFastFood, IoDocumentTextOutline, IoPeopleOutline, IoGameController, 
+  IoHeartOutline, IoAirplaneOutline, IoPawOutline, IoBeerOutline, 
+  IoTicketOutline, IoPhonePortrait, IoWater,
 } from "react-icons/io5";
 import {
   FaMoneyBillWave, FaBriefcase, FaGift, FaTrophy, FaClock, FaHandHoldingUsd, 
-  FaPiggyBank, FaLaptopCode, FaGem, FaMobileAlt, FaWifi, FaCar, FaBabyCarriage, 
-  FaUmbrellaBeach, FaAppStoreIos
+  FaPiggyBank, FaLaptopCode, FaGem, FaCar, FaBabyCarriage, 
+  FaUmbrellaBeach, FaAppStoreIos, FaShopify, FaBriefcaseMedical, FaBicycle,
+  FaTshirt, FaBookOpen,
 } from "react-icons/fa";
 import { AiFillPhone } from "react-icons/ai"
 import { TbTax } from "react-icons/tb";
 import { GiLipstick } from "react-icons/gi";
+import { FaHouse } from "react-icons/fa6";
+import { RiInkBottleFill } from "react-icons/ri";
+import { MdEditDocument, MdOutlineSportsTennis, } from "react-icons/md";
+
 
 export interface Category {
   name: string;
@@ -42,23 +45,22 @@ export const INCOME_CATEGORIES: Category[] = [
 // 支出分类列表 - 使用图标组件
 export const EXPENSE_CATEGORIES: Category[] = [
   { name: '餐饮', icon: <IoFastFood className="text-orange-500" size={24} /> },
-  { name: '购物', icon: <IoCartOutline className="text-pink-500" size={24} /> },
+  { name: '购物', icon: <FaShopify className="text-pink-500" size={24} /> },
   { name: '通讯', icon: <AiFillPhone className="text-green-500" size={24} /> },
-  { name: '交通', icon: <IoCarSportOutline className="text-blue-500" size={24} /> },
-  { name: '娱乐', icon: <IoGameControllerOutline className="text-purple-500" size={24} /> },
-  { name: '医疗', icon: <IoMedicalOutline className="text-red-500" size={24} /> },
-  { name: '住房', icon: <IoHomeOutline className="text-amber-600" size={24} /> },
-  { name: '服饰', icon: <IoShirtOutline className="text-indigo-500" size={24} /> },
-  { name: '日用', icon: <IoWaterOutline className="text-sky-500" size={24} /> },
-  { name: '数码', icon: <IoPhonePortraitOutline className="text-gray-700" size={24} /> },
+  { name: '出行', icon: <FaBicycle className="text-blue-500" size={24} /> },
+  { name: '游戏', icon: <IoGameController className="text-purple-500" size={24} /> },
+  { name: '医疗', icon: <FaBriefcaseMedical className="text-red-500" size={24} /> },
+  { name: '住房', icon: <FaHouse className="text-amber-600" size={24} /> },
+  { name: '服饰', icon: <FaTshirt className="text-indigo-500" size={24} /> },
+  { name: '日用', icon: <IoWater className="text-sky-500" size={24} /> },
+  { name: '数码', icon: <IoPhonePortrait className="text-gray-700" size={24} /> },
   { name: '美妆', icon: <GiLipstick className="text-rose-400" size={24} /> },
-  { name: '护肤', icon: <FaMobileAlt className="text-emerald-500" size={24} /> },
   { name: '应用软件', icon: <FaAppStoreIos className="text-blue-600" size={24} /> },
-  { name: '通讯', icon: <FaWifi className="text-green-600" size={24} /> },
   { name: '汽车', icon: <FaCar className="text-cyan-600" size={24} /> },
-  { name: '学习', icon: <IoBookOutline className="text-yellow-700" size={24} /> },
-  { name: '办公', icon: <IoConstructOutline className="text-gray-600" size={24} /> },
-  { name: '运动', icon: <IoFitnessOutline className="text-lime-600" size={24} /> },
+  { name: '护肤', icon: <RiInkBottleFill className="text-pink-500" size={24} /> },
+  { name: '学习', icon: <FaBookOpen className="text-yellow-700" size={24} /> },
+  { name: '办公', icon: <MdEditDocument className="text-gray-600" size={24} /> },
+  { name: '运动', icon: <MdOutlineSportsTennis className="text-lime-600" size={24} /> },
   { name: '社交', icon: <IoPeopleOutline className="text-pink-600" size={24} /> },
   { name: '人情', icon: <IoHeartOutline className="text-red-400" size={24} /> },
   { name: '宠物', icon: <IoPawOutline className="text-amber-600" size={24} /> },
