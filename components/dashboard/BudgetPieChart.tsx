@@ -12,6 +12,7 @@ interface BudgetPieChartProps {
   currencySymbol: string;
   expenseByCategory?: { category: string; amount: number }[];
   totalExpense?: number;
+  avgDailyExpense?: number;   // 新增
   onBudgetUpdate?: (newBudget: number) => void;
 }
 
@@ -37,6 +38,7 @@ export default function BudgetPieChart({
   currencySymbol, 
   expenseByCategory = [], 
   totalExpense = spent,
+  avgDailyExpense, 
   onBudgetUpdate
 }: BudgetPieChartProps) {
   const { theme } = useTheme();
@@ -220,19 +222,29 @@ export default function BudgetPieChart({
                 </div>
               </div>
             )}
-            <div className={`flex-1 flex flex-row justify-between items-baseline ${isExpanded ? 'mt-6' : ''}`}>
-              <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">本月剩余预算：</span>
-              <button
-                onClick={handleBudgetClick}
-                className="text-base font-bold text-gray-700 dark:text-gray-100 whitespace-nowrap hover:opacity-70 transition"
-              >
-                {isAmountHidden ? (
-                  <span className="tracking-widest">****</span>
-                ) : (
-                  `${currencySymbol}${formatLargeNumber(remaining)}`
-                )}
-              </button>
-            </div>
+<div className={`flex-1 flex flex-col ${isExpanded ? 'mt-6' : ''}`}>
+  <div className="flex flex-row justify-between items-baseline">
+    <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">本月剩余预算：</span>
+    <button
+      onClick={handleBudgetClick}
+      className="text-base font-bold text-gray-700 dark:text-gray-100 whitespace-nowrap hover:opacity-70 transition"
+    >
+      {isAmountHidden ? (
+        <span className="tracking-widest">****</span>
+      ) : (
+        `${currencySymbol}${formatLargeNumber(remaining)}`
+      )}
+    </button>
+  </div>
+  {!isExpanded && avgDailyExpense !== undefined && (
+    <div className="flex flex-row justify-between items-baseline mt-0.5">
+      <span className="text-xs text-gray-500 dark:text-gray-400">日均支出</span>
+      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        {currencySymbol}{formatLargeNumber(avgDailyExpense)}
+      </span>
+    </div>
+  )}
+</div>
             <div className="flex-shrink-0">
               {isExpanded ? (
                 <ChevronUp size={20} className="text-gray-500 relative top-3" />

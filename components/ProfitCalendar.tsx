@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DailyReturn {
   date: string;       // YYYY-MM-DD
@@ -48,7 +48,6 @@ export default function ProfitCalendar({
     <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <Calendar size={20} className="text-gray-500 dark:text-gray-400" />
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">收益日历</h3>
         </div>
         <div className="flex gap-2">

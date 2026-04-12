@@ -26,6 +26,7 @@ import Image from 'next/image';
 import CategorySelector from '@/components/CategorySelector';
 import TransactionList from '@/components/TransactionList';
 import BillSelectMenu from '@/components/BillSelectMenu';
+import LedgerSummary from '@/components/LedgerSummary';
 
 type Transaction = {
   id: string;
@@ -229,6 +230,16 @@ useEffect(() => {
 
   convertAllValues();
 }, [accounts, allTransactions, currentYear, currentMonth, currency, convert]);
+
+// 计算日均支出（基于转换后的总支出）
+const avgDailyExpense = useMemo(() => {
+  const now = new Date();
+  const isCurrentMonth = currentYear === now.getFullYear() && currentMonth === now.getMonth();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const elapsedDays = isCurrentMonth ? Math.min(now.getDate(), daysInMonth) : daysInMonth;
+  if (elapsedDays === 0) return 0;
+  return convertedTotalExpense / elapsedDays;
+}, [currentYear, currentMonth, convertedTotalExpense]);
 
   const loadAccounts = useCallback(async () => {
     const userId = getCurrentUserId();
@@ -627,42 +638,17 @@ return (
       </div>
 
       {/* 汇总区域 - 条件渲染 */}
-      {loadingTransactions ? (
-        <SummarySkeleton />
-      ) : (
-        <div className="flex items-start gap-3 mb-6 px-2">
-          <div onClick={openMonthPicker} className="flex flex-col shrink-0 cursor-pointer">
-            <span className="text-sm text-gray-500 dark:text-gray-400">{currentYear}年</span>
-            <div className="flex items-center gap-0 mt-0.5">
-              <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">{monthNames[currentMonth]}</span>
-              <ChevronDown size={18} className="translate-x-1 text-gray-500 dark:text-gray-400 translate-y-2 -m-1" />
-            </div>
-          </div>
-<div className="w-px h-12 bg-gray-300 dark:bg-gray-700 self-center"></div>
-  <div>
-    <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-xs">
-      <span>月结余</span>
-    </div>
-    <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-      {currencySymbol}{convertedNetBalance.toFixed(2)}
-    </p >
-    <div className="flex gap-4 mt-1 text-sm">
-      <div className="flex items-center gap-1">
-        <span className="text-gray-500 dark:text-gray-400 text-xs">支出</span>
-        <span className="font-semibold text-gray-900 dark:text-gray-100">
-          {currencySymbol}{convertedTotalExpense.toFixed(2)}
-        </span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-500 dark:text-gray-400 text-xs">收入</span>
-        <span className="font-semibold text-gray-900 dark:text-gray-100">
-          {currencySymbol}{convertedTotalIncome.toFixed(2)}
-        </span>
-      </div>
-    </div>
-  </div>
-</div>
-      )}
+<LedgerSummary
+  loading={loadingTransactions}
+  currentYear={currentYear}
+  currentMonth={currentMonth}
+  monthNames={monthNames}
+  currencySymbol={currencySymbol}
+  netBalance={convertedNetBalance}
+  totalIncome={convertedTotalIncome}
+  totalExpense={convertedTotalExpense}
+  onMonthClick={openMonthPicker}
+/>
 
       {/* 饼图区域 - 条件渲染 */}
       <div className="-mt-6">
@@ -675,6 +661,7 @@ return (
   currencySymbol={currencySymbol}
   expenseByCategory={expenseByCategory}
   totalExpense={convertedTotalExpense}
+  avgDailyExpense={avgDailyExpense}  
   onBudgetUpdate={handleBudgetUpdate}
 />
         )}
@@ -972,6 +959,60 @@ return (
       onClose={() => setShowCategorySelector(false)}
     />
   </div>
+)}
+{/* 月份选择浮层 */}
+{showMonthPicker && (
+  <>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={() => setShowMonthPicker(false)} />
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0a0a0a] rounded-t-[40px] z-50 p-6 pb-10 transition-transform duration-300">
+      <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-6" />
+      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">选择年月</h3>
+
+      <div className="flex gap-4 mb-6">
+        {/* 年份选择 */}
+        <div className="flex-1">
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-2">年份</label>
+          <select
+            value={tempYear}
+            onChange={(e) => setTempYear(parseInt(e.target.value))}
+            className="w-full bg-gray-100 dark:bg-gray-800 rounded-xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none"
+          >
+            {yearOptions.map(year => (
+              <option key={year} value={year}>{year}年</option>
+            ))}
+          </select>
+        </div>
+        {/* 月份选择 */}
+        <div className="flex-1">
+          <label className="text-xs text-gray-500 dark:text-gray-400 block mb-2">月份</label>
+          <select
+            value={tempMonth}
+            onChange={(e) => setTempMonth(parseInt(e.target.value))}
+            className="w-full bg-gray-100 dark:bg-gray-800 rounded-xl py-3 px-4 text-gray-900 dark:text-gray-100 outline-none"
+          >
+            {monthOptions.map(month => (
+              <option key={month} value={month}>{month}月</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={() => setShowMonthPicker(false)}
+          className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold py-3 rounded-xl"
+        >
+          取消
+        </button>
+        <button
+          onClick={confirmMonth}
+          className="flex-1 bg-[#ff8800] text-white font-bold py-3 rounded-xl"
+        >
+          确认
+        </button>
+      </div>
+    </div>
+  </>
 )}
 </main>
 )}
