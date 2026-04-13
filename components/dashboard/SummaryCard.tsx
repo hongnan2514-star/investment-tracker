@@ -39,6 +39,7 @@ export default function SummaryCard() {
   const [midnightSnapshotCNY, setMidnightSnapshotCNY] = useState<number | null>(null);
   const [netWorthCNY, setNetWorthCNY] = useState<number>(0);
   const [isConverting, setIsConverting] = useState(false); // 本地转换状态
+  const hasNotifiedRef = useRef(false);
 
   // 动态省略号动画
   const [dots, setDots] = useState(1);
@@ -317,38 +318,15 @@ export default function SummaryCard() {
 
   console.log('converting:', isConverting, 'dots:', dots);
 
+    useEffect(() => {
+  if (!loadingAssets && convertedNetWorth !== undefined && !hasNotifiedRef.current) {
+    hasNotifiedRef.current = true;
+    eventBus.emit('homeComponentReady');
+  }
+  }, [loadingAssets, convertedNetWorth]);
+
   if (loadingAssets) {
-    return (
-      <div className="mb-6 px-2">
-        <div className="flex justify-between items-start">
-          <div className="flex flex-col flex-1">
-            <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400 mb-1">
-              <span className="text-xs font-semibold">净资产估值</span>
-              <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                <Eye size={14} />
-              </button>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <SkeletonLine className="w-28 h-8" />
-              <SkeletonLine className="w-8 h-4" />
-            </div>
-            <div className="mt-2">
-              <SkeletonLine className="w-32 h-4" />
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
-            <span className="text-xs font-medium text-white">资产</span>
-            <SkeletonLine className="w-16 h-5 bg-white/30" />
-          </div>
-          <div className="bg-[#ff8800] dark:bg-[#ff8800] rounded-2xl py-1.5 px-3 shadow-sm flex items-center justify-between">
-            <span className="text-xs font-medium text-white">负债</span>
-            <SkeletonLine className="w-16 h-5 bg-white/30" />
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

@@ -60,6 +60,7 @@ export default function AssetPieChart() {
   const [isMobile, setIsMobile] = useState(false);
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitializedRef = useRef(false);
+  const hasNotifiedRef = useRef(false);
 
   // 稳定函数的 ref
   const updatePieDataRef = useRef<(assets: Asset[]) => Promise<void>>(async () => {});
@@ -278,41 +279,17 @@ export default function AssetPieChart() {
     }
   }, [pathname]);
 
+    // 当资产加载完成且饼图数据计算完毕时，通知首页
+  useEffect(() => {
+  if (!loading && totalConverted !== undefined && !hasNotifiedRef.current) {
+    hasNotifiedRef.current = true;
+    eventBus.emit('homeComponentReady');
+  }
+  }, [loading, totalConverted]);
+
   // 骨架屏加载状态
   if (loading) {
-    return (
-      <div className="px-2 mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">资产类型分布</h3>
-          <SkeletonLine className="w-24 h-5" />
-        </div>
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
-          <div className="w-full md:w-1/2 h-72 flex items-center justify-center">
-            <div className="w-40 h-40 md:w-52 md:h-52 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
-          </div>
-          <div className="w-full md:w-1/2 space-y-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
-                  <SkeletonLine className="w-16 h-4" />
-                </div>
-                <div className="flex items-center gap-4">
-                  <SkeletonLine className="w-12 h-4" />
-                  <SkeletonLine className="w-16 h-4" />
-                </div>
-              </div>
-            ))}
-            <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <SkeletonLine className="w-12 h-4" />
-                <SkeletonLine className="w-20 h-5" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (pieData.length === 0) {
