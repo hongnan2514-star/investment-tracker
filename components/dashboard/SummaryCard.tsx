@@ -7,6 +7,7 @@ import { eventBus } from '@/src/utils/eventBus';
 import { recordSnapshot } from '@/src/services/historyService';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 import ChartView from './ChartView';
+import { getCurrentUserId } from '@/src/utils/assetStorage';
 
 type Period = '1W' | '1M' | '6M';
 
@@ -100,20 +101,20 @@ export default function SummaryCard({ assets }: SummaryCardProps) {
   }, [assets, currency, convert]);
 
   // 获取今日0点快照
-  useEffect(() => {
-    const fetchMidnightSnapshot = async () => {
-      const userId = localStorage.getItem('userId');
-      if (!userId) return;
-      try {
-        const res = await fetch(`/api/snapshot/midnight?userId=${userId}`);
-        const data = await res.json();
-        if (data.netWorth !== null) setMidnightSnapshotCNY(data.netWorth);
-      } catch (err) {
-        console.error('获取今日快照失败', err);
-      }
-    };
-    fetchMidnightSnapshot();
-  }, []);
+useEffect(() => {
+  const fetchMidnightSnapshot = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/snapshot/midnight?userId=${userId}`);
+      const data = await res.json();
+      if (data.netWorth !== null) setMidnightSnapshotCNY(data.netWorth);
+    } catch (err) {
+      console.error('获取今日快照失败', err);
+    }
+  };
+  fetchMidnightSnapshot();
+}, []);
 
   // 计算今日盈亏
   useEffect(() => {
