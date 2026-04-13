@@ -1,23 +1,26 @@
 // app/page.tsx
 "use client";
 
+import React, { useState, useEffect, useCallback } from 'react';
 import SummaryCard from '@/components/dashboard/SummaryCard';
 import AssetPieChart from "@/components/dashboard/AssetPieChart";
 import ProfileDrawer from "@/components/dashboard/ProfileDrawer";
 import SummaryCardSkeleton from '@/components/dashboard/SummaryCardSkeleton';
 import AssetPieChartSkeleton from '@/components/dashboard/AssetPieChartSkeleton';
-import { useCurrency } from '@/src/services/currency';
-import { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
+import { Asset } from '@/src/constants/types';
+import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
+import { useCurrency } from '@/src/services/currency';
 
 export default function Home() {
   const { currency, symbol } = useCurrency();
   const [user, setUser] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [assets, setAssets] = useState<Asset[]>([]);
 
-  // 用户信息加载
+  // 加载用户信息
   useEffect(() => {
     const loadUser = () => {
       const storedUser = localStorage.getItem('user');
@@ -30,29 +33,65 @@ export default function Home() {
     return () => window.removeEventListener('user-changed', handleUserChange);
   }, []);
 
-  // 数据就绪检测：监听子组件的加载完成事件，或使用延时回退
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+  // 加载资产数据（与子组件中原有的 loadAssets 逻辑一致）
+  const loadAssets = useCallback(async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setAssets([]);
+      setLoading(false);
+      return;
+    }
 
-    const handleDataReady = () => {
-      setIsPageLoading(false);
-      clearTimeout(timeoutId);
-    };
-
-    // 假设 SummaryCard 和 AssetPieChart 在首次加载完成后会触发 'homeDataReady' 事件
-    // 如果尚未实现该事件，可暂时用延时方案，并后续在子组件中添加事件触发。
-    const unsubscribe = eventBus.subscribe('homeDataReady', handleDataReady);
-
-    // 安全回退：最长等待 5 秒后强制显示内容
-    timeoutId = setTimeout(() => {
-      setIsPageLoading(false);
-    }, 5000);
-
-    return () => {
-      unsubscribe();
-      clearTimeout(timeoutId);
-    };
+    setLoading(true);
+    try {
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) throw new Error('加载资产失败');
+      const data = await res.json();
+      const normalizedData = data.map((asset: any) => ({
+        ...asset,
+        price: Number(asset.price),
+        holdings: Number(asset.holdings),
+        marketValue: Number(asset.marketValue),
+        costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
+        changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
+      }));
+      setAssets(normalizedData);
+    } catch (err) {
+      console.error('加载资产失败', err);
+      setAssets([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // 初始加载
+  useEffect(() => {
+    loadAssets();
+  }, [loadAssets]);
+
+  // 监听资产更新事件
+  useEffect(() => {
+    const handleAssetsUpdate = async (updatedAssets?: Asset[]) => {
+      if (updatedAssets && Array.isArray(updatedAssets)) {
+        setAssets(updatedAssets);
+      } else {
+        await loadAssets();
+      }
+    };
+    const unsubscribe = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
+    return unsubscribe;
+  }, [loadAssets]);
+
+  // 监听用户切换事件
+  useEffect(() => {
+    const handleUserChange = () => {
+      loadAssets();
+    };
+    const unsubscribe = eventBus.subscribe('userChanged', handleUserChange);
+    return unsubscribe;
+  }, [loadAssets]);
 
   return (
     <main className="min-h-screen bg-white dark:bg-black p-4">
@@ -76,15 +115,15 @@ export default function Home() {
           </button>
         </header>
 
-        {isPageLoading ? (
+        {loading ? (
           <>
             <SummaryCardSkeleton />
             <AssetPieChartSkeleton />
           </>
         ) : (
           <>
-            <SummaryCard />
-            <AssetPieChart />
+            <SummaryCard assets={assets} />
+            <AssetPieChart assets={assets} />
           </>
         )}
 

@@ -1,100 +1,260 @@
 // app/analytics/page.tsx
 
 "use client";
-
-import SummaryCard from '@/components/dashboard/SummaryCard';
-import AssetPieChart from "@/components/dashboard/AssetPieChart";
-import ProfileDrawer from "@/components/dashboard/ProfileDrawer";
-import SummaryCardSkeleton from '@/components/dashboard/SummaryCardSkeleton';
-import AssetPieChartSkeleton from '@/components/dashboard/AssetPieChartSkeleton';
-import { useCurrency } from '@/src/services/currency';
-import { useState, useEffect, useRef } from 'react';
-import { User } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertCircle } from 'lucide-react';
+import { getAssets } from '@/src/utils/assetStorage';
+import { Asset } from '@/src/constants/types';
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
+import { getCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
+import AIChatBox from '@/components/AIChatBox';
+import ProfitOverview from '@/components/ProfitOverview';
+import ProfitCalendar from '@/components/ProfitCalendar';
+import ProfitOverviewSkeleton from '@/components/analytics/ProfitOverviewSkeleton';
+import AICardSkeleton from '@/components/analytics/AICardSkeleton';
+import ProfitCalendarSkeleton from '@/components/analytics/ProfitCalendarSkeleton';
 
-export default function Home() {
+type Period = 'day' | 'week' | 'month' | 'year';
+
+interface DailyReturn {
+  date: string;
+  value: number;
+}
+
+export default function AnalyticsPage() {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [totalValue, setTotalValue] = useState(0);
+  const [yesterdayProfit, setYesterdayProfit] = useState(0);
+  const [weekProfit, setWeekProfit] = useState(0);
+  const [weekReturnRate, setWeekReturnRate] = useState(0);
+  const [dailyReturns, setDailyReturns] = useState<DailyReturn[]>([]);
+  const [calendarPeriod, setCalendarPeriod] = useState<Period>('day');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [convertedYesterdayProfit, setConvertedYesterdayProfit] = useState(0);
+  const [convertedWeekProfit, setConvertedWeekProfit] = useState(0);
+  const [convertedTotalValue, setConvertedTotalValue] = useState(0);
+
   const { currency, symbol } = useCurrency();
-  const [user, setUser] = useState<any>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [isPageLoading, setIsPageLoading] = useState(true);
-  const readyCountRef = useRef(0);
+  const { convert, loading: converting } = useCurrencyConverter();
+  const [convertedDailyReturns, setConvertedDailyReturns] = useState<DailyReturn[]>([]);
+
+  const [loadingMidnight, setLoadingMidnight] = useState(true);
+  const [loadingTotalValue, setLoadingTotalValue] = useState(true);
+  const [loadingCalendar, setLoadingCalendar] = useState(true);
+
+  const fetchMidnightValues = useCallback(async () => {
+    setLoadingMidnight(true);
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setLoadingMidnight(false);
+      return;
+    }
+
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+    const [todayRes, yesterdayRes] = await Promise.all([
+      fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(today)}`),
+      fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(yesterday)}`),
+    ]);
+
+    const todayData = await todayRes.json();
+    const yesterdayData = await yesterdayRes.json();
+    const todayValCNY = todayData.netWorth;
+    const yesterdayValCNY = yesterdayData.netWorth;
+
+    let actualSevenDaysValCNY = null;
+    let attemptDate = new Date(sevenDaysAgo);
+    const maxAttempts = 30;
+    let attempts = 0;
+
+    while (actualSevenDaysValCNY === null && attempts < maxAttempts) {
+      const dateStr = formatDate(attemptDate);
+      const res = await fetch(`/api/snapshot/midnight?userId=${userId}&date=${dateStr}`);
+      const data = await res.json();
+      if (data.netWorth !== null) {
+        actualSevenDaysValCNY = data.netWorth;
+        break;
+      }
+      attemptDate.setDate(attemptDate.getDate() - 1);
+      attempts++;
+    }
+
+    let rawYesterdayProfit = 0;
+    let rawWeekProfit = 0;
+    let rawWeekReturnRate = 0;
+
+    if (todayValCNY !== null && yesterdayValCNY !== null) {
+      rawYesterdayProfit = todayValCNY - yesterdayValCNY;
+    }
+    if (todayValCNY !== null && actualSevenDaysValCNY !== null) {
+      rawWeekProfit = todayValCNY - actualSevenDaysValCNY;
+      rawWeekReturnRate = actualSevenDaysValCNY !== 0 ? (rawWeekProfit / actualSevenDaysValCNY) * 100 : 0;
+    }
+
+    setYesterdayProfit(rawYesterdayProfit);
+    setWeekProfit(rawWeekProfit);
+    setWeekReturnRate(rawWeekReturnRate);
+
+    const convertedYesterday = await convert(rawYesterdayProfit, 'CNY', currency);
+    const convertedWeek = await convert(rawWeekProfit, 'CNY', currency);
+    setConvertedYesterdayProfit(convertedYesterday);
+    setConvertedWeekProfit(convertedWeek);
+    setLoadingMidnight(false);
+  }, [currency, convert]);
 
   useEffect(() => {
-    const loadUser = () => {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) setUser(JSON.parse(storedUser));
-      else setUser(null);
+    fetchMidnightValues();
+  }, [fetchMidnightValues]);
+
+  useEffect(() => {
+    const convertDailyReturns = async () => {
+      if (dailyReturns.length === 0) {
+        setConvertedDailyReturns([]);
+        return;
+      }
+      const converted = await Promise.all(
+        dailyReturns.map(async (item) => ({
+          date: item.date,
+          value: await convert(item.value, 'CNY', currency),
+        }))
+      );
+      setConvertedDailyReturns(converted);
     };
-    loadUser();
-    const handleUserChange = () => loadUser();
-    window.addEventListener('user-changed', handleUserChange);
-    return () => window.removeEventListener('user-changed', handleUserChange);
+    convertDailyReturns();
+  }, [dailyReturns, currency, convert]);
+
+  const fetchSnapshotHistory = useCallback(async () => {
+    setLoadingCalendar(true);
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setLoadingCalendar(false);
+      return;
+    }
+    try {
+      const res = await fetch('/api/snapshot/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setDailyReturns(json.data || []);
+    } catch (err) {
+      console.error('获取收益日历失败', err);
+      setDailyReturns([]);
+    } finally {
+      setLoadingCalendar(false);
+    }
   }, []);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    const handleComponentReady = () => {
-      readyCountRef.current += 1;
-      // 两个组件都就绪后才关闭骨架屏
-      if (readyCountRef.current >= 2) {
-        // 延迟到下一帧，确保子组件已完成渲染，避免白屏闪现
-        requestAnimationFrame(() => {
-          setIsPageLoading(false);
-        });
-        clearTimeout(timeoutId);
+    const convertProfits = async () => {
+      if (yesterdayProfit !== 0 || weekProfit !== 0) {
+        const convertedYesterday = await convert(yesterdayProfit, 'CNY', currency);
+        const convertedWeek = await convert(weekProfit, 'CNY', currency);
+        setConvertedYesterdayProfit(convertedYesterday);
+        setConvertedWeekProfit(convertedWeek);
       }
     };
+    convertProfits();
+  }, [currency, convert, yesterdayProfit, weekProfit]);
 
-    // 修正事件名称：子组件触发的是 homeComponentReady
-    const unsubscribe = eventBus.subscribe('homeComponentReady', handleComponentReady);
+  const fetchTotalValue = useCallback(async () => {
+    setLoadingTotalValue(true);
+    const assets = getAssets();
+    let total = 0;
+    for (const asset of assets) {
+      const fromCurrency = asset.currency || 'USD';
+      const value = await convert(asset.marketValue, fromCurrency as any, currency);
+      total += value;
+    }
+    setTotalValue(total);
+    setConvertedTotalValue(total);
+    setLoadingTotalValue(false);
+  }, [currency, convert]);
 
-    // 安全回退：最长等待 5 秒
-    timeoutId = setTimeout(() => {
-      setIsPageLoading(false);
-    }, 5000);
+  useEffect(() => {
+    fetchSnapshotHistory();
+    fetchTotalValue();
 
-    return () => {
-      unsubscribe();
-      clearTimeout(timeoutId);
+    const handleAssetsUpdate = () => {
+      fetchSnapshotHistory();
+      fetchTotalValue();
     };
-  }, []);
+    const unsubscribe = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
+    return () => unsubscribe();
+  }, [fetchSnapshotHistory, fetchTotalValue]);
+
+  const formatMoney = (num: number) => {
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const formatPercent = (num: number) => {
+    return num.toFixed(2);
+  };
+
+  const changeMonth = (delta: number) => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + delta, 1));
+  };
+
+  const generateUserContext = () => {
+    if (assets.length === 0) return '';
+    const holdings = assets.map(a => `${a.name}(${a.symbol}): ${a.holdings}份, 今日涨跌${a.changePercent?.toFixed(2)}%`).join('；');
+    return `用户当前持仓：${holdings}。昨日收益：${formatMoney(convertedYesterdayProfit)}，本周收益：${formatMoney(convertedWeekProfit)}，本周收益率：${formatPercent(weekReturnRate)}%。`;
+  };
+
+  const isPageLoading = loadingMidnight || loadingTotalValue || loadingCalendar || converting;
 
   return (
-    <main className="min-h-screen bg-white dark:bg-black p-4">
-      <div className="max-w-md mx-auto">
-        <header className="mb-6 px-2 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">资产总览</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">您的所有资产汇总</p >
+    <main className="min-h-screen bg-gray-50 dark:bg-black p-4 pb-24">
+      <header className="mb-6 px-2">
+        <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">AI分析</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">AI帮助您更加了解个人的财务状况</p>
+      </header>
+
+      {isPageLoading ? (
+        <>
+          <ProfitOverviewSkeleton />
+          <AICardSkeleton />
+          <ProfitCalendarSkeleton />
+        </>
+      ) : (
+        <>
+          <ProfitOverview
+            yesterdayProfit={convertedYesterdayProfit}
+            weekProfit={convertedWeekProfit}
+            weekReturnRate={weekReturnRate}
+            currencySymbol={symbol}
+          />
+
+          <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-900 dark:text-blue-300">
+                <p>昨日收益 {convertedYesterdayProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(convertedYesterdayProfit))}，本周累计 {convertedWeekProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(convertedWeekProfit))}，收益率 {weekReturnRate >= 0 ? '+' : ''}{formatPercent(weekReturnRate)}%。</p>
+                <p className="mt-1">根据历史数据，您的资产表现{weekReturnRate >= 0 ? '优于大盘' : '弱于大盘'}，建议关注波动较大的资产。</p>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => setIsDrawerOpen(true)}
-            className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden hover:ring-2 ring-gray-300 dark:ring-gray-600 transition"
-          >
-            {user?.avatarUrl ? (
-              < img src={user.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-gray-600 dark:text-gray-300 font-bold">
-                {user?.name ? user.name.charAt(0).toUpperCase() : <User size={20} />}
-              </span>
-            )}
-          </button>
-        </header>
 
-        {isPageLoading ? (
-          <>
-            <SummaryCardSkeleton />
-            <AssetPieChartSkeleton />
-          </>
-        ) : (
-          <>
-            <SummaryCard />
-            <AssetPieChart />
-          </>
-        )}
+          <ProfitCalendar
+            dailyReturns={convertedDailyReturns}
+            currentMonth={currentMonth}
+            onMonthChange={changeMonth}
+            formatMoney={formatMoney}
+          />
+        </>
+      )}
 
-        <ProfileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
+      <div className="fixed bottom-16 left-0 right-0 px-4 z-50">
+        <AIChatBox userContext={generateUserContext()} />
       </div>
     </main>
   );

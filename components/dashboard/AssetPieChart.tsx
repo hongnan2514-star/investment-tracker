@@ -5,25 +5,21 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Asset } from '@/src/constants/types';
 import { eventBus } from '@/src/utils/eventBus';
 import { useTheme } from '@/app/ThemeProvider';
-import { useCurrency, useCurrencyConverter, CurrencyCode } from '@/src/services/currency';
-import { getCurrentUserId } from '@/src/utils/assetStorage';
-import { usePathname } from 'next/navigation';
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 
-// 仅保留类型名称，颜色动态生成
 const ASSET_TYPE_CONFIG: Record<string, { name: string }> = {
   stock: { name: '股票' },
-  fund: { name: '基金' }, 
+  fund: { name: '基金' },
   crypto: { name: '加密货币' },
   metal: { name: '贵金属' },
   car: { name: '车辆' },
-  real_estate: { name: '不动产' },  
+  real_estate: { name: '不动产' },
   custom: { name: '现金' },
   receivable: { name: '应收款' },
   liability: { name: '负债' },
   custom_asset: { name: '自定义' }
 };
 
-// 基于字符串生成稳定的颜色（色相0-360，饱和度70%，亮度60%）
 const getColorForType = (type: string): string => {
   let hash = 0;
   for (let i = 0; i < type.length; i++) {
@@ -34,39 +30,23 @@ const getColorForType = (type: string): string => {
   return `hsl(${hue}, 70%, 60%)`;
 };
 
-const SkeletonLine = ({ className = "w-24 h-6" }: { className?: string }) => (
-  <div className={`relative overflow-hidden bg-gray-200 dark:bg-gray-700 rounded animate-pulse ${className}`} />
-);
-
-type CacheEntry = {
+interface AssetPieChartProps {
   assets: Asset[];
-  timestamp: number;
-};
-const assetCache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 15 * 60 * 1000;
+}
 
-export default function AssetPieChart() {
+export default function AssetPieChart({ assets }: AssetPieChartProps) {
   const { theme } = useTheme();
   const { currency, symbol } = useCurrency();
-  const { convert, loading: converting } = useCurrencyConverter();
+  const { convert } = useCurrencyConverter();
 
   const [pieData, setPieData] = useState<{ type: string; name: string; value: number; percent: string; color: string }[]>([]);
   const [totalConverted, setTotalConverted] = useState<number>(0);
   const [isAmountHidden, setIsAmountHidden] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [rawAssets, setRawAssets] = useState<Asset[]>([]);
-
   const [outerRadius, setOuterRadius] = useState(100);
   const [isMobile, setIsMobile] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
   const resizeTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const hasInitializedRef = useRef(false);
-  const hasNotifiedRef = useRef(false);
 
-  // 稳定函数的 ref
-  const updatePieDataRef = useRef<(assets: Asset[]) => Promise<void>>(async () => {});
-  const loadAssetsRef = useRef<() => Promise<void>>(async () => {});
-
-  // 窗口大小适配
   useEffect(() => {
     const handleResize = () => {
       if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
@@ -91,14 +71,8 @@ export default function AssetPieChart() {
     return unsubscribe;
   }, []);
 
-  // 更新饼图数据（转换货币、分组）
-  const updatePieData = useCallback(async (assets: Asset[]) => {
-    console.log('[PieChart] updatePieData 被调用，货币:', currency, '资产数:', assets.length);
-    if (assets.length === 0) {
-      setPieData([]);
-      setTotalConverted(0);
-      return;
-    }
+  // 更新饼图数据
+  const updatePieData = useCallback(async () => {
     const validAssets = assets.filter(asset =>
       asset.marketValue != null && Number.isFinite(asset.marketValue) && asset.marketValue > 0
     );
@@ -107,192 +81,47 @@ export default function AssetPieChart() {
       setTotalConverted(0);
       return;
     }
-    const convertedAssets = await Promise.all(
-      validAssets.map(async (asset) => {
-        let fromCurrency = asset.currency || 'USD';
-        if (fromCurrency === 'USDT') fromCurrency = 'USD';
-        const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
-        return { ...asset, marketValue: convertedValue };
-      })
-    );
-    const total = convertedAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
-    setTotalConverted(total);
-    const typeGroups = convertedAssets.reduce((groups, asset) => {
-      const type = asset.type || 'unknown';
-      groups[type] = (groups[type] || 0) + asset.marketValue;
-      return groups;
-    }, {} as Record<string, number>);
-    const newData = Object.entries(typeGroups)
-      .map(([type, value]) => {
-        const config = ASSET_TYPE_CONFIG[type];
-        return {
-          type,
-          name: config?.name || type,
-          value,
-          percent: ((value / total) * 100).toFixed(1) + '%',
-          color: getColorForType(type),
-        };
-      })
-      .sort((a, b) => b.value - a.value);
-    setPieData(newData);
-  }, [currency, convert]);
+
+    setIsConverting(true);
+    try {
+      const convertedAssets = await Promise.all(
+        validAssets.map(async (asset) => {
+          let fromCurrency = asset.currency || 'USD';
+          if (fromCurrency === 'USDT') fromCurrency = 'USD';
+          const convertedValue = await convert(asset.marketValue, fromCurrency as any, currency);
+          return { ...asset, marketValue: convertedValue };
+        })
+      );
+      const total = convertedAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
+      setTotalConverted(total);
+      const typeGroups = convertedAssets.reduce((groups, asset) => {
+        const type = asset.type || 'unknown';
+        groups[type] = (groups[type] || 0) + asset.marketValue;
+        return groups;
+      }, {} as Record<string, number>);
+      const newData = Object.entries(typeGroups)
+        .map(([type, value]) => {
+          const config = ASSET_TYPE_CONFIG[type];
+          return {
+            type,
+            name: config?.name || type,
+            value,
+            percent: ((value / total) * 100).toFixed(1) + '%',
+            color: getColorForType(type),
+          };
+        })
+        .sort((a, b) => b.value - a.value);
+      setPieData(newData);
+    } finally {
+      setIsConverting(false);
+    }
+  }, [assets, currency, convert]);
 
   useEffect(() => {
-    updatePieDataRef.current = updatePieData;
+    updatePieData();
   }, [updatePieData]);
 
-  // 加载资产（带缓存）
-  const loadAssets = useCallback(async () => {
-    const userId = getCurrentUserId();
-    if (!userId) {
-      setPieData([]);
-      setTotalConverted(0);
-      setLoading(false);
-      setRawAssets([]);
-      return;
-    }
-
-    const cached = assetCache.get(userId);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log('[PieChart] 使用缓存，userId:', userId);
-      setRawAssets(cached.assets);
-      await updatePieDataRef.current(cached.assets);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch('/api/asset', {
-        headers: { 'x-user-id': userId },
-      });
-      if (!res.ok) throw new Error('加载资产失败');
-      const data = await res.json();
-      const normalizedData = data.map((asset: any) => ({
-        ...asset,
-        price: Number(asset.price),
-        holdings: Number(asset.holdings),
-        marketValue: Number(asset.marketValue),
-        costPrice: asset.costPrice ? Number(asset.costPrice) : undefined,
-        changePercent: asset.changePercent ? Number(asset.changePercent) : 0,
-      }));
-      assetCache.set(userId, {
-        assets: normalizedData,
-        timestamp: Date.now(),
-      });
-      setRawAssets(normalizedData);
-      await updatePieDataRef.current(normalizedData);
-    } catch (err) {
-      console.error('加载资产失败', err);
-      setPieData([]);
-      setTotalConverted(0);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadAssetsRef.current = loadAssets;
-  }, [loadAssets]);
-
-  // 货币切换时：有数据则重新转换，无数据且正在加载则加载
-  useEffect(() => {
-    if (rawAssets.length > 0) {
-      updatePieDataRef.current(rawAssets);
-    } else if (loading) {
-      // 只在 loading 为 true 时尝试加载，避免 userId 不存在时的无限循环
-      loadAssetsRef.current();
-    }
-  }, [currency, rawAssets, loading]);
-
-  // 监听 currencyChanged 事件
-  useEffect(() => {
-    const handleCurrencyChange = (newCurrency: CurrencyCode) => {
-      if (rawAssets.length > 0) {
-        updatePieDataRef.current(rawAssets);
-      } else if (loading) {
-        loadAssetsRef.current();
-      }
-    };
-    const unsubscribe = eventBus.subscribe('currencyChanged', handleCurrencyChange);
-    return unsubscribe;
-  }, [currency, rawAssets, loading]);
-
-  // 初始化加载 + 资产更新/用户切换事件
-  useEffect(() => {
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-      loadAssetsRef.current();
-    }
-
-    const unsubscribeAssets = eventBus.subscribe('assetsUpdated', async (updatedAssets?: Asset[]) => {
-      if (updatedAssets && Array.isArray(updatedAssets)) {
-        setRawAssets(updatedAssets);
-        await updatePieDataRef.current(updatedAssets);
-        const userId = getCurrentUserId();
-        if (userId) assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
-      } else {
-        const userId = getCurrentUserId();
-        if (userId) assetCache.delete(userId);
-        await loadAssetsRef.current();
-      }
-    });
-
-    const unsubscribeUser = eventBus.subscribe('userChanged', () => {
-      assetCache.clear();
-      loadAssetsRef.current();
-    });
-
-    return () => {
-      unsubscribeAssets();
-      unsubscribeUser();
-    };
-  }, []);
-
-  // 监听自定义 assets-changed 事件
-  useEffect(() => {
-    const handleAssetsChanged = async (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const updatedAssets = customEvent.detail;
-      if (updatedAssets && Array.isArray(updatedAssets)) {
-        setRawAssets(updatedAssets);
-        await updatePieDataRef.current(updatedAssets);
-        const userId = getCurrentUserId();
-        if (userId) assetCache.set(userId, { assets: updatedAssets, timestamp: Date.now() });
-      } else {
-        const userId = getCurrentUserId();
-        if (userId) assetCache.delete(userId);
-        await loadAssetsRef.current();
-      }
-    };
-    window.addEventListener('assets-changed', handleAssetsChanged);
-    return () => window.removeEventListener('assets-changed', handleAssetsChanged);
-  }, []);
-
-  const pathname = usePathname();
-  useEffect(() => {
-    if (pathname === '/') {
-      console.log('[PieChart] 回到首页，强制刷新资产');
-      const userId = getCurrentUserId();
-      if (userId) assetCache.delete(userId);
-      loadAssetsRef.current();
-    }
-  }, [pathname]);
-
-    // 当资产加载完成且饼图数据计算完毕时，通知首页
-  useEffect(() => {
-  if (!loading && totalConverted !== undefined && !hasNotifiedRef.current) {
-    hasNotifiedRef.current = true;
-    eventBus.emit('homeComponentReady');
-  }
-  }, [loading, totalConverted]);
-
-  // 骨架屏加载状态
-  if (loading) {
-    return null;
-  }
-
-  if (pieData.length === 0) {
+  if (assets.length === 0 || pieData.length === 0) {
     return (
       <div className="px-2 mb-6">
         <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 text-center text-gray-400 dark:text-gray-500">
