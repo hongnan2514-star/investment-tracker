@@ -3,7 +3,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, ChevronDown, Repeat, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Repeat, X, Trash2, } from 'lucide-react';
 import { useCurrency } from '@/src/services/currency';
 import { getCurrentUserId } from '@/src/utils/assetStorage';
 import TransactionList from '@/components/TransactionList';
@@ -133,6 +133,40 @@ export default function AccountDetailPage() {
       console.error('加载账户信息失败', err);
     }
   };
+
+  const handleDeleteAccount = async () => {
+  if (!account) return;
+  const confirmed = window.confirm(`确定要删除账户“${account.name}”吗？\n此操作将同时删除该账户的所有交易记录，且不可撤销。`);
+  if (!confirmed) return;
+
+  const userId = getCurrentUserId();
+  if (!userId) {
+    alert('请先登录');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/asset', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
+      body: JSON.stringify({ symbol: account.symbol }),
+    });
+
+    if (res.ok) {
+      eventBus.emit('assetsUpdated');
+      router.push('/ledger'); // 删除成功后返回收支首页
+    } else {
+      const error = await res.json();
+      alert(error.error || '删除失败，请稍后重试');
+    }
+  } catch (err) {
+    console.error('删除账户失败', err);
+    alert('删除失败，请检查网络');
+  }
+};
 
 const loadTransactions = async () => {
   const userId = getCurrentUserId();
@@ -266,29 +300,34 @@ return (
     <div className="min-h-screen bg-white dark:bg-black p-4">
       <div className="max-w-md mx-auto">
         {/* 头部区域 */}
-        <div className="relative flex items-center justify-center mb-4">
-          <button onClick={goBack} className="absolute left-0 text-gray-600 dark:text-gray-300">
-            <ArrowLeft size={24} />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 flex items-center justify-center">
-              {account?.logoUrl ? (
-                <img
-                  src={getIconPath(account.logoUrl, theme) || ''}
-                  alt={account.name}
-                  className="w-8 h-8 object-contain rounded-full"
-                  style={{ backgroundColor: 'transparent' }}
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
-                />
-              ) : (
-                <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-600">💰</span>
-                </div>
-              )}
-            </div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{account?.name}</h1>
-          </div>
-        </div>
+<div className="flex items-center justify-between mb-4">
+  <button onClick={goBack} className="text-gray-600 dark:text-gray-300">
+    <ArrowLeft size={24} />
+  </button>
+  <div className="flex items-center gap-2">
+    {account?.logoUrl ? (
+      <img
+        src={getIconPath(account.logoUrl, theme) || ''}
+        alt={account.name}
+        className="w-8 h-8 object-contain rounded-full"
+        style={{ backgroundColor: 'transparent' }}
+        onError={(e) => (e.currentTarget.style.display = 'none')}
+      />
+    ) : (
+      <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+        <span className="text-lg font-bold text-gray-600">💰</span>
+      </div>
+    )}
+    <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{account?.name}</h1>
+  </div>
+  <button
+    onClick={handleDeleteAccount}
+    className="text-gray-500 dark:text-red-400 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+    aria-label="删除账户"
+  >
+    <Trash2 size={20} />
+  </button>
+</div>
 
         {/* 第二行：时间选择器 + 竖线 + 余额 */}
         <div className="flex items-center gap-4 mb-6">

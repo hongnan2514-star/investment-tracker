@@ -412,37 +412,45 @@ const expenseByCategory = useMemo(() => {
     setShowMonthPicker(false);
   };
 
-  const updateAccountBalance = async (account: AccountAsset, amount: number, isIncome: boolean) => {
-    const userId = getCurrentUserId();
-    if (!userId) return false;
-    const newAmount = isIncome ? account.marketValue + amount : account.marketValue - amount;
-    if (newAmount < 0) {
-      alert('账户余额不足');
-      return false;
+const updateAccountBalance = async (account: AccountAsset, amount: number, isIncome: boolean) => {
+  const userId = getCurrentUserId();
+  if (!userId) return false;
+  const newAmount = isIncome ? account.marketValue + amount : account.marketValue - amount;
+  if (newAmount < 0) {
+    alert('账户余额不足');
+    return false;
+  }
+  try {
+    console.log('[updateAccountBalance] 准备更新账户:', account.symbol, '新余额:', newAmount);
+    const res = await fetch('/api/asset', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+      },
+      body: JSON.stringify({
+        symbol: account.symbol,
+        holdings: 1,
+        marketValue: newAmount,
+        costPrice: newAmount,
+        price: newAmount,   // ✅ 新增，确保 price 同步
+      }),
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error('[updateAccountBalance] 更新失败:', errorData);
+      throw new Error(errorData.error || '更新账户失败');
     }
-    try {
-      const res = await fetch('/api/asset', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId,
-        },
-        body: JSON.stringify({
-          symbol: account.symbol,
-          holdings: 1,
-          marketValue: newAmount,
-          costPrice: newAmount,
-        }),
-      });
-      if (!res.ok) throw new Error('更新账户失败');
-      eventBus.emit('assetsUpdated');
-      return true;
-    } catch (err) {
-      console.error('更新账户余额失败', err);
-      alert('更新账户失败，请重试');
-      return false;
-    }
-  };
+    const result = await res.json();
+    console.log('[updateAccountBalance] 响应:', res.status, result);
+    eventBus.emit('assetsUpdated');
+    return true;
+  } catch (err) {
+    console.error('更新账户余额失败', err);
+    alert('更新账户失败，请重试');
+    return false;
+  }
+};
 
   const handleAddTransaction = async () => {
     const amountNum = parseFloat(formAmount);

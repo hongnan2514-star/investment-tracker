@@ -107,7 +107,6 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: '缺少必要字段 (symbol, holdings)' }, { status: 400 });
     }
 
-    // 构建动态更新语句
     const updates: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -123,6 +122,9 @@ export async function PUT(request: Request) {
     if (marketValue !== undefined) {
       updates.push(`market_value = $${paramIndex++}`);
       params.push(marketValue);
+      // 🔁 关键修复：同步更新 price，使其与 market_value 一致
+      updates.push(`price = $${paramIndex++}`);
+      params.push(marketValue);
     }
 
     updates.push(`last_updated = NOW()`);
@@ -134,6 +136,8 @@ export async function PUT(request: Request) {
       WHERE symbol = $${paramIndex} AND user_id = $${paramIndex + 1}
       RETURNING *
     `;
+
+    console.log('[PUT asset] SQL:', sql, 'Params:', params);
 
     const result = await query(sql, params);
     if (result.rowCount === 0) {
