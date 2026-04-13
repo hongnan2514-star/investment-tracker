@@ -1,6 +1,6 @@
 // app/page.tsx
 "use client";
-
+ 
 import React, { useState, useEffect, useCallback } from 'react';
 import SummaryCard from '@/components/dashboard/SummaryCard';
 import AssetPieChart from "@/components/dashboard/AssetPieChart";
