@@ -28,25 +28,23 @@ export default function IconSelector({ groups, onSelect, onClose }: IconSelector
   const { theme } = useTheme();
 
   return (
-    // 页面背景：浅色模式为灰色 (bg-gray-100)，深色模式保持黑色 (dark:bg-black)
     <div className="fixed inset-0 bg-gray-100 dark:bg-black z-50 flex flex-col">
       <div className="flex items-center p-4">
         <button
           onClick={onClose}
-          className="p-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-800 transition-colors"
+          className="p-2 bg-gray-200 dark:bg-neutral-900 rounded-full hover:bg-gray-300 dark:hover:bg-neutral-800 transition-colors"
         >
           <ArrowLeft size={20} className="text-gray-700 dark:text-gray-300" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
-        {/* 默认按钮：浅色模式白色背景 */}
         <button
           onClick={() => {
             onSelect('');
             onClose();
           }}
-          className="w-full flex items-center justify-between p-4 mb-6 bg-white dark:bg-gray-700 rounded-3xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="w-full flex items-center justify-between p-4 mb-6 bg-white dark:bg-neutral-900 rounded-3xl hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
         >
           <span className="text-base font-medium text-gray-700 dark:text-gray-300">默认</span>
           <Banknote size={24} className="text-gray-600 dark:text-gray-300" />
@@ -57,11 +55,9 @@ export default function IconSelector({ groups, onSelect, onClose }: IconSelector
             <div className="text-sm font-semibold text-gray-700 dark:text-gray-400 mb-2 ml-1">
               {group.title}
             </div>
-            {/* 图标分组容器：浅色模式白色背景 */}
-            <div className="bg-white dark:bg-gray-700 rounded-3xl p-4 mb-6">
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl p-4 mb-6">
               <div className="grid grid-cols-4 gap-4">
                 {group.icons.map(icon => {
-                  // 根据主题选择正确的图片文件名
                   const fileName = theme === 'dark' 
                     ? (icon.darkFile || icon.file) 
                     : (icon.lightFile || icon.file);
@@ -73,7 +69,7 @@ export default function IconSelector({ groups, onSelect, onClose }: IconSelector
                         onSelect(icon.key);
                         onClose();
                       }}
-                      className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
                     >
                       <img
                         src={`/icons/payment/${fileName}`}

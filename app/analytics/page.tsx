@@ -43,59 +43,53 @@ export default function AnalyticsPage() {
   const [loadingTotalValue, setLoadingTotalValue] = useState(true);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
 
-  const fetchMidnightValues = useCallback(async () => {
-    setLoadingMidnight(true);
-    const userId = getCurrentUserId();
-    if (!userId) {
-      setLoadingMidnight(false);
-      return;
-    }
+const fetchMidnightValues = useCallback(async () => {
+  setLoadingMidnight(true);
+  const userId = getCurrentUserId();
+  if (!userId) {
+    setLoadingMidnight(false);
+    return;
+  }
 
+  try {
+    const calendarRes = await fetch('/api/snapshot/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    const calendarData = await calendarRes.json();
+    if (!calendarData.success) throw new Error(calendarData.error || 'Failed to fetch calendar data');
+
+    const returns: DailyReturn[] = calendarData.data || [];
+
+    // 昨日收益
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayReturn = returns.find(r => r.date === yesterdayStr);
+    const rawYesterdayProfit = yesterdayReturn ? yesterdayReturn.value : 0;
+
+    // 本周收益：最近 7 个有数据的日收益之和
+    const sortedReturns = [...returns].sort((a, b) => b.date.localeCompare(a.date));
+    const last7Returns = sortedReturns.slice(0, 7);
+    const rawWeekProfit = last7Returns.reduce((sum, r) => sum + r.value, 0);
+
+    // 获取 7 天前的净值以计算收益率
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(today.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
 
-    const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
-    const [todayRes, yesterdayRes] = await Promise.all([
-      fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(today)}`),
-      fetch(`/api/snapshot/midnight?userId=${userId}&date=${formatDate(yesterday)}`),
-    ]);
-
-    const todayData = await todayRes.json();
-    const yesterdayData = await yesterdayRes.json();
-    const todayValCNY = todayData.netWorth;
-    const yesterdayValCNY = yesterdayData.netWorth;
-
-    let actualSevenDaysValCNY = null;
-    let attemptDate = new Date(sevenDaysAgo);
-    const maxAttempts = 30;
-    let attempts = 0;
-
-    while (actualSevenDaysValCNY === null && attempts < maxAttempts) {
-      const dateStr = formatDate(attemptDate);
-      const res = await fetch(`/api/snapshot/midnight?userId=${userId}&date=${dateStr}`);
-      const data = await res.json();
-      if (data.netWorth !== null) {
-        actualSevenDaysValCNY = data.netWorth;
-        break;
-      }
-      attemptDate.setDate(attemptDate.getDate() - 1);
-      attempts++;
-    }
-
-    let rawYesterdayProfit = 0;
-    let rawWeekProfit = 0;
     let rawWeekReturnRate = 0;
-
-    if (todayValCNY !== null && yesterdayValCNY !== null) {
-      rawYesterdayProfit = todayValCNY - yesterdayValCNY;
-    }
-    if (todayValCNY !== null && actualSevenDaysValCNY !== null) {
-      rawWeekProfit = todayValCNY - actualSevenDaysValCNY;
-      rawWeekReturnRate = actualSevenDaysValCNY !== 0 ? (rawWeekProfit / actualSevenDaysValCNY) * 100 : 0;
+    try {
+      const res = await fetch(`/api/snapshot/midnight?userId=${userId}&date=${sevenDaysAgoStr}`);
+      const data = await res.json();
+      const baseNetWorth = data.netWorth;
+      if (baseNetWorth && baseNetWorth !== 0) {
+        rawWeekReturnRate = (rawWeekProfit / baseNetWorth) * 100;
+      }
+    } catch (err) {
+      console.warn('获取 7 天前净值失败，收益率设为 0', err);
     }
 
     setYesterdayProfit(rawYesterdayProfit);
@@ -106,8 +100,12 @@ export default function AnalyticsPage() {
     const convertedWeek = await convert(rawWeekProfit, 'CNY', currency);
     setConvertedYesterdayProfit(convertedYesterday);
     setConvertedWeekProfit(convertedWeek);
+  } catch (error) {
+    console.error('获取收益数据失败', error);
+  } finally {
     setLoadingMidnight(false);
-  }, [currency, convert]);
+  }
+}, [currency, convert]);
 
   useEffect(() => {
     fetchMidnightValues();
