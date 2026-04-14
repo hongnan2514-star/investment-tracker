@@ -22,25 +22,32 @@ export default function ProfitCalendar({
   onMonthChange,
   formatMoney,
 }: ProfitCalendarProps) {
-  const getCalendarDays = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startWeekday = firstDay.getDay(); // 0 = 周日
+const getCalendarDays = () => {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startWeekday = firstDay.getDay(); // 0 = 周日
 
-    const days: { date: string; profit: number | null }[] = [];
-    for (let i = 0; i < startWeekday; i++) {
-      days.push({ date: '', profit: null });
+  // 今天的日期字符串（YYYY-MM-DD）
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const days: { date: string; profit: number | null }[] = [];
+  for (let i = 0; i < startWeekday; i++) {
+    days.push({ date: '', profit: null });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    let profit = dailyReturns.find(r => r.date === dateStr)?.value ?? null;
+    // 如果是今天，强制不显示收益数值
+    if (dateStr === todayStr) {
+      profit = null;
     }
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const profit = dailyReturns.find(r => r.date === dateStr)?.value ?? null;
-      days.push({ date: dateStr, profit });
-    }
-    return days;
-  };
+    days.push({ date: dateStr, profit });
+  }
+  return days;
+};
 
   const getSign = (value: number) => (value > 0 ? '+' : value < 0 ? '-' : '');
 
