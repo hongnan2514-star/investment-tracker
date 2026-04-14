@@ -12,26 +12,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
   }
 
-  let targetDate: Date;
+  let beijingDate: Date;
   if (dateParam) {
-    // 解析传入的日期（北京时间）
     const parts = dateParam.split('-').map(Number);
     if (parts.length !== 3) {
       return NextResponse.json({ error: 'Invalid date format, use YYYY-MM-DD' }, { status: 400 });
     }
-    targetDate = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0);
+    // 构造北京时间 0 点
+    beijingDate = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0);
   } else {
-    // 默认今日（北京时间）
     const now = new Date();
-    targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    beijingDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   }
 
-  // 北京时间 0 点转为 UTC 时间范围（精确查找该时刻的快照）
-  const startUTC = new Date(targetDate.getTime() - 8 * 60 * 60 * 1000);
-  // 查询该时刻的快照（精确到小时）
+  // 北京时间 0 点对应的 UTC 时间是前一天的 16:00:00
+  const utcSnapshotTime = new Date(beijingDate.getTime() - 8 * 60 * 60 * 1000);
+  
+  // 查询精确匹配该 UTC 时间的快照
   const result = await sql`
     SELECT net_worth FROM snapshots
-    WHERE user_id = ${userId} AND snapshot_time = ${startUTC.toISOString()}
+    WHERE user_id = ${userId} AND snapshot_time = ${utcSnapshotTime.toISOString()}
   `;
 
   const netWorth = result.length > 0 ? result[0].net_worth : null;
