@@ -23,7 +23,7 @@ export default function Home() {
 
   // 滑动手势处理
   const swipeHandlers = useSwipeable({
-    onSwipedRight: () => setIsDrawerOpen(true),   // 左滑（从右向左滑）打开抽屉？注意命名：swipe right 是从左向右滑
+    onSwipedLeft: () => setIsDrawerOpen(true),   // 左滑（从右向左滑）打开抽屉？注意命名：swipe right 是从左向右滑
     // 实际上打开 ProfileDrawer 通常是从左边缘右滑拉出，所以监听向右滑动
     preventScrollOnSwipe: true,
     trackMouse: true,  // 允许桌面鼠标拖动测试
