@@ -14,4 +14,5 @@ export interface Asset {
   costPrice?: number;
   notes?: string;
   includeInChart?: boolean;
+  yesterday_close_value?: number | null;
 }

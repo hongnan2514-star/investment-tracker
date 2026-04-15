@@ -15,6 +15,7 @@ import ProfitOverviewSkeleton from '@/components/analytics/ProfitOverviewSkeleto
 import AICardSkeleton from '@/components/analytics/AICardSkeleton';
 import ProfitCalendarSkeleton from '@/components/analytics/ProfitCalendarSkeleton';
 import FullScreenChat from '@/components/FullScreenChat';
+import ProfitInterpretation from '@/components/ProfitInterpretation';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
@@ -44,6 +45,15 @@ export default function AnalyticsPage() {
   const [loadingMidnight, setLoadingMidnight] = useState(true);
   const [loadingTotalValue, setLoadingTotalValue] = useState(true);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
+
+  interface AssetProfit {
+  symbol: string;
+  name: string;
+  profit: number;
+  changePercent: number;
+}
+
+const [assetYesterdayProfits, setAssetYesterdayProfits] = useState<AssetProfit[]>([]);
 
 const fetchMidnightValues = useCallback(async () => {
   setLoadingMidnight(true);
@@ -109,6 +119,22 @@ const fetchMidnightValues = useCallback(async () => {
   }
 }, [currency, convert]);
 
+useEffect(() => {
+  if (!assets.length) return;
+  const profits = assets.map(asset => {
+    const close = asset.yesterday_close_value ?? asset.marketValue; // ✅ 改为 marketValue
+    const profit = asset.marketValue - close;
+    const changePercent = close !== 0 ? (profit / close) * 100 : 0;
+    return {
+      symbol: asset.symbol,
+      name: asset.name,
+      profit,
+      changePercent,
+    };
+  });
+  setAssetYesterdayProfits(profits);
+}, [assets]);
+
   useEffect(() => {
     fetchMidnightValues();
   }, [fetchMidnightValues]);
@@ -170,31 +196,36 @@ const fetchMidnightValues = useCallback(async () => {
     convertProfits();
   }, [currency, convert, yesterdayProfit, weekProfit]);
 
-  const fetchTotalValue = useCallback(async () => {
-    setLoadingTotalValue(true);
-    const assets = getAssets();
-    let total = 0;
-    for (const asset of assets) {
-      const fromCurrency = asset.currency || 'USD';
-      const value = await convert(asset.marketValue, fromCurrency as any, currency);
-      total += value;
-    }
-    setTotalValue(total);
-    setConvertedTotalValue(total);
-    setLoadingTotalValue(false);
-  }, [currency, convert]);
+const fetchTotalValue = useCallback(async () => {
+  setLoadingTotalValue(true);
+  const currentAssets = getAssets();
+  setAssets(currentAssets);
+  let total = 0;
+  for (const asset of currentAssets) {
+    const fromCurrency = asset.currency || 'USD';
+    const value = await convert(asset.marketValue, fromCurrency as any, currency);
+    total += value;
+  }
+  setTotalValue(total);
+  setConvertedTotalValue(total);
+  setLoadingTotalValue(false);
+}, [currency, convert]);
 
-  useEffect(() => {
+useEffect(() => {
+  const initialAssets = getAssets();
+  setAssets(initialAssets);
+  fetchSnapshotHistory();
+  fetchTotalValue();
+
+  const handleAssetsUpdate = () => {
+    const updatedAssets = getAssets();
+    setAssets(updatedAssets);
     fetchSnapshotHistory();
     fetchTotalValue();
-
-    const handleAssetsUpdate = () => {
-      fetchSnapshotHistory();
-      fetchTotalValue();
-    };
-    const unsubscribe = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
-    return () => unsubscribe();
-  }, [fetchSnapshotHistory, fetchTotalValue]);
+  };
+  const unsubscribe = eventBus.subscribe('assetsUpdated', handleAssetsUpdate);
+  return () => unsubscribe();
+}, [fetchSnapshotHistory, fetchTotalValue]);
 
   const formatMoney = (num: number) => {
     return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -249,15 +280,17 @@ return (
             currencySymbol={symbol}
           />
 
-<div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-900 dark:text-blue-300">
-                <p>昨日收益 {convertedYesterdayProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(convertedYesterdayProfit))}，本周累计 {convertedWeekProfit >= 0 ? '+' : ''}{symbol}{formatMoney(Math.abs(convertedWeekProfit))}，收益率 {weekReturnRate >= 0 ? '+' : ''}{formatPercent(weekReturnRate)}%。</p>
-                <p className="mt-1">根据历史数据，您的资产表现{weekReturnRate >= 0 ? '优于大盘' : '弱于大盘'}，建议关注波动较大的资产。</p>
-              </div>
-            </div>
-          </div>
+<ProfitInterpretation
+  userId={getCurrentUserId() || ''}
+  assets={assets}
+  assetYesterdayProfits={assetYesterdayProfits}
+  yesterdayProfit={convertedYesterdayProfit}
+  weekProfit={convertedWeekProfit}
+  weekReturnRate={weekReturnRate}
+  currencySymbol={symbol}
+  formatMoney={formatMoney}
+  formatPercent={formatPercent}
+/>
 
 <ProfitCalendar
   dailyReturns={convertedDailyReturns}
