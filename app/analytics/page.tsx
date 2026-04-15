@@ -122,9 +122,13 @@ const fetchMidnightValues = useCallback(async () => {
 useEffect(() => {
   if (!assets.length) return;
   const profits = assets.map(asset => {
-    const close = asset.yesterday_close_value ?? asset.marketValue; // ✅ 改为 marketValue
-    const profit = asset.marketValue - close;
-    const changePercent = close !== 0 ? (profit / close) * 100 : 0;
+    const currentPrice = asset.price;
+    const holdings = asset.holdings;
+    const yesterdayPrice = asset.yesterday_price ?? currentPrice; // 无昨日单价时假设不变
+    const profit = (currentPrice - yesterdayPrice) * holdings;
+    const changePercent = yesterdayPrice !== 0
+      ? ((currentPrice - yesterdayPrice) / yesterdayPrice) * 100
+      : 0;
     return {
       symbol: asset.symbol,
       name: asset.name,
