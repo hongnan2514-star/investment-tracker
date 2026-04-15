@@ -22,12 +22,12 @@ export default function Home() {
   const [assets, setAssets] = useState<Asset[]>([]);
 
   // 滑动手势处理
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => setIsDrawerOpen(true),   // 左滑（从右向左滑）打开抽屉？注意命名：swipe right 是从左向右滑
-    // 实际上打开 ProfileDrawer 通常是从左边缘右滑拉出，所以监听向右滑动
-    preventScrollOnSwipe: true,
-    trackMouse: true,  // 允许桌面鼠标拖动测试
-  });
+const swipeHandlers = useSwipeable({
+  onSwipedLeft: () => setIsDrawerOpen(true),
+  onSwipedRight: () => setIsDrawerOpen(false),
+  preventScrollOnSwipe: true,
+  trackMouse: true,
+});
 
   // 加载用户信息
   useEffect(() => {
