@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { setCurrentUserId } from '@/src/utils/assetStorage';
 import { eventBus } from '@/src/utils/eventBus';
 import { AiFillRedditCircle, AiOutlineX } from "react-icons/ai";
+import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
 
 interface ProfileDrawerProps { 
   isOpen: boolean;
@@ -18,6 +19,8 @@ interface ProfileDrawerProps {
 
 export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const router = useRouter();
+  const { currency, symbol } = useCurrency(); // 新增
+  const { convert } = useCurrencyConverter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLoginForm, setShowLoginForm] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -37,6 +40,8 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
   const [registerStep, setRegisterStep] = useState(false);
   const [registerPassword, setRegisterPassword] = useState('');
   const [assetsCount, setAssetsCount] = useState<number>(0); // 新增持仓数量状态
+  const [netWorthLevel, setNetWorthLevel] = useState<string>('A0'); 
+  const [totalNetWorth, setTotalNetWorth] = useState<number>(0);     // 可选：用于调试
 
   // 加载用户信息
   useEffect(() => {
@@ -242,6 +247,67 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     setRegisterPassword('');
     onClose();
   };
+
+    // 加载资产数据并计算段位
+  const loadAssetsAndLevel = async () => {
+    const userId = localStorage.getItem('currentUserId');
+    if (!userId) {
+      setAssetsCount(0);
+      setNetWorthLevel('A0');
+      setTotalNetWorth(0);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/asset', {
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) throw new Error('加载资产失败');
+      const data = await res.json();
+      
+      // 过滤掉负债类型
+      const nonLiabilityAssets = data.filter((asset: any) => asset.type !== 'liability');
+      setAssetsCount(nonLiabilityAssets.length);
+
+      // 计算总净资产（转换为用户偏好货币）
+      let total = 0;
+      for (const asset of nonLiabilityAssets) {
+        const fromCurrency = asset.currency || 'USD';
+        const value = await convert(Number(asset.marketValue), fromCurrency as any, currency);
+        total += value;
+      }
+      setTotalNetWorth(total);
+
+      // 计算段位：取绝对值位数，例如 12345 -> 5位 -> A5
+      const absValue = Math.abs(total);
+      let level = 'A0';
+      if (absValue >= 1) {
+        const digits = Math.floor(Math.log10(absValue)) + 1;
+        level = `A${digits}`;
+      }
+      setNetWorthLevel(level);
+
+    } catch (err) {
+      console.error('加载资产失败', err);
+      setAssetsCount(0);
+      setNetWorthLevel('A0');
+      setTotalNetWorth(0);
+    }
+  };
+
+  // 监听用户登录状态、资产更新事件
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadAssetsAndLevel();
+      const unsubscribe = eventBus.subscribe('assetsUpdated', () => loadAssetsAndLevel());
+      return () => unsubscribe();
+    } else {
+      setAssetsCount(0);
+      setNetWorthLevel('A0');
+      setTotalNetWorth(0);
+    }
+  }, [isLoggedIn, currency]); // 依赖currency，确保货币变化时重新计算
+
 
   const resetForm = () => {
     setOtpSent(false);
@@ -553,15 +619,6 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
     }
   };
 
-  // 监听资产更新事件，刷新持仓数量
-  useEffect(() => {
-    if (isLoggedIn) {
-      loadAssetsCount();
-      const unsubscribe = eventBus.subscribe('assetsUpdated', () => loadAssetsCount());
-      return () => unsubscribe();
-    }
-  }, [isLoggedIn]);
-
   return (
     <div className="fixed inset-0 z-50" style={{ visibility: isOpen ? 'visible' : 'hidden' }}>
       {/* 遮罩层 */}
@@ -576,18 +633,24 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
       <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
         {user?.avatarUrl ? <Image src={user.avatarUrl} alt={user.name} width={48} height={48} className="object-cover" /> : <span className="text-xl font-bold text-orange-600 dark:text-orange-400">{user?.name?.charAt(0).toUpperCase() || '?'}</span>}
       </div>
-      <div className="mt-3">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
-        <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1">
-          <Smartphone size={14} />
-          <span>{user?.phone}</span>
-        </div>
-        {/* 持仓：上下布局 */}
-        <div className="flex flex-col items-center mt-4 -ml-16">
-          <span className="text-lg font-bold text-gray-700 dark:text-gray-400">持仓</span>
-          <span className="text-3sm font-medium text-gray-900 dark:text-gray-100">{assetsCount}</span>
-        </div>
-      </div>
+<div className="mt-3 w-full">
+  <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{user?.name}</h2>
+  <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1">
+    <Smartphone size={14} />
+    <span>{user?.phone}</span>
+  </div>
+  {/* 持仓与段位：水平排列，段位在持仓右侧 */}
+  <div className="flex items-center gap-6 mt-4">
+    <div className="flex flex-col items-center">
+      <span className="text-lg font-bold text-gray-700 dark:text-gray-400">持仓</span>
+      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{assetsCount}</span>
+    </div>
+    <div className="flex flex-col items-center">
+      <span className="text-lg font-bold text-gray-700 dark:text-gray-400">段位</span>
+      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{netWorthLevel}</span>
+    </div>
+  </div>
+</div>
     </div>
     <ActionButtons />
   </>
@@ -602,17 +665,23 @@ export default function ProfileDrawer({ isOpen, onClose }: ProfileDrawerProps) {
                     <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                       <User size={28} className="text-gray-500 dark:text-gray-400" />
                     </div>
-                    <div className="mt-3">
-                      <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">未登录</h2>
-                      <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1 invisible">
-                        <Smartphone size={14} />
-                        <span>00000000000</span>
-                      </div>
-                      <div className="flex flex-col items-center mt-4 -ml-16">
-                        <span className="text-lg font-bold text-gray-700 dark:text-gray-400">持仓</span>
-                        <span className="text-3sm font-medium text-gray-900 dark:text-gray-100">0</span>
-                      </div>
-                    </div>
+<div className="mt-3 w-full">
+  <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">未登录</h2>
+  <div className="flex items-center gap-1 text-gray-500 dark:text-gray-400 text-sm mt-1 invisible">
+    <Smartphone size={14} />
+    <span>00000000000</span>
+  </div>
+  <div className="flex items-center gap-6 mt-4">
+    <div className="flex flex-col items-center">
+      <span className="text-lg font-bold text-gray-700 dark:text-gray-400">持仓</span>
+      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">0</span>
+    </div>
+    <div className="flex flex-col items-center">
+      <span className="text-lg font-bold text-gray-700 dark:text-gray-400">段位</span>
+      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">A0</span>
+    </div>
+  </div>
+</div>
                   </div>
                 ) : showForgotPassword ? (
                   renderForgotPassword()
