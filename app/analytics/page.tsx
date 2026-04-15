@@ -2,7 +2,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertCircle, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { getAssets } from '@/src/utils/assetStorage';
 import { Asset } from '@/src/constants/types';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
