@@ -2,6 +2,7 @@
 "use client";
  
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSwipeable } from 'react-swipeable';
 import SummaryCard from '@/components/dashboard/SummaryCard';
 import AssetPieChart from "@/components/dashboard/AssetPieChart";
 import ProfileDrawer from "@/components/dashboard/ProfileDrawer";
@@ -20,6 +21,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [assets, setAssets] = useState<Asset[]>([]);
 
+  // 滑动手势处理
+  const swipeHandlers = useSwipeable({
+    onSwipedRight: () => setIsDrawerOpen(true),   // 左滑（从右向左滑）打开抽屉？注意命名：swipe right 是从左向右滑
+    // 实际上打开 ProfileDrawer 通常是从左边缘右滑拉出，所以监听向右滑动
+    preventScrollOnSwipe: true,
+    trackMouse: true,  // 允许桌面鼠标拖动测试
+  });
+
   // 加载用户信息
   useEffect(() => {
     const loadUser = () => {
@@ -33,7 +42,7 @@ export default function Home() {
     return () => window.removeEventListener('user-changed', handleUserChange);
   }, []);
 
-  // 加载资产数据（与子组件中原有的 loadAssets 逻辑一致）
+  // 加载资产数据
   const loadAssets = useCallback(async () => {
     const userId = getCurrentUserId();
     if (!userId) {
@@ -94,7 +103,7 @@ export default function Home() {
   }, [loadAssets]);
 
   return (
-    <main className="min-h-screen bg-white dark:bg-black p-4">
+    <main className="min-h-screen bg-white dark:bg-black p-4" {...swipeHandlers}>
       <div className="max-w-md mx-auto">
         <header className="mb-6 px-2 flex justify-between items-center">
           <div>
