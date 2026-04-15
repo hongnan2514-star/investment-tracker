@@ -2,7 +2,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, MessageCircle } from 'lucide-react';
 import { getAssets } from '@/src/utils/assetStorage';
 import { Asset } from '@/src/constants/types';
 import { useCurrency, useCurrencyConverter } from '@/src/services/currency';
@@ -14,6 +14,7 @@ import ProfitCalendar from '@/components/ProfitCalendar';
 import ProfitOverviewSkeleton from '@/components/analytics/ProfitOverviewSkeleton';
 import AICardSkeleton from '@/components/analytics/AICardSkeleton';
 import ProfitCalendarSkeleton from '@/components/analytics/ProfitCalendarSkeleton';
+import FullScreenChat from '@/components/FullScreenChat';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
@@ -38,6 +39,7 @@ export default function AnalyticsPage() {
   const { currency, symbol } = useCurrency();
   const { convert, loading: converting } = useCurrencyConverter();
   const [convertedDailyReturns, setConvertedDailyReturns] = useState<DailyReturn[]>([]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const [loadingMidnight, setLoadingMidnight] = useState(true);
   const [loadingTotalValue, setLoadingTotalValue] = useState(true);
@@ -128,6 +130,10 @@ const fetchMidnightValues = useCallback(async () => {
     convertDailyReturns();
   }, [dailyReturns, currency, convert]);
 
+  const handleSetMonth = useCallback((year: number, month: number) => {
+  setCurrentMonth(new Date(year, month, 1));
+  }, []);
+
   const fetchSnapshotHistory = useCallback(async () => {
     setLoadingCalendar(true);
     const userId = getCurrentUserId();
@@ -210,13 +216,24 @@ const fetchMidnightValues = useCallback(async () => {
 
   const isPageLoading = loadingMidnight || loadingTotalValue || loadingCalendar || converting;
 
-  return (
+return (
     <main className="min-h-screen bg-gray-50 dark:bg-black p-4 pb-24">
-      <header className="mb-6 px-2">
-        <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">AI分析</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">AI帮助您更加了解个人的财务状况</p>
+      {/* 头部：标题 + 右侧聊天按钮 */}
+      <header className="mb-6 px-2 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">AI分析</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">AI帮助您更加了解个人的财务状况</p >
+        </div>
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          aria-label="打开AI对话"
+        >
+          <MessageCircle size={22} className="text-gray-700 dark:text-gray-300" />
+        </button>
       </header>
 
+      {/* 其余内容与之前完全相同 */}
       {isPageLoading ? (
         <>
           <ProfitOverviewSkeleton />
@@ -232,7 +249,7 @@ const fetchMidnightValues = useCallback(async () => {
             currencySymbol={symbol}
           />
 
-          <div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
+<div className="bg-white dark:bg-[#0a0a0a] rounded-3xl p-6 shadow-md mb-4">
             <div className="flex items-start gap-2">
               <AlertCircle size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-900 dark:text-blue-300">
@@ -242,18 +259,24 @@ const fetchMidnightValues = useCallback(async () => {
             </div>
           </div>
 
-          <ProfitCalendar
-            dailyReturns={convertedDailyReturns}
-            currentMonth={currentMonth}
-            onMonthChange={changeMonth}
-            formatMoney={formatMoney}
-          />
+<ProfitCalendar
+  dailyReturns={convertedDailyReturns}
+  currentMonth={currentMonth}
+  onMonthChange={changeMonth}
+  onSetMonth={handleSetMonth}
+  formatMoney={formatMoney}
+/>
         </>
       )}
 
-      <div className="fixed bottom-16 left-0 right-0 px-4 z-50">
-        <AIChatBox userContext={generateUserContext()} />
-      </div>
+      {/* 全屏聊天组件，根据状态显示 */}
+      {isChatOpen && (
+        <FullScreenChat
+          initialMessages={[]}
+          userContext={generateUserContext()}
+          onClose={() => setIsChatOpen(false)}
+        />
+      )}
     </main>
   );
 }
